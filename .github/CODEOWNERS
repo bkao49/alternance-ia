@@ -1,7 +1,7 @@
 # Le PO relit tout. Les zones sensibles exigent explicitement sa revue.
-*                 @TON_PSEUDO_GITHUB
-/.github/         @TON_PSEUDO_GITHUB
-/contracts/       @TON_PSEUDO_GITHUB
-/infra/           @TON_PSEUDO_GITHUB
-/agents/          @TON_PSEUDO_GITHUB
-/AGENTS.md        @TON_PSEUDO_GITHUB
+*                 @bkao49
+/.github/         @bkao49
+/contracts/       @bkao49
+/infra/           @bkao49
+/agents/          @bkao49
+/AGENTS.md        @bkao49
