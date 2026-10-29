@@ -48,7 +48,5 @@ export async function signedInApp(intercept?: Intercept): Promise<User> {
 
 export const bodyRows = () => within(screen.getByRole("table")).getAllByRole("row").slice(1);
 export const firstCompany = () => within(bodyRows()[0] as HTMLElement).getAllByRole("rowheader")[0]?.textContent;
-export const counter = (label: string) =>
-  within(screen.getByRole("region", { name: "Chiffres clés" })).getByText(label).parentElement;
 
 export const validateMove = (name: string) => screen.getByRole("button", { name: `Valider le déplacement de ${name}` });

@@ -11,7 +11,6 @@ import { Greeting, RelevantOffers } from "./Hero";
 import { KanbanBoard } from "./KanbanBoard";
 import { NewApplicationDialog, type NewApplication } from "./NewApplicationDialog";
 import { Sidebar } from "./Sidebar";
-import { StatsStrip } from "./StatsStrip";
 
 type View = "table" | "kanban";
 
@@ -114,8 +113,6 @@ export function Dashboard({ user, onLogout, botActivity }: Props) {
               <RelevantOffers count={state.stats.counts.relevant} />
               <BotPanel activity={botActivity} />
             </div>
-
-            <StatsStrip stats={state.stats} />
 
             <section id="candidatures" aria-labelledby="applications-title" className="applications">
               <div className="toolbar">
