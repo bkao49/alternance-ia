@@ -19,6 +19,12 @@ TABLES = [
 # user_id est toujours une clé étrangère vers users et la clé de filtrage RLS.
 UID = "user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE"
 
+
+def fk(column: str, parent: str, on_delete: str = "") -> str:
+    """Clé étrangère composite (user_id, colonne) : interdit de pointer vers la ligne d'un autre
+    utilisateur. PostgreSQL vérifie les clés étrangères hors RLS, donc user_id doit en faire partie."""
+    return f"FOREIGN KEY (user_id, {column}) REFERENCES {parent} (user_id, id) {on_delete}"
+
 DDL = [
     """CREATE TABLE users (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,46 +42,50 @@ DDL = [
         title text NOT NULL, company text NOT NULL, location text,
         description_text text NOT NULL, content_hash text NOT NULL,
         detected_at timestamptz NOT NULL DEFAULT now(), expired boolean NOT NULL DEFAULT false,
-        UNIQUE (user_id, source, external_id))""",
+        UNIQUE (user_id, source, external_id), UNIQUE (user_id, id))""",
     f"""CREATE TABLE status_definitions (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), {UID},
         name text NOT NULL, position integer NOT NULL, color text NOT NULL DEFAULT '#4f46e5',
-        system_key text, UNIQUE (user_id, name))""",
+        system_key text, UNIQUE (user_id, name), UNIQUE (user_id, id))""",
     f"""CREATE TABLE analyses (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), {UID},
-        job_posting_id uuid NOT NULL REFERENCES job_postings(id) ON DELETE CASCADE,
+        job_posting_id uuid NOT NULL,
         extraction jsonb NOT NULL, prompt_version text NOT NULL,
-        created_at timestamptz NOT NULL DEFAULT now())""",
+        created_at timestamptz NOT NULL DEFAULT now(),
+        {fk("job_posting_id", "job_postings", "ON DELETE CASCADE")}, UNIQUE (user_id, id))""",
     f"""CREATE TABLE scores (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), {UID},
-        job_posting_id uuid NOT NULL REFERENCES job_postings(id) ON DELETE CASCADE,
-        analysis_id uuid REFERENCES analyses(id) ON DELETE SET NULL,
+        job_posting_id uuid NOT NULL, analysis_id uuid,
         value numeric(3,2) NOT NULL CHECK (value BETWEEN 0 AND 5),
         confidence text NOT NULL CHECK (confidence IN ('low','medium','high')),
         explanation text, criteria jsonb NOT NULL DEFAULT '[]',
         blocking_reasons jsonb NOT NULL DEFAULT '[]',
-        created_at timestamptz NOT NULL DEFAULT now())""",
+        created_at timestamptz NOT NULL DEFAULT now(),
+        {fk("job_posting_id", "job_postings", "ON DELETE CASCADE")},
+        {fk("analysis_id", "analyses", "ON DELETE SET NULL (analysis_id)")})""",
     f"""CREATE TABLE applications (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), {UID},
-        job_posting_id uuid REFERENCES job_postings(id) ON DELETE SET NULL,
-        company text, title text,
-        status_id uuid NOT NULL REFERENCES status_definitions(id),
+        job_posting_id uuid, company text, title text,
+        status_id uuid NOT NULL,
         notes text, sent_at timestamptz,
         created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now())""",
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        {fk("job_posting_id", "job_postings", "ON DELETE SET NULL (job_posting_id)")},
+        {fk("status_id", "status_definitions")}, UNIQUE (user_id, id))""",
     f"""CREATE TABLE events (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), {UID},
-        application_id uuid NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-        from_status_id uuid REFERENCES status_definitions(id),
-        to_status_id uuid NOT NULL REFERENCES status_definitions(id),
+        application_id uuid NOT NULL, from_status_id uuid, to_status_id uuid NOT NULL,
         actor text NOT NULL CHECK (actor IN ('user','system')), comment text,
-        occurred_at timestamptz NOT NULL DEFAULT now())""",
+        occurred_at timestamptz NOT NULL DEFAULT now(),
+        {fk("application_id", "applications", "ON DELETE CASCADE")},
+        {fk("from_status_id", "status_definitions")}, {fk("to_status_id", "status_definitions")})""",
     f"""CREATE TABLE tasks (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), {UID},
-        application_id uuid NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+        application_id uuid NOT NULL,
         state text NOT NULL DEFAULT 'open' CHECK (state IN ('open','done')),
         reason text NOT NULL, remaining_steps jsonb NOT NULL DEFAULT '[]',
-        created_at timestamptz NOT NULL DEFAULT now())""",
+        created_at timestamptz NOT NULL DEFAULT now(),
+        {fk("application_id", "applications", "ON DELETE CASCADE")})""",
     f"""CREATE TABLE llm_calls (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(), {UID},
         provider text NOT NULL, model text NOT NULL, purpose text NOT NULL,
@@ -87,7 +97,6 @@ DDL = [
 
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
-    op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
     for statement in DDL:
         op.execute(statement)
     # Le rôle app_rw est global au cluster : on ne le supprime donc pas au downgrade.
