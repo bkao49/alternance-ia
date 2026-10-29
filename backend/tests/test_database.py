@@ -103,7 +103,8 @@ def test_table_is_scoped_by_user_with_forced_rls_and_policy(migrated_db, table):
             "SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = %s", (table,)
         ).fetchone() == (True, True)
         policy = conn.execute(
-            "SELECT qual, with_check FROM pg_policies WHERE tablename = %s", (table,)
+            "SELECT qual, with_check FROM pg_policies WHERE tablename = %s AND policyname = %s",
+            (table, f"{table}_isolation"),
         ).fetchone()
         assert policy and policy[0] and policy[1], f"politique USING / WITH CHECK absente sur {table}"
 
