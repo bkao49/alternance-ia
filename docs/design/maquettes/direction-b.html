@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette B · Console</title>
+<!-- Aperçu seulement : dans l'application, les polices seront hébergées avec elle (aucun appel à Google). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --panel: #101725;
+    --raised: #151e30;
+    --line: #1f2a40;
+    --text: #e6ebf5;
+    --muted: #8693ad;
+    --blue: #5b8cff;
+    --red: #ff7a7a;
+    --sans: "Sora", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 400 0.95rem/1.55 var(--sans); -webkit-font-smoothing: antialiased; min-height: 100dvh; display: grid; grid-template-columns: 15rem minmax(0, 1fr); }
+  @media (max-width: 56rem) { body { grid-template-columns: 1fr; } }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* Menu latéral */
+  aside.side { border-right: 1px solid var(--line); padding: 1.6rem 1.1rem; display: flex; flex-direction: column; gap: 2rem; position: sticky; top: 0; height: 100dvh; }
+  @media (max-width: 56rem) { aside.side { position: static; height: auto; flex-direction: row; align-items: center; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); gap: 1rem; padding: 1rem; } }
+  .mark { font: 600 1.05rem var(--sans); letter-spacing: -0.01em; padding-inline: 0.6rem; display: flex; align-items: center; gap: 0.6rem; }
+  .mark svg { width: 1.2rem; height: 1.2rem; }
+  .side nav { display: flex; flex-direction: column; gap: 0.15rem; }
+  @media (max-width: 56rem) { .side nav { flex-direction: row; flex-wrap: wrap; } }
+  .side nav button { background: none; border: 0; text-align: left; padding: 0.6rem 0.6rem; border-radius: 6px; color: var(--muted); display: flex; justify-content: space-between; gap: 1rem; }
+  .side nav button:hover { color: var(--text); background: var(--panel); }
+  .side nav button[aria-current="page"] { color: var(--text); background: var(--raised); box-shadow: inset 2px 0 0 var(--blue); }
+  .side .n { font: 500 0.8rem var(--mono); color: var(--blue); }
+  .side .foot { margin-top: auto; padding-inline: 0.6rem; color: var(--muted); font-size: 0.85rem; }
+  .side .foot button { background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+  @media (max-width: 56rem) { .side .foot { margin: 0 0 0 auto; } }
+
+  main { padding: clamp(1.25rem, 3vw, 2.5rem); max-width: 96rem; width: 100%; }
+  [data-view] { display: none; }
+  [data-view].on { display: block; }
+  header.h { display: flex; justify-content: space-between; align-items: end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.6rem; }
+  h1 { font: 300 clamp(1.9rem, 4vw, 3rem)/1.1 var(--sans); letter-spacing: -0.03em; margin: 0; }
+  .sub { color: var(--muted); margin: 0.45rem 0 0; }
+  .sub b { color: var(--text); font-weight: 400; }
+  .clock { font: 400 0.85rem var(--mono); color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 1rem; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; }
+  .botp { grid-column: span 8; }
+  .offp { grid-column: span 4; display: flex; flex-direction: column; text-decoration: none; transition: border-color .2s, background .2s; }
+  .offp:hover { border-color: var(--blue); background: var(--raised); }
+  .fun { grid-column: span 12; }
+  @media (max-width: 70rem) { .botp, .offp { grid-column: span 12; } }
+
+  .ph { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+  .ph h2 { font: 600 1rem var(--sans); margin: 0; }
+  .live { display: inline-flex; align-items: center; gap: 0.5rem; font: 500 0.82rem var(--mono); color: var(--blue); }
+  .live i { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--blue); animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1; box-shadow: 0 0 0.6rem var(--blue); } 50% { opacity: .35; box-shadow: none; } }
+
+  .botbody { display: grid; grid-template-columns: minmax(0, 1fr) 15rem; gap: 1.5rem; }
+  @media (max-width: 52rem) { .botbody { grid-template-columns: 1fr; } }
+  .term { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem 1rem; font: 400 0.82rem/1.9 var(--mono); height: 16.5rem; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+  .term p { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: in .4s ease both; }
+  .term time { color: var(--muted); margin-right: 0.9rem; }
+  .term b { color: var(--blue); font-weight: 500; }
+  .term .cur { display: inline-block; width: 0.5rem; height: 0.95rem; background: var(--blue); vertical-align: -2px; animation: blink 1s steps(2) infinite; }
+  @keyframes in { from { opacity: 0; transform: translateY(0.35rem); } to { opacity: 1; transform: none; } }
+
+  .side2 { display: flex; flex-direction: column; gap: 1.1rem; }
+  .k { color: var(--muted); font-size: 0.82rem; }
+  .cd { font: 500 2.4rem/1.1 var(--mono); letter-spacing: -0.03em; margin-top: 0.2rem; }
+  .prog { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: 0.5rem; }
+  .prog i { display: block; height: 100%; width: var(--p, 40%); background: var(--blue); transition: width 1.2s ease; }
+  .src { list-style: none; margin: 0.5rem 0 0; padding: 0; font: 400 0.82rem/2 var(--mono); }
+  .src li { display: flex; justify-content: space-between; }
+  .src .ok { color: var(--blue); }
+  .safe { color: var(--muted); font-size: 0.8rem; margin: auto 0 0; }
+
+  .offp .big { font: 300 clamp(4.5rem, 9vw, 7rem)/0.9 var(--mono); letter-spacing: -0.06em; margin: 0.3rem 0 0.2rem; }
+  .offp .lbl { font-size: 1.05rem; }
+  .offp ul { list-style: none; padding: 0; margin: 1.4rem 0 0; border-top: 1px solid var(--line); }
+  .offp li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.65rem 0; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+  .offp li span:last-child { font: 500 0.88rem var(--mono); color: var(--blue); }
+  .offp .go { margin-top: auto; padding-top: 1rem; color: var(--blue); font-size: 0.9rem; }
+
+  .stack { display: flex; height: 2.6rem; border-radius: 6px; overflow: hidden; gap: 2px; }
+  .stack div { flex: var(--f); min-width: 2.2rem; background: var(--raised); display: flex; align-items: center; padding-inline: 0.7rem; font: 500 0.85rem var(--mono); transition: background .2s; }
+  .stack div:nth-child(3) { background: color-mix(in srgb, var(--blue) 35%, var(--raised)); }
+  .stack div:hover { background: color-mix(in srgb, var(--blue) 25%, var(--raised)); }
+  .legend { display: flex; margin-top: 0.55rem; gap: 2px; color: var(--muted); font-size: 0.8rem; }
+  .legend span { flex: var(--f); min-width: 2.2rem; padding-inline: 0.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .tbl { margin-top: 1rem; }
+  .tbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+  .tbar h2 { font: 600 1.1rem var(--sans); margin: 0; }
+  .tbar input { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; color: var(--text); padding: 0.45rem 0.8rem; font: inherit; width: 14rem; }
+  .tbar input:focus { outline: 0; border-color: var(--blue); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-left: 0.6rem; }
+  .seg button { background: none; border: 0; padding: 0.4rem 0.85rem; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--raised); color: var(--text); }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 46rem; }
+  th { text-align: left; font-weight: 400; color: var(--muted); font-size: 0.82rem; padding: 0.55rem 1rem; border-bottom: 1px solid var(--line); }
+  td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody tr { transition: background .15s, box-shadow .15s; }
+  tbody tr:hover { background: var(--raised); box-shadow: inset 2px 0 0 var(--blue); }
+  td b { font-weight: 600; display: block; }
+  td small { color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; padding: 0.15rem 0.65rem; border: 1px solid var(--line); border-radius: 999px; white-space: nowrap; }
+  .chip i { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--c); }
+  .ticks { display: inline-flex; gap: 2px; vertical-align: middle; margin-right: 0.7rem; }
+  .ticks i { width: 0.7rem; height: 0.9rem; border-radius: 2px; background: var(--line); }
+  .ticks i.on { background: var(--blue); }
+  td.r { text-align: right; }
+  td.r a { color: var(--blue); text-underline-offset: 4px; }
+
+  .back { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; margin-bottom: 1.4rem; }
+  .filters { display: flex; gap: 0.4rem; margin: 1.2rem 0 1.4rem; }
+  .filters button { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 0.35rem 0.85rem; color: var(--muted); }
+  .filters button[aria-pressed="true"] { color: var(--text); background: var(--raised); border-color: var(--blue); }
+  .offer { display: grid; grid-template-columns: 5rem minmax(0, 1fr) auto; gap: 1.5rem; align-items: center; padding: 1.1rem 1.25rem; margin-bottom: 0.6rem; transition: border-color .2s; }
+  .offer:hover { border-color: var(--blue); }
+  .offer .s { font: 300 2.4rem/1 var(--mono); letter-spacing: -0.05em; color: var(--blue); }
+  .offer h3 { font: 600 1.02rem var(--sans); margin: 0; }
+  .offer p { margin: 0.25rem 0 0; color: var(--muted); max-width: 46rem; font-size: 0.9rem; }
+  .offer .meta { margin-top: 0.4rem; font: 400 0.78rem var(--mono); color: var(--muted); }
+  .btn { background: none; border: 1px solid var(--blue); color: var(--blue); border-radius: 6px; padding: 0.55rem 1rem; white-space: nowrap; transition: background .15s, color .15s; }
+  .btn:hover { background: var(--blue); color: var(--bg); }
+  @media (max-width: 46rem) { .offer { grid-template-columns: 3.6rem 1fr; } .offer .btn { grid-column: 2; justify-self: start; } }
+  .visually { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<aside class="side">
+  <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="#5b8cff" stroke-width="1.6" aria-hidden="true"><path d="M4 18 12 4l8 14H4Z"/><path d="M8.5 18 12 12l3.5 6"/></svg>alternance</div>
+  <nav aria-label="Navigation principale">
+    <button type="button" data-nav="home" aria-current="page" onclick="show('home')">Accueil</button>
+    <button type="button" data-nav="offers" onclick="show('offers')">Offres<span class="n">14</span></button>
+    <button type="button" data-nav="apps" onclick="show('home');document.getElementById('table').scrollIntoView()">Candidatures</button>
+    <button type="button" data-nav="tasks">À valider<span class="n">1</span></button>
+  </nav>
+  <div class="foot">Léo<br><button type="button">Se déconnecter</button></div>
+</aside>
+
+<main>
+  <div data-view="home" class="on">
+    <header class="h">
+      <div>
+        <h1>Bonjour Léo</h1>
+        <p class="sub">5 nouvelles offres depuis hier. <b>1 candidature</b> attend votre validation.</p>
+      </div>
+      <div class="clock mono" id="clock">mer. 29 oct. 2026</div>
+    </header>
+
+    <div class="grid">
+      <section class="panel botp" aria-labelledby="bot">
+        <div class="ph">
+          <h2 id="bot">Le bot travaille</h2>
+          <span class="live" role="status"><i aria-hidden="true"></i>collecte en cours</span>
+        </div>
+        <div class="botbody">
+          <div class="term" id="term" aria-live="polite" aria-label="Activité du bot"></div>
+          <div class="side2">
+            <div>
+              <div class="k">Prochaine collecte</div>
+              <div class="cd" id="cd">02:14:00</div>
+              <div class="k">aujourd'hui à 18:00</div>
+            </div>
+            <div>
+              <div class="k">Progression</div>
+              <div class="prog"><i id="p" style="--p:20%"></i></div>
+              <ul class="src">
+                <li><span>La Bonne Alternance</span><span class="ok" id="s1">en cours</span></li>
+                <li><span>France Travail</span><span id="s2">en attente</span></li>
+              </ul>
+            </div>
+            <p class="safe">API officielles uniquement. Rien n'est envoyé sans votre accord.</p>
+          </div>
+        </div>
+      </section>
+
+      <a class="panel offp" href="#" onclick="show('offers');return false" aria-label="Voir les 14 offres pertinentes">
+        <span class="lbl">Offres pertinentes</span>
+        <span class="big">14</span>
+        <span class="k">score de 3,5 sur 5 ou plus</span>
+        <ul>
+          <li><span>Machine Learning, Globex IA</span><span>4,6</span></li>
+          <li><span>Data Engineer, Initech Data</span><span>4,4</span></li>
+          <li><span>Data Analyst, Acme Analytics</span><span>4,2</span></li>
+        </ul>
+        <span class="go">Voir les 14 offres</span>
+      </a>
+
+      <section class="panel fun" aria-label="Entonnoir de candidature">
+        <div class="ph"><h2>Entonnoir</h2><span class="k">de la détection à l'entretien</span></div>
+        <div class="stack" role="list">
+          <div role="listitem" style="--f:42">42</div><div role="listitem" style="--f:31">31</div><div role="listitem" style="--f:14">14</div><div role="listitem" style="--f:6">6</div><div role="listitem" style="--f:5">5</div><div role="listitem" style="--f:3">3</div><div role="listitem" style="--f:1.4">1</div>
+        </div>
+        <div class="legend"><span style="--f:42">détectées</span><span style="--f:31">analysées</span><span style="--f:14">pertinentes</span><span style="--f:6">préparées</span><span style="--f:5">envoyées</span><span style="--f:3">réponses</span><span style="--f:1.4">entretien</span></div>
+      </section>
+    </div>
+
+    <section class="panel tbl" id="table" aria-labelledby="t">
+      <div class="tbar">
+        <h2 id="t">Candidatures</h2>
+        <div><input type="search" placeholder="Rechercher" aria-label="Rechercher une candidature"><span class="seg" role="group" aria-label="Affichage"><button type="button" aria-pressed="true">Tableau</button><button type="button" aria-pressed="false">Kanban</button></span></div>
+      </div>
+      <div class="scroll"><table>
+        <thead><tr><th>Entreprise et poste</th><th>Statut</th><th>Score</th><th>Dernière activité</th><th class="r"><span class="visually">Action</span></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <div data-view="offers">
+    <button type="button" class="back" onclick="show('home')">Retour à l'accueil</button>
+    <h1>14 offres pertinentes</h1>
+    <p class="sub">Classées par score sur 5. Chaque score s'explique : ouvrez une offre pour voir ce qui correspond à votre profil.</p>
+    <div class="filters" role="group" aria-label="Filtrer"><button type="button" aria-pressed="true">Toutes</button><button type="button" aria-pressed="false">Nouvelles</button><button type="button" aria-pressed="false">À préparer</button></div>
+    <div id="offers"></div>
+  </div>
+</main>
+
+<script>
+const apps = [
+  ["Acme Analytics", "Alternant Data Analyst", "Analysée", "#8693ad", 4.2, "il y a 2 h"],
+  ["Globex IA", "Alternant Machine Learning", "À préparer", "#ffc861", 4.6, "hier"],
+  ["Initech Data", "Alternant Data Engineer", "À valider", "#5b8cff", 4.4, "hier"],
+  ["Hooli Labs", "Alternant IA générative", "Envoyée", "#e6ebf5", 3.9, "il y a 3 jours"],
+  ["Stark Mobilité", "Alternant MLOps", "Entretien", "#5be0a8", 4.1, "il y a 5 jours"],
+  ["Umbrella Santé", "Alternant Data Scientist", "En attente", "#8693ad", 3.7, "il y a 6 jours"],
+  ["Wayne Énergie", "Alternant Analytics Engineer", "Refusée", "#ff7a7a", 3.5, "il y a 9 jours"]
+];
+const ticks = s => Array.from({ length: 5 }, (_, i) => `<i class="${i < Math.round(s) ? "on" : ""}"></i>`).join("");
+document.getElementById("rows").innerHTML = apps.map(a => `<tr>
+  <td><b>${a[0]}</b><small>${a[1]}</small></td>
+  <td><span class="chip" style="--c:${a[3]}"><i></i>${a[2]}</span></td>
+  <td><span class="ticks" aria-hidden="true">${ticks(a[4])}</span><span class="mono">${a[4].toFixed(1).replace(".", ",")}</span></td>
+  <td style="color:var(--muted)">${a[5]}</td>
+  <td class="r"><a href="#">Ouvrir</a></td></tr>`).join("");
+
+const offers = [
+  ["4,6", "Alternant Machine Learning, Globex IA", "Votre projet de classification et Python correspondent aux trois compétences demandées. Rythme 3 jours en entreprise, 2 jours d'école.", "Paris 9e, hybride. La Bonne Alternance"],
+  ["4,4", "Alternant Data Engineer, Initech Data", "SQL, Docker et PostgreSQL sont dans votre profil. Le poste demande aussi Airflow, absent de vos expériences.", "Lyon, présentiel. France Travail"],
+  ["4,2", "Alternant Data Analyst, Acme Analytics", "Mission centrée sur les tableaux de bord que vous avez déjà réalisés. Début en septembre, comme prévu.", "Nantes, hybride. La Bonne Alternance"],
+  ["4,1", "Alternant MLOps, Stark Mobilité", "Déploiement de modèles avec Docker : correspond à votre projet de fin de semestre. Niveau Bac+5 demandé.", "Toulouse, hybride. France Travail"],
+  ["3,9", "Alternant IA générative, Hooli Labs", "Sujet proche de votre intérêt. Peu de détails sur les missions, donc un score prudent.", "Paris 2e, hybride. La Bonne Alternance"]
+];
+document.getElementById("offers").innerHTML = offers.map(o => `<article class="panel offer">
+  <div class="s mono">${o[0]}</div><div><h3>${o[1]}</h3><p>${o[2]}</p><div class="meta">${o[3]}</div></div>
+  <button type="button" class="btn">Préparer la candidature</button></article>`).join("");
+
+function show(view) {
+  document.querySelectorAll("[data-view]").forEach(el => el.classList.toggle("on", el.dataset.view === view));
+  document.querySelectorAll("nav [data-nav]").forEach(b => b.dataset.nav === view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  window.scrollTo({ top: 0 });
+}
+
+const script = [
+  ["14:02:11", "<b>La Bonne Alternance</b> : connexion"],
+  ["14:02:12", "<b>La Bonne Alternance</b> : 61 offres lues"],
+  ["14:02:40", "<b>France Travail</b> : connexion"],
+  ["14:03:05", "<b>France Travail</b> : 38 offres lues"],
+  ["14:03:21", "Analyse de Data Engineer, Initech"],
+  ["14:03:22", "Score <b>4,4 sur 5</b>, confiance élevée"],
+  ["14:03:48", "Analyse de ML Engineer, Globex IA"],
+  ["14:03:49", "Score <b>4,6 sur 5</b>, nouvelle offre pertinente"]
+];
+const term = document.getElementById("term");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const row = l => { const p = document.createElement("p"); p.innerHTML = `<time>${l[0]}</time>${l[1]}`; return p; };
+const progress = [25, 40, 55, 70, 80, 88, 95, 100];
+if (reduce) script.forEach(l => term.append(row(l)));
+else (function play(i = 0) {
+  if (i === 0) { term.innerHTML = ""; s1.textContent = "en cours"; s2.textContent = "en attente"; s2.className = ""; s1.className = ""; }
+  if (i < script.length) {
+    term.append(row(script[i])); if (term.children.length > 8) term.firstChild.remove();
+    document.getElementById("p").style.setProperty("--p", progress[i] + "%");
+    if (i === 2) { s1.textContent = "terminée"; s1.className = "ok"; s2.textContent = "en cours"; s2.className = "ok"; }
+    setTimeout(() => play(i + 1), 1500);
+  } else { s2.textContent = "terminée"; setTimeout(() => play(0), 4500); }
+})();
+
+let left = 2 * 3600 + 14 * 60;
+const pad = n => String(n).padStart(2, "0");
+const tick = () => { document.getElementById("cd").textContent = `${pad(Math.floor(left / 3600))}:${pad(Math.floor(left % 3600 / 60))}:${pad(left % 60)}`; left--; };
+tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

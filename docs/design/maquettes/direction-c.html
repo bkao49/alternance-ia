@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette C · Maison en couleur</title>
+<!-- Aperçu seulement : dans l'application, les polices seront hébergées avec elle (aucun appel à Google). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #ffffff;
+    --ink: #000000;
+    --grey: #6b6e7b;
+    --line: #e4e5ec;
+    --blue: #2740ff;
+    --wash: #f2f4ff;
+    --serif: "Instrument Serif", "Times New Roman", serif;
+    --sans: "Geist", system-ui, sans-serif;
+    --gutter: clamp(1.25rem, 4.5vw, 4rem);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 1rem/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+  .num { font-variant-numeric: tabular-nums; }
+  .wrap { padding-inline: var(--gutter); max-width: 88rem; margin-inline: auto; }
+  [data-view] { display: none; }
+  [data-view].on { display: block; }
+
+  /* En-tête : logo, trois liens, l'utilisateur */
+  header.top { display: flex; align-items: center; gap: 3rem; padding-block: 1.3rem; }
+  .brand { display: inline-flex; align-items: center; gap: 0.7rem; text-decoration: none; }
+  .brand svg { width: 2.1rem; height: 2.1rem; flex: none; }
+  .brand span { font: italic 400 1.75rem/1 var(--serif); letter-spacing: -0.01em; }
+  nav { display: flex; gap: 2rem; flex: 1; }
+  nav button { background: none; border: 0; padding: 0.2rem 0; color: var(--grey); border-bottom: 1.5px solid transparent; }
+  nav button:hover { color: var(--ink); }
+  nav button[aria-current="page"] { color: var(--ink); border-bottom-color: var(--blue); }
+  .who { color: var(--grey); font-size: 0.92rem; }
+  .who button { background: none; border: 0; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; padding: 0 0 0 0.9rem; }
+  @media (max-width: 44rem) { header.top { flex-wrap: wrap; gap: 1rem 1.5rem; } nav { order: 3; flex-basis: 100%; } .who { margin-left: auto; } }
+
+  /* Accueil : une phrase, un chiffre, le bot */
+  .hero { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(2rem, 5vw, 5rem); align-items: stretch; padding-block: clamp(2.5rem, 7vw, 6rem) clamp(2.5rem, 5vw, 4.5rem); }
+  @media (max-width: 62rem) { .hero { grid-template-columns: 1fr; } }
+  h1 { font: 400 clamp(3.4rem, 8.5vw, 8rem)/0.93 var(--serif); letter-spacing: -0.025em; margin: 0; }
+  .lede { margin: 1.4rem 0 0; color: var(--grey); font-size: clamp(1.05rem, 1.5vw, 1.25rem); max-width: 30rem; }
+  .cta { display: inline-flex; align-items: baseline; gap: 1.2rem; margin-top: clamp(2rem, 4vw, 3.5rem); text-decoration: none; color: var(--blue); border-bottom: 1.5px solid var(--blue); padding-bottom: 0.5rem; transition: gap .3s cubic-bezier(.2,.7,.2,1); }
+  .cta:hover { gap: 1.8rem; }
+  .cta .n { font: 400 clamp(5rem, 11vw, 9rem)/0.8 var(--serif); letter-spacing: -0.04em; }
+  .cta .t { font-size: 1.2rem; max-width: 9rem; line-height: 1.25; }
+
+  /* Le bot : le seul aplat de couleur de la page */
+  .bot { background: var(--blue); color: #fff; padding: clamp(1.5rem, 2.6vw, 2.4rem); display: flex; flex-direction: column; min-height: 26rem; }
+  .bot .state { display: inline-flex; align-items: center; gap: 0.6rem; font-size: 0.95rem; }
+  .bot .state i { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #fff; animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgb(255 255 255 / .55); } 50% { box-shadow: 0 0 0 0.5rem rgb(255 255 255 / 0); } }
+  .bot h2 { font: italic 400 clamp(2rem, 3.4vw, 2.8rem)/1.05 var(--serif); margin: 1.6rem 0 0; }
+  .bot .read { font: 400 clamp(4.5rem, 8vw, 6.5rem)/0.9 var(--serif); letter-spacing: -0.03em; margin-top: 0.6rem; }
+  .bot .read small { font: 400 1rem var(--sans); opacity: .8; margin-left: 0.6rem; letter-spacing: 0; }
+  .bot ul { list-style: none; margin: 1.4rem 0 0; padding: 0; border-top: 1px solid rgb(255 255 255 / .3); }
+  .bot li { padding: 0.55rem 0; border-bottom: 1px solid rgb(255 255 255 / .22); font-size: 0.93rem; animation: in .5s ease both; }
+  .bot li time { opacity: .88; margin-right: 0.8rem; font-variant-numeric: tabular-nums; }
+  @keyframes in { from { opacity: 0; transform: translateY(0.4rem); } to { opacity: 1; transform: none; } }
+  .bot .next { margin-top: auto; padding-top: 1.6rem; display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
+  .bot .next .t { font: italic 400 2.6rem/1 var(--serif); }
+  .bot .next .s { font-size: 0.88rem; text-align: right; }
+
+  /* Candidatures : cinq lignes, trois colonnes */
+  .list { padding-block: 0 5rem; }
+  .lh { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 0.5rem; }
+  h2.t2 { font: 400 clamp(2rem, 3.6vw, 3rem)/1 var(--serif); margin: 0; }
+  .more { color: var(--blue); text-underline-offset: 4px; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) 12rem 7rem; gap: 1.5rem; align-items: center; padding: 1.25rem 0; border-bottom: 1px solid var(--line); text-decoration: none; transition: background .15s, padding .25s; }
+  .row:first-of-type { border-top: 1px solid var(--ink); margin-top: 1.2rem; }
+  .row:hover { background: var(--wash); padding-inline: 1rem; }
+  .row b { display: block; font-weight: 500; font-size: 1.05rem; }
+  .row span.sub { color: var(--grey); font-size: 0.92rem; }
+  .st { display: inline-flex; align-items: center; gap: 0.55rem; }
+  .st i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--c); }
+  .sc { display: flex; align-items: center; gap: 0.7rem; justify-content: flex-end; }
+  .sc .tr { width: 3.2rem; height: 2px; background: var(--line); position: relative; }
+  .sc .tr i { position: absolute; inset: 0 auto 0 0; background: var(--blue); width: var(--w); }
+  @media (max-width: 40rem) { .row { grid-template-columns: 1fr auto; } .row .st { grid-column: 1; } .row .sc { grid-row: 1; grid-column: 2; } }
+
+  /* Page Offres */
+  .oh { padding-block: clamp(2rem, 5vw, 4rem) 1.5rem; }
+  .back { background: none; border: 0; padding: 0; color: var(--grey); text-decoration: underline; text-underline-offset: 3px; margin-bottom: 1.6rem; }
+  .oh h1 { font-size: clamp(3rem, 7vw, 6rem); }
+  .offer { display: grid; grid-template-columns: 6rem minmax(0, 1fr) auto; gap: 1.75rem; align-items: center; padding-block: 1.6rem; border-bottom: 1px solid var(--line); }
+  .offer:first-of-type { border-top: 1px solid var(--ink); }
+  .offer .s { font: 400 3.4rem/0.9 var(--serif); color: var(--blue); }
+  .offer h3 { font: 400 1.6rem/1.15 var(--serif); margin: 0; }
+  .offer p { margin: 0.35rem 0 0; color: var(--grey); max-width: 38rem; }
+  .btn { border: 1.5px solid var(--blue); background: none; color: var(--blue); padding: 0.65rem 1.15rem; white-space: nowrap; transition: background .15s, color .15s; }
+  .btn:hover { background: var(--blue); color: #fff; }
+  @media (max-width: 46rem) { .offer { grid-template-columns: 4rem 1fr; gap: 1rem; } .offer .btn { grid-column: 2; justify-self: start; } .offer .s { font-size: 2.4rem; } }
+
+  footer { color: var(--grey); font-size: 0.85rem; padding-block: 1.5rem 2.5rem; border-top: 1px solid var(--line); }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top wrap">
+  <a class="brand" href="#" onclick="show('home');return false" aria-label="alternance, accueil">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="#2740ff"/><text x="20" y="28.5" text-anchor="middle" font-family="Instrument Serif, serif" font-style="italic" font-size="27" fill="#fff">a</text></svg>
+    <span>alternance</span>
+  </a>
+  <nav aria-label="Navigation principale">
+    <button type="button" data-nav="home" aria-current="page" onclick="show('home')">Accueil</button>
+    <button type="button" data-nav="offers" onclick="show('offers')">Offres</button>
+    <button type="button" onclick="show('home');document.getElementById('list').scrollIntoView()">Candidatures</button>
+  </nav>
+  <div class="who">Léo<button type="button">Se déconnecter</button></div>
+</header>
+
+<main>
+  <div data-view="home" class="on">
+    <section class="wrap hero">
+      <div>
+        <h1>Bonjour Léo.</h1>
+        <p class="lede">La dernière collecte a trouvé 5 nouvelles offres. Une candidature attend votre validation.</p>
+        <a class="cta" href="#" onclick="show('offers');return false"><span class="n num">14</span><span class="t">offres pertinentes à découvrir</span></a>
+      </div>
+
+      <aside class="bot" aria-labelledby="bot-t">
+        <span class="state" role="status"><i aria-hidden="true"></i>Collecte en cours</span>
+        <h2 id="bot-t">La Bonne Alternance</h2>
+        <div class="read num"><span id="count">61</span><small>offres lues</small></div>
+        <ul id="feed" aria-live="polite" aria-label="Dernières actions du bot"></ul>
+        <div class="next">
+          <div><div class="t num" id="when">18:00</div></div>
+          <div class="s">prochaine collecte<br><span class="num" id="in">dans 2 h 14 min</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="wrap list" id="list" aria-labelledby="l-t">
+      <div class="lh"><h2 class="t2" id="l-t">Candidatures</h2><a class="more" href="#">Tout voir</a></div>
+      <div id="rows"></div>
+    </section>
+  </div>
+
+  <div data-view="offers">
+    <section class="wrap oh">
+      <button type="button" class="back" onclick="show('home')">Retour à l'accueil</button>
+      <h1>14 offres pertinentes</h1>
+    </section>
+    <section class="wrap" id="offers" style="padding-bottom:5rem"></section>
+  </div>
+</main>
+<footer class="wrap">Maquette de direction artistique. Données fictives.</footer>
+
+<script>
+const apps = [
+  ["Globex IA", "Alternant Machine Learning", "À préparer", "#d98a00", 4.6],
+  ["Initech Data", "Alternant Data Engineer", "À valider", "#2740ff", 4.4],
+  ["Acme Analytics", "Alternant Data Analyst", "Analysée", "#6b6e7b", 4.2],
+  ["Stark Mobilité", "Alternant MLOps", "Entretien", "#0a8f5b", 4.1],
+  ["Hooli Labs", "Alternant IA générative", "Envoyée", "#000", 3.9]
+];
+document.getElementById("rows").innerHTML = apps.map(a => `<a class="row" href="#">
+  <div><b>${a[0]}</b><span class="sub">${a[1]}</span></div>
+  <span class="st" style="--c:${a[3]}"><i></i>${a[2]}</span>
+  <span class="sc num">${a[4].toFixed(1).replace(".", ",")}<span class="tr"><i style="--w:${a[4] / 5 * 100}%"></i></span></span></a>`).join("");
+
+const offers = [
+  ["4,6", "Alternant Machine Learning, Globex IA", "Votre projet de classification et Python correspondent aux trois compétences demandées."],
+  ["4,4", "Alternant Data Engineer, Initech Data", "SQL, Docker et PostgreSQL sont dans votre profil. Airflow manque."],
+  ["4,2", "Alternant Data Analyst, Acme Analytics", "Mission centrée sur les tableaux de bord que vous avez déjà réalisés."],
+  ["4,1", "Alternant MLOps, Stark Mobilité", "Déploiement de modèles avec Docker, comme dans votre projet de fin de semestre."]
+];
+document.getElementById("offers").innerHTML = offers.map(o => `<article class="offer"><div class="s num">${o[0]}</div><div><h3>${o[1]}</h3><p>${o[2]}</p></div><button type="button" class="btn">Préparer la candidature</button></article>`).join("");
+
+function show(view) {
+  document.querySelectorAll("[data-view]").forEach(el => el.classList.toggle("on", el.dataset.view === view));
+  document.querySelectorAll("nav [data-nav]").forEach(b => b.dataset.nav === view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  window.scrollTo({ top: 0 });
+}
+
+// Le flux du bot : trois lignes visibles, le compteur d'offres lues monte. Immobile si l'utilisateur préfère moins d'animations.
+const steps = [
+  ["14:02", "61 offres lues, 9 doublons écartés", 61],
+  ["14:03", "Analyse : Data Engineer, Initech", 61],
+  ["14:03", "Score 4,4 sur 5, confiance élevée", 61],
+  ["14:04", "Analyse : ML Engineer, Globex IA", 61],
+  ["14:04", "Score 4,6 sur 5, nouvelle offre pertinente", 61]
+];
+const feed = document.getElementById("feed"), count = document.getElementById("count");
+const li = s => { const el = document.createElement("li"); el.innerHTML = `<time>${s[0]}</time>${s[1]}`; return el; };
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (reduce) steps.slice(-3).forEach(s => feed.append(li(s)));
+else {
+  let n = 0; const up = setInterval(() => { n += 3; count.textContent = Math.min(n, 61); if (n >= 61) clearInterval(up); }, 45);
+  (function play(i = 0) {
+    if (i === 0) feed.innerHTML = "";
+    if (i < steps.length) { feed.append(li(steps[i])); while (feed.children.length > 3) feed.firstChild.remove(); setTimeout(() => play(i + 1), 1800); }
+    else setTimeout(() => play(0), 5000);
+  })();
+}
+let left = 2 * 3600 + 14 * 60;
+setInterval(() => { left--; const h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60); document.getElementById("in").textContent = `dans ${h} h ${String(m).padStart(2, "0")} min`; }, 1000);
+</script>
+</body>
+</html>
