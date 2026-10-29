@@ -77,6 +77,12 @@ jobs:
             npm run typecheck
             npm test -- --run
             npm audit --audit-level=high
+            npm run build
+            # Le mode démonstration ne doit jamais être publié avec l'application.
+            if grep -rqE "demo-demo|Acme Analytics" dist; then
+              echo "Code ou données de démonstration trouvés dans le build de production"
+              exit 1
+            fi
           else
             echo "frontend/ pas encore initialisé"
           fi
