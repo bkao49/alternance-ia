@@ -29,5 +29,12 @@ Product Owner (PO) : le propriétaire du dépôt. Il est le seul à approuver et
 ## Pédagogie (le PO apprend)
 Chaque PR contient une section « Expliqué simplement » (5 lignes max : quoi, pourquoi, comment tester).
 
+## Casquettes (économie de quota)
+Les fiches `agents/*.md` restent la référence par domaine, mais on lance au plus **3 casquettes** :
+- **Constructeur** : écrit code, tests, CI et Docker ; lit la fiche du domaine de l'issue (`backend.md`, `frontend.md`, `devops.md`…). Back puis Front, l'un après l'autre.
+- **Relecteur** : contexte neuf, lecture seule d'une PR, verdict en 5 lignes (architecture, sécurité, règles absolues). Il filtre, il ne remplace pas la relecture du PO.
+- **Chef de projet** : issues, `docs/STATUS.md`, comptes rendus.
+Deux sessions en parallèle au maximum, seulement sur des tâches indépendantes.
+
 ## Stack
 Frontend : React + Vite + TypeScript. Backend : Python 3.12 + FastAPI. Base : PostgreSQL (+ pgvector). Déploiement : Docker Compose sur VPS. CI : GitHub Actions.

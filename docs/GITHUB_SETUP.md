@@ -2,7 +2,7 @@
 
 1. **Créer le dépôt** (public recommandé : aucune donnée personnelle n'y entre ; atout pour le CV). Si privé, vérifie que la protection de branche est disponible sur ton plan.
 2. **Compte des agents** : crée un second compte GitHub « bot » (ou une GitHub App) et ajoute-le comme collaborateur avec le rôle **Write**. Les agents poussent avec son token, jamais avec le tien : GitHub interdit d'approuver sa propre PR.
-3. **Token du bot** : fine-grained, limité à ce dépôt, permissions `Contents: write` et `Pull requests: write`, rien d'autre. Expiration courte.
+3. **Token du bot** : **classic** (GitHub refuse les tokens fine-grained à un collaborateur d'un dépôt personnel). Scopes `repo`, `workflow` et `read:org` (exigé par `gh`), rien d'autre. Expiration courte (30 jours). Le bot n'a accès qu'à ce dépôt, ce qui limite le risque.
 4. **Protection de `main`** (Settings → Branches → Add rule, ou Rulesets) :
    - Require a pull request before merging, **1 approbation**
    - Require review from Code Owners
