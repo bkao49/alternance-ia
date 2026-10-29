@@ -11,3 +11,6 @@ data/private/
 uploads/
 backups/
 .DS_Store
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
