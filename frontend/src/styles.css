@@ -586,6 +586,25 @@ tbody tr:hover > :last-child {
   align-items: center;
 }
 
+.score {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.score-track {
+  width: 3rem;
+  height: 2px;
+  background: var(--line);
+  position: relative;
+}
+
+.score-track i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent-text);
+}
+
 select.move {
   max-width: 11rem;
   min-height: 2.5rem;

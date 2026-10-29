@@ -167,6 +167,7 @@ export function Dashboard({ user, onLogout, botActivity, page = "home" }: Props)
                 <ApplicationsTable
                   applications={visible}
                   statuses={state.statuses}
+                  scores={state.scores}
                   onOpen={(a) => setSelectedId(a.id)}
                   onMove={move}
                 />
