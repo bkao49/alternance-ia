@@ -1,9 +1,9 @@
 import datetime as dt
 import uuid
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, text
 
 from app.auth import Session, current_session, require_csrf
@@ -36,6 +36,8 @@ class ApplicationOut(BaseModel):
 
 
 class ApplicationCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     offer_id: uuid.UUID | None = None
     company: str | None = Field(default=None, min_length=1, max_length=200)
     title: str | None = Field(default=None, min_length=1, max_length=200)
@@ -45,19 +47,27 @@ class ApplicationCreate(BaseModel):
 
 
 class ApplicationUpdate(BaseModel):
+    # Interdit tout autre champ : status_id et sent_at ne passent jamais par ici.
+    model_config = ConfigDict(extra="forbid")
+
     notes: str | None = Field(default=None, max_length=5000)
     company: str | None = Field(default=None, min_length=1, max_length=200)
     title: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class StatusChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     status_id: uuid.UUID
     comment: str | None = Field(default=None, max_length=500)
 
 
 class ConfirmSent(BaseModel):
-    # Strict : "true", 1 ou "yes" ne comptent pas comme une confirmation.
-    confirmed: StrictBool
+    model_config = ConfigDict(extra="forbid")
+
+    # Accepte n'importe quel type pour répondre 409 (et non 422) à tout ce qui n'est pas exactement
+    # `true` : "true", 1 ou "yes" ne comptent pas comme une confirmation.
+    confirmed: Any
     comment: str | None = Field(default=None, max_length=500)
 
 
@@ -117,8 +127,9 @@ def list_applications(
         where.append("a.status_id = :status_id")
         args["status_id"] = str(status_id)
     if q:
-        where.append("(a.company ILIKE :q OR a.title ILIKE :q)")
-        args["q"] = f"%{q}%"
+        where.append("(a.company ILIKE :q ESCAPE '!' OR a.title ILIKE :q ESCAPE '!')")
+        escaped = q.replace("!", "!!").replace("%", "!%").replace("_", "!_")  # % et _ restent littéraux
+        args["q"] = f"%{escaped}%"
     clause = " WHERE " + " AND ".join(where)
     with user_scope(session.user_id) as conn:
         total = conn.execute(text("SELECT count(*) FROM applications a" + clause), args).scalar_one()
@@ -164,6 +175,8 @@ def get_application(application_id: uuid.UUID, session: Session = Depends(curren
 @router.patch("/applications/{application_id}", response_model=ApplicationOut, operation_id="updateApplication")
 def update_application(application_id: uuid.UUID, body: ApplicationUpdate, session: Session = Depends(require_csrf)):
     changes = body.model_dump(exclude_unset=True)
+    if any(key in changes and changes[key] is None for key in ("company", "title")):
+        raise ApiError(422, "validation_error", "company et title ne peuvent pas être vides")
     with user_scope(session.user_id) as conn:
         _fetch(conn, application_id, lock=True)
         if changes:

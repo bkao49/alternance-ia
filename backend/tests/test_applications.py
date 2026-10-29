@@ -1,4 +1,5 @@
 import secrets
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import psycopg
@@ -117,11 +118,25 @@ def assert_conforms(contract, schema_name, data):
     assert set(data) <= set(properties), f"{schema_name}: champs non documentés {set(data) - set(properties)}"
     for key, value in data.items():
         spec = properties[key]
+        assert has_expected_type(value, spec), f"{schema_name}.{key}: {value!r} ne correspond pas à {spec.get('type')}"
         if isinstance(value, dict) and "$ref" in spec:
             assert_conforms(contract, spec["$ref"].rsplit("/", 1)[1], value)
         elif isinstance(value, list) and "$ref" in spec.get("items", {}):
             for item in value:
                 assert_conforms(contract, spec["items"]["$ref"].rsplit("/", 1)[1], item)
+
+
+JSON_TYPES = {"string": str, "integer": int, "number": (int, float), "boolean": bool, "array": list,
+              "object": dict, "null": type(None)}
+
+
+def has_expected_type(value, spec):
+    declared = spec.get("type")
+    if declared is None:  # $ref, allOf : vérifié par la récursion
+        return True
+    allowed = [declared] if isinstance(declared, str) else declared
+    return any(isinstance(value, JSON_TYPES[t]) and not (t in {"integer", "number"} and isinstance(value, bool))
+               for t in allowed)
 
 
 def normalise(path):
@@ -211,8 +226,56 @@ def test_update_notes_not_status(alice):
     updated = alice.patch(f"/applications/{application['id']}", {"notes": "appelé lundi"})
     assert updated.status_code == 200 and updated.json()["notes"] == "appelé lundi"
     assert updated.json()["status"]["id"] == application["status"]["id"]
-    ignored = alice.patch(f"/applications/{application['id']}", {"status_id": status_ids(alice)["interview"]})
-    assert ignored.json()["status"]["id"] == application["status"]["id"]  # champ inconnu ignoré
+    assert alice.patch(f"/applications/{application['id']}", {"company": None}).status_code == 422
+    assert alice.patch(f"/applications/{application['id']}", {"title": None}).status_code == 422
+
+
+def test_sent_cannot_be_reached_through_patch_routes(alice):
+    application = new_application(alice)
+    ids = status_ids(alice)
+    for body in ({"status_id": ids["sent"]}, {"sent_at": "2026-01-01T00:00:00Z"},
+                 {"status_id": ids["sent"], "sent_at": "2026-01-01T00:00:00Z"}):
+        assert alice.patch(f"/applications/{application['id']}", body).status_code == 422
+    for body in ({"name": "Piraté", "system_key": "sent"}, {"name": "Piraté", "system_key": None}):
+        assert alice.patch(f"/statuses/{ids['interview']}", body).status_code == 422
+    assert alice.post("/statuses", {"name": "Faux envoi", "system_key": "sent"}).status_code == 422
+    after = alice.get(f"/applications/{application['id']}").json()
+    assert after["status"]["system_key"] == "to_prepare" and after["sent_at"] is None
+    assert [s["system_key"] for s in alice.get("/statuses").json()].count("sent") == 1
+
+
+def test_two_simultaneous_confirmations_send_once(alice, application):
+    created = new_application(alice)
+    clients = []
+    for _ in range(2):
+        other = TestClient(application, base_url="https://testserver")
+        other.cookies.update(alice.client.cookies)
+        clients.append(other)
+
+    def confirm(test_client):
+        return test_client.post(f"/applications/{created['id']}/confirm-sent", json={"confirmed": True},
+                                headers={"X-CSRF-Token": alice.client.cookies["csrf_token"]}).status_code
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        codes = sorted(pool.map(confirm, clients))
+    assert codes == [200, 409]
+    events = alice.get(f"/applications/{created['id']}/events").json()
+    assert events["total"] == 2  # création + un seul envoi
+
+
+def test_search_treats_percent_and_underscore_literally(alice):
+    new_application(alice, company="100% Data", title="Ingénieur")
+    new_application(alice, company="Acme", title="Data_Engineer")
+    new_application(alice, company="Globex", title="Analyste")
+    assert alice.get("/applications?q=%25").json()["total"] == 1  # %
+    assert alice.get("/applications?q=_").json()["total"] == 1  # _
+    assert alice.get("/applications?q=c_e").json()["total"] == 0  # « Acme » ne correspond pas : _ n'est pas un joker
+    assert alice.get("/applications?q=!").json()["total"] == 0
+
+
+def test_blank_status_name_is_refused(alice):
+    assert alice.post("/statuses", {"name": "   "}).status_code == 422
+    assert alice.patch(f"/statuses/{status_ids(alice)['interview']}", {"name": "  "}).status_code == 422
 
 
 def test_status_changes_are_recorded_newest_first_with_pagination(alice):
@@ -251,8 +314,12 @@ def test_sent_cannot_be_set_even_if_the_status_was_renamed(alice):
 
 def test_confirm_sent_requires_explicit_confirmation(alice):
     application = new_application(alice)
-    for body in ({"confirmed": False}, {"confirmed": "true"}, {"confirmed": 1}, {"confirmed": "yes"}, {}):
-        assert alice.post(f"/applications/{application['id']}/confirm-sent", body).status_code in {409, 422}
+    for body in ({"confirmed": False}, {"confirmed": "true"}, {"confirmed": 1}, {"confirmed": "yes"},
+                 {"confirmed": None}, {"confirmed": [True]}):
+        refused = alice.post(f"/applications/{application['id']}/confirm-sent", body)
+        assert refused.status_code == 409 and refused.json()["code"] == "confirmation_required", body
+    assert alice.post(f"/applications/{application['id']}/confirm-sent", {}).status_code == 422
+    assert alice.post(f"/applications/{application['id']}/confirm-sent", {"confirmed": True, "x": 1}).status_code == 422
     assert alice.get(f"/applications/{application['id']}").json()["status"]["system_key"] == "to_prepare"
     confirmed = alice.post(f"/applications/{application['id']}/confirm-sent", {"confirmed": True})
     assert confirmed.status_code == 200

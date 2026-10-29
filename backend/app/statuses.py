@@ -1,7 +1,8 @@
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
@@ -24,7 +25,9 @@ class StatusOut(BaseModel):
 
 
 class StatusIn(BaseModel):
-    name: str = Field(min_length=1, max_length=60)
+    model_config = ConfigDict(extra="forbid")  # system_key n'est jamais modifiable
+
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
     color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     position: int | None = Field(default=None, ge=1, le=1000)
 
