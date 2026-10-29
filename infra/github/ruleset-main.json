@@ -28,7 +28,8 @@
         "required_status_checks": [
           { "context": "secrets-scan" },
           { "context": "backend" },
-          { "context": "frontend" }
+          { "context": "frontend" },
+          { "context": "codeql" }
         ]
       }
     }
