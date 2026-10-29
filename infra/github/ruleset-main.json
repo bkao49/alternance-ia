@@ -29,7 +29,8 @@
           { "context": "secrets-scan" },
           { "context": "backend" },
           { "context": "frontend" },
-          { "context": "codeql" }
+          { "context": "codeql" },
+          { "context": "contract" }
         ]
       }
     }
