@@ -7,8 +7,10 @@ set -eu
 
 : "${APP_DB_PASSWORD:?APP_DB_PASSWORD est obligatoire}"
 
-psql -v ON_ERROR_STOP=1 -v app_password="$APP_DB_PASSWORD" \
+psql -v ON_ERROR_STOP=1 \
   --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
+-- Le mot de passe est lu dans l'environnement par psql (pas en argument : invisible dans la liste des processus).
+\set app_password `printf %s "$APP_DB_PASSWORD"`
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_rw') THEN
     CREATE ROLE app_rw NOLOGIN;
