@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="fr" data-name="piste">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette I · Noir et rouge, nouveau nom</title>
+<!-- Aperçu seulement : dans l'application, les polices seront hébergées avec elle (aucun appel à Google). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f; --side: #141416; --text: #f4f4f4; --muted: #a6a6ae; --line: #2a2a2f; --hover: #1a1a1d;
+    --accent: #d6231e;       /* aplats : bloc du bot, logo, boutons */
+    --accent-text: #ff5a52;  /* texte et traits colorés sur le fond sombre */
+    --on-accent: #ffffff;
+    --s-prepare: #c9c9cf; --s-validate: #ff5a52; --s-analyzed: #85858c; --s-interview: #ffffff; --s-sent: #8f8f96;
+    --radius-card: 22px;
+    --serif: "Instrument Serif", "Times New Roman", serif;
+    --sans: "Geist", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 400 1rem/1.55 var(--sans); -webkit-font-smoothing: antialiased; min-height: 100dvh; display: grid; grid-template-columns: 14.5rem minmax(0, 1fr); }
+  @media (max-width: 54rem) { body { grid-template-columns: 1fr; } }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
+  .num { font-variant-numeric: tabular-nums; }
+  [data-view] { display: none; }
+  [data-view].on { display: block; }
+
+  aside.side { background: var(--side); padding: 1.6rem 1.2rem; display: flex; flex-direction: column; gap: 2.4rem; position: sticky; top: 0; height: 100dvh; }
+  @media (max-width: 54rem) { aside.side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.8rem 1.5rem; } }
+  .brand { display: flex; align-items: center; gap: 0.7rem; text-decoration: none; }
+  .brand svg { width: 2.2rem; height: 2.2rem; flex: none; }
+  .brand .fill { fill: var(--accent); }
+  .brand .ink { fill: var(--on-accent); }
+  .brand .stroke { stroke: var(--on-accent); fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+  .brand .soft { opacity: .55; }
+  .brand span { font: italic 400 1.8rem/1 var(--serif); }
+  .side nav { display: flex; flex-direction: column; gap: 0.1rem; }
+  @media (max-width: 54rem) { .side nav { flex-direction: row; gap: 1.2rem; } }
+  .side nav button { background: none; border: 0; text-align: left; padding: 0.55rem 0; color: var(--muted); border-bottom: 1.5px solid transparent; width: fit-content; transition: color .15s; }
+  .side nav button:hover { color: var(--text); }
+  .side nav button[aria-current="page"] { color: var(--text); border-bottom-color: var(--accent-text); }
+  .side .me { margin-top: auto; color: var(--muted); font-size: 0.9rem; }
+  .side .me button { background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+  @media (max-width: 54rem) { .side .me { margin: 0 0 0 auto; } }
+
+  main { padding: clamp(1.5rem, 4vw, 3.5rem); max-width: 84rem; width: 100%; }
+  h1 { font: 400 clamp(3rem, 6vw, 5.4rem)/0.95 var(--serif); letter-spacing: -0.025em; margin: 0; }
+  .lede { margin: 1.1rem 0 0; color: var(--muted); font-size: clamp(1.05rem, 1.5vw, 1.2rem); max-width: 34rem; }
+
+  .stage { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 1.1rem; margin-top: clamp(1.8rem, 3.4vw, 2.8rem); }
+  @media (max-width: 68rem) { .stage { grid-template-columns: 1fr; } }
+
+  /* Les deux grands blocs : coins nettement arrondis */
+  .offers { text-decoration: none; background: var(--side); border: 1px solid var(--line); border-radius: var(--radius-card); padding: clamp(1.4rem, 2.4vw, 2.1rem); display: flex; flex-direction: column; justify-content: space-between; min-height: 17rem; transition: border-color .2s, transform .3s cubic-bezier(.2,.7,.2,1); }
+  .offers:hover { border-color: var(--accent-text); transform: translateY(-3px); }
+  .offers .big { font: italic 400 clamp(6rem, 10vw, 8.5rem)/0.85 var(--serif); color: var(--accent-text); letter-spacing: -0.04em; }
+  .offers .lbl { font-size: 1.2rem; font-weight: 500; line-height: 1.3; }
+  .offers .go { color: var(--accent-text); font-weight: 500; }
+
+  .bot { background: var(--accent); color: var(--on-accent); border-radius: var(--radius-card); padding: clamp(1.4rem, 2.4vw, 2.1rem); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem 2rem; align-content: space-between; min-height: 17rem; }
+  .bot header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  .bot h2 { font: italic 400 2rem/1 var(--serif); margin: 0; }
+  .live { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; font-size: 0.9rem; }
+  .live i { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--on-accent); animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgb(255 255 255 / .55); } 50% { box-shadow: 0 0 0 0.5rem rgb(255 255 255 / 0); } }
+  .feed { font: 400 0.86rem/1.9 var(--mono); list-style: none; margin: 0; padding: 0; align-self: end; min-width: 0; }
+  .feed li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: in .45s ease both; }
+  .feed time { margin-right: 0.8rem; opacity: .85; }
+  .feed li:not(:last-child) { opacity: .85; }
+  @keyframes in { from { opacity: 0; transform: translateY(0.35rem); } to { opacity: 1; transform: none; } }
+  .when { text-align: right; align-self: end; }
+  .when .t { font: italic 400 3.2rem/1 var(--serif); }
+  .when .s { font-size: 0.88rem; }
+  @media (max-width: 40rem) { .bot { grid-template-columns: 1fr; } .when { text-align: left; } }
+
+  /* Tableau : filets fins, la ligne se teinte et s'écarte au survol */
+  .lh { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: clamp(2.2rem, 4vw, 3.4rem) 0 0.4rem; }
+  h2.t2 { font: 400 clamp(2rem, 3.4vw, 2.8rem)/1 var(--serif); margin: 0; }
+  .more { color: var(--accent-text); text-underline-offset: 4px; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) 11rem 6.5rem; gap: 1.4rem; align-items: center; padding: 1.2rem 0; border-bottom: 1px solid var(--line); text-decoration: none; transition: background .15s, padding .25s; }
+  .row:first-of-type { border-top: 1px solid var(--text); margin-top: 1rem; }
+  .row:hover { background: var(--hover); padding-inline: 1rem; }
+  .row b { display: block; font-weight: 500; font-size: 1.05rem; }
+  .row .sub { color: var(--muted); font-size: 0.92rem; }
+  .chip { display: inline-block; margin-left: 0.55rem; padding: 0 0.55rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 0.76rem; line-height: 1.5; vertical-align: 0.08em; }
+  .st { display: inline-flex; align-items: center; gap: 0.55rem; }
+  .st i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--c); }
+  .sc { display: flex; align-items: center; gap: 0.7rem; justify-content: flex-end; }
+  .sc .tr { width: 3rem; height: 2px; background: var(--line); position: relative; }
+  .sc .tr i { position: absolute; inset: 0 auto 0 0; background: var(--accent-text); width: var(--w); }
+  @media (max-width: 40rem) { .row { grid-template-columns: 1fr auto; } .row .st { grid-column: 1; } .row .sc { grid-row: 1; grid-column: 2; } }
+
+  .back { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; margin-bottom: 1.6rem; }
+  .offer { display: grid; grid-template-columns: 6rem minmax(0, 1fr) auto; gap: 1.6rem; align-items: center; padding-block: 1.5rem; border-bottom: 1px solid var(--line); transition: background .15s, padding .25s; }
+  .offer:first-of-type { border-top: 1px solid var(--text); }
+  .offer:hover { background: var(--hover); padding-inline: 1rem; }
+  .offer .s { font: 400 3.2rem/0.9 var(--serif); color: var(--accent-text); }
+  .offer h3 { font: 400 1.55rem/1.15 var(--serif); margin: 0; }
+  .offer p { margin: 0.3rem 0 0; color: var(--muted); max-width: 38rem; }
+  .btn { border: 1.5px solid var(--accent-text); background: none; color: var(--accent-text); padding: 0.6rem 1.1rem; white-space: nowrap; border-radius: 999px; transition: background .15s, color .15s; }
+  .btn:hover { background: var(--accent); color: var(--on-accent); }
+  @media (max-width: 46rem) { .offer { grid-template-columns: 3.8rem 1fr; gap: 1rem; } .offer .btn { grid-column: 2; justify-self: start; } .offer .s { font-size: 2.3rem; } }
+  .foot { color: var(--muted); font-size: 0.85rem; margin-top: 3rem; }
+
+  /* Sélecteur de nom (propre à la maquette) */
+  .names { position: fixed; right: 1rem; bottom: 1rem; z-index: 10; display: flex; align-items: center; gap: 0.3rem; background: var(--side); border: 1px solid var(--muted); padding: 0.35rem 0.4rem 0.35rem 0.9rem; border-radius: 999px; font-size: 0.85rem; box-shadow: 0 4px 18px rgb(0 0 0 / .5); }
+  .names button { border: 0; background: none; padding: 0.35rem 0.8rem; border-radius: 999px; color: var(--muted); }
+  .names button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+  @media (max-width: 40rem) { .names > span { display: none; } .names button { padding: 0.35rem 0.55rem; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<aside class="side">
+  <a class="brand" href="#" onclick="show('home');return false" aria-label="Accueil">
+    <svg id="logo" viewBox="0 0 40 40" aria-hidden="true"></svg>
+    <span id="name">piste</span>
+  </a>
+  <nav aria-label="Navigation principale">
+    <button type="button" data-nav="home" aria-current="page" onclick="show('home')">Accueil</button>
+    <button type="button" data-nav="offers" onclick="show('offers')">Offres</button>
+    <button type="button" onclick="show('home');document.getElementById('list').scrollIntoView()">Candidatures</button>
+  </nav>
+  <div class="me">Léo<br><button type="button">Se déconnecter</button></div>
+</aside>
+
+<main>
+  <div data-view="home" class="on">
+    <h1>Bonjour Léo.</h1>
+    <p class="lede">La dernière collecte a trouvé 5 nouvelles offres. Une candidature attend votre validation.</p>
+
+    <div class="stage">
+      <a class="offers" href="#" onclick="show('offers');return false" aria-label="Voir les 14 offres pertinentes">
+        <span class="big num">14</span>
+        <span><span class="lbl">offres pertinentes</span><br><span class="go">Voir les offres</span></span>
+      </a>
+
+      <section class="bot" aria-labelledby="bot-t">
+        <header><h2 id="bot-t">Le bot travaille</h2><span class="live" role="status"><i aria-hidden="true"></i>En cours</span></header>
+        <ul class="feed" id="feed" aria-live="polite" aria-label="Dernières actions du bot"></ul>
+        <div class="when"><div class="t num">18:00</div><div class="s">prochaine collecte, <span class="num" id="in">dans 2 h 14 min</span></div></div>
+      </section>
+    </div>
+
+    <section id="list" aria-labelledby="l-t">
+      <div class="lh"><h2 class="t2" id="l-t">Candidatures</h2><a class="more" href="#">Tout voir</a></div>
+      <div id="rows"></div>
+    </section>
+  </div>
+
+  <div data-view="offers">
+    <button type="button" class="back" onclick="show('home')">Retour à l'accueil</button>
+    <h1 style="margin-bottom:2rem">14 offres pertinentes</h1>
+    <div id="offers"></div>
+  </div>
+  <p class="foot">Maquette de direction artistique. Données fictives.</p>
+</main>
+
+<div class="names" role="group" aria-label="Nom de la maquette">
+  <span>Nom</span>
+  <button type="button" data-set="piste" aria-pressed="true">Piste</button>
+  <button type="button" data-set="boussole" aria-pressed="false">Boussole</button>
+  <button type="button" data-set="cap" aria-pressed="false">Cap</button>
+  <button type="button" data-set="jalon" aria-pressed="false">Jalon</button>
+</div>
+
+<script>
+// Quatre noms possibles, aucun lié à un type de contrat. Chacun a son logo.
+const BRANDS = {
+  piste: { label: "piste", svg: '<circle class="fill" cx="20" cy="20" r="20"/><path class="stroke" d="M10 27 C16 27 15 15 21 15 S27 13 30 11"/><circle class="ink" cx="30" cy="11" r="2.9"/>' },
+  boussole: { label: "boussole", svg: '<circle class="fill" cx="20" cy="20" r="20"/><path class="ink" d="M20 8.5 L24.6 20 H15.4 Z"/><path class="ink soft" d="M20 31.5 L24.6 20 H15.4 Z"/>' },
+  cap: { label: "cap", svg: '<rect class="fill" width="40" height="40" rx="12"/><path class="stroke" d="M14 31 V10"/><path class="ink" d="M14.8 10.8 L30 16.4 L14.8 22 Z"/>' },
+  jalon: { label: "jalon", svg: '<circle class="fill" cx="20" cy="20" r="20"/><rect class="ink" x="10.5" y="21.5" width="5.2" height="8.5" rx="1.4"/><rect class="ink" x="17.4" y="16" width="5.2" height="14" rx="1.4"/><rect class="ink" x="24.3" y="10" width="5.2" height="20" rx="1.4"/>' }
+};
+function setBrand(key) {
+  if (!BRANDS[key]) key = "piste";
+  document.documentElement.dataset.name = key;
+  document.getElementById("logo").innerHTML = BRANDS[key].svg;
+  document.getElementById("name").textContent = BRANDS[key].label;
+  document.title = BRANDS[key].label.charAt(0).toUpperCase() + BRANDS[key].label.slice(1) + ", maquette";
+  document.querySelectorAll(".names button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.set === key)));
+  try { history.replaceState(null, "", "#" + key); } catch (e) { /* adresse non modifiable dans certains cadres */ }
+}
+document.querySelectorAll(".names button").forEach(b => b.addEventListener("click", () => setBrand(b.dataset.set)));
+setBrand(location.hash.slice(1));
+addEventListener("hashchange", () => setBrand(location.hash.slice(1)));
+
+const apps = [
+  ["Globex IA", "Machine Learning Engineer", "CDI", "À préparer", "var(--s-prepare)", 4.6],
+  ["Initech Data", "Data Engineer", "Alternance", "À valider", "var(--s-validate)", 4.4],
+  ["Acme Analytics", "Data Analyst", "Stage", "Analysée", "var(--s-analyzed)", 4.2],
+  ["Stark Mobilité", "MLOps Engineer", "CDD", "Entretien", "var(--s-interview)", 4.1],
+  ["Hooli Labs", "Ingénieur IA générative", "CDI", "Envoyée", "var(--s-sent)", 3.9]
+];
+document.getElementById("rows").innerHTML = apps.map(a => `<a class="row" href="#">
+  <div><b>${a[0]}</b><span class="sub">${a[1]}</span><span class="chip">${a[2]}</span></div>
+  <span class="st" style="--c:${a[4]}"><i></i>${a[3]}</span>
+  <span class="sc num">${a[5].toFixed(1).replace(".", ",")}<span class="tr"><i style="--w:${a[5] / 5 * 100}%"></i></span></span></a>`).join("");
+
+const offers = [
+  ["4,6", "Machine Learning Engineer, Globex IA", "CDI", "Votre projet de classification et Python correspondent aux trois compétences demandées."],
+  ["4,4", "Data Engineer, Initech Data", "Alternance", "SQL, Docker et PostgreSQL sont dans votre profil. Airflow manque."],
+  ["4,2", "Data Analyst, Acme Analytics", "Stage", "Mission centrée sur les tableaux de bord que vous avez déjà réalisés."],
+  ["4,1", "MLOps Engineer, Stark Mobilité", "CDD", "Déploiement de modèles avec Docker, comme dans votre projet de fin de semestre."]
+];
+document.getElementById("offers").innerHTML = offers.map(o => `<article class="offer"><div class="s num">${o[0]}</div><div><h3>${o[1]}<span class="chip">${o[2]}</span></h3><p>${o[3]}</p></div><button type="button" class="btn">Préparer la candidature</button></article>`).join("");
+
+function show(view) {
+  document.querySelectorAll("[data-view]").forEach(el => el.classList.toggle("on", el.dataset.view === view));
+  document.querySelectorAll("nav [data-nav]").forEach(b => b.dataset.nav === view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  window.scrollTo({ top: 0 });
+}
+
+const steps = [
+  ["14:02", "France Travail : 61 offres lues"],
+  ["14:03", "La Bonne Alternance : 38 offres lues"],
+  ["14:03", "Analyse de Data Engineer, Initech"],
+  ["14:03", "Score 4,4 sur 5, confiance élevée"],
+  ["14:04", "Analyse de ML Engineer, Globex IA"],
+  ["14:04", "Score 4,6 sur 5, nouvelle offre pertinente"]
+];
+const feed = document.getElementById("feed");
+const li = s => { const el = document.createElement("li"); el.innerHTML = `<time>${s[0]}</time>${s[1]}`; return el; };
+if (matchMedia("(prefers-reduced-motion: reduce)").matches) steps.slice(-3).forEach(s => feed.append(li(s)));
+else (function play(i = 0) {
+  if (i === 0) feed.innerHTML = "";
+  if (i < steps.length) { feed.append(li(steps[i])); while (feed.children.length > 3) feed.firstChild.remove(); setTimeout(() => play(i + 1), 1800); }
+  else setTimeout(() => play(0), 5000);
+})();
+let left = 2 * 3600 + 14 * 60;
+setInterval(() => { left--; const h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60); document.getElementById("in").textContent = `dans ${h} h ${String(m).padStart(2, "0")} min`; }, 1000);
+</script>
+</body>
+</html>

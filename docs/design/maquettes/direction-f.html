@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette F · Forêt de nuit</title>
+<!-- Aperçu seulement : dans l'application, les polices seront hébergées avec elle (aucun appel à Google). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #14221f;
+    --side: #101b19;
+    --card: #1b2c28;
+    --tint: #234238;
+    --text: #e9f3f0;
+    --muted: #9db5ae;
+    --line: #2b413b;
+    --mint: #6fe0c0;
+    --on-mint: #0c1f1a;
+    --serif: "Newsreader", Georgia, serif;
+    --sans: "Figtree", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 400 1rem/1.55 var(--sans); -webkit-font-smoothing: antialiased; min-height: 100dvh; display: grid; grid-template-columns: 14.5rem minmax(0, 1fr); }
+  @media (max-width: 54rem) { body { grid-template-columns: 1fr; } }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+  .num { font-variant-numeric: tabular-nums; }
+  [data-view] { display: none; }
+  [data-view].on { display: block; }
+
+  aside.side { background: var(--side); padding: 1.5rem 1rem; display: flex; flex-direction: column; gap: 2.2rem; position: sticky; top: 0; height: 100dvh; }
+  @media (max-width: 54rem) { aside.side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.8rem 1.5rem; } }
+  .brand { display: flex; align-items: center; gap: 0.65rem; padding-inline: 0.5rem; text-decoration: none; }
+  .brand svg { width: 2rem; height: 2rem; flex: none; }
+  .brand span { font: italic 400 1.6rem/1 var(--serif); }
+  .side nav { display: flex; flex-direction: column; gap: 0.2rem; }
+  @media (max-width: 54rem) { .side nav { flex-direction: row; } }
+  .side nav button { background: none; border: 0; text-align: left; padding: 0.6rem 0.8rem; border-radius: 10px; color: var(--muted); font-weight: 500; transition: background .15s, color .15s; }
+  .side nav button:hover { background: var(--card); color: var(--text); }
+  .side nav button[aria-current="page"] { background: var(--tint); color: var(--mint); }
+  .side .me { margin-top: auto; padding-inline: 0.8rem; color: var(--muted); font-size: 0.9rem; }
+  .side .me button { background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+  @media (max-width: 54rem) { .side .me { margin: 0 0 0 auto; } }
+
+  main { padding: clamp(1.25rem, 3.4vw, 3rem); max-width: 80rem; width: 100%; }
+  h1 { font: italic 300 clamp(2.6rem, 5.5vw, 4.4rem)/1.02 var(--serif); letter-spacing: -0.02em; margin: 0; }
+  .sub { color: var(--muted); margin: 0.7rem 0 0; font-size: 1.05rem; }
+
+  .cards { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 1.1rem; margin-top: clamp(1.6rem, 3vw, 2.5rem); }
+  @media (max-width: 68rem) { .cards { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: clamp(1.25rem, 2.2vw, 1.9rem); }
+
+  .offers { text-decoration: none; display: flex; flex-direction: column; justify-content: space-between; min-height: 18rem; transition: border-color .2s, transform .3s cubic-bezier(.2,.7,.2,1); }
+  .offers:hover { border-color: var(--mint); transform: translateY(-3px); }
+  .offers .big { font: italic 300 clamp(6rem, 11vw, 9rem)/0.85 var(--serif); color: var(--mint); letter-spacing: -0.04em; }
+  .offers .lbl { font-size: 1.2rem; font-weight: 500; line-height: 1.3; }
+  .offers .go { color: var(--mint); font-weight: 500; }
+
+  .bot { background: var(--tint); border-color: transparent; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem 2rem; align-content: space-between; min-height: 18rem; }
+  .bot header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  .bot h2 { font: italic 400 1.9rem/1 var(--serif); margin: 0; }
+  .live { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--mint); font-weight: 600; font-size: 0.9rem; }
+  .live i { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--mint); animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgb(111 224 192 / .5); } 50% { box-shadow: 0 0 0 0.5rem rgb(111 224 192 / 0); } }
+  .feed { font: 400 0.86rem/1.9 var(--mono); list-style: none; margin: 0; padding: 0; align-self: end; }
+  .feed li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: in .45s ease both; }
+  .feed time { color: var(--muted); margin-right: 0.8rem; }
+  .feed li:not(:last-child) { opacity: .8; }
+  @keyframes in { from { opacity: 0; transform: translateY(0.35rem); } to { opacity: 1; transform: none; } }
+  .when { text-align: right; align-self: end; }
+  .when .t { font: italic 400 3rem/1 var(--serif); }
+  .when .s { color: var(--muted); font-size: 0.88rem; }
+  @media (max-width: 40rem) { .bot { grid-template-columns: 1fr; } .when { text-align: left; } }
+
+  .list { margin-top: 1.1rem; padding: clamp(1.1rem, 2vw, 1.6rem); }
+  .lh { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+  .lh h2 { font: italic 400 1.9rem/1 var(--serif); margin: 0; }
+  .seg { display: inline-flex; background: var(--bg); border-radius: 999px; padding: 3px; }
+  .seg button { background: none; border: 0; padding: 0.3rem 0.95rem; border-radius: 999px; color: var(--muted); font-weight: 500; }
+  .seg button[aria-pressed="true"] { background: var(--tint); color: var(--text); }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) 11rem 3.4rem; gap: 1.2rem; align-items: center; padding: 0.95rem 0.6rem; margin-inline: -0.6rem; border-radius: 12px; text-decoration: none; transition: background .15s; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row:hover { background: var(--bg); }
+  .row b { display: block; font-weight: 600; }
+  .row .sub2 { color: var(--muted); font-size: 0.92rem; }
+  .st { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; }
+  .st i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--c); }
+  .ring { --p: 80; width: 2.9rem; height: 2.9rem; border-radius: 50%; background: conic-gradient(var(--mint) calc(var(--p) * 1%), var(--line) 0); display: grid; place-items: center; justify-self: end; }
+  .ring span { width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--card); display: grid; place-items: center; font: 500 0.78rem var(--mono); }
+  .row:hover .ring span { background: var(--bg); }
+  @media (max-width: 40rem) { .row { grid-template-columns: 1fr auto; } .row .st { grid-column: 1; } .row .ring { grid-row: 1 / 3; grid-column: 2; } }
+
+  .back { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; margin-bottom: 1.2rem; }
+  .offer { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; gap: 1.4rem; align-items: center; margin-top: 0.8rem; transition: border-color .2s; }
+  .offer:hover { border-color: var(--mint); }
+  .offer .s { font: italic 300 2.8rem/1 var(--serif); color: var(--mint); }
+  .offer h3 { font: 600 1.05rem var(--sans); margin: 0; }
+  .offer p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.95rem; max-width: 40rem; }
+  .btn { background: var(--mint); border: 0; color: var(--on-mint); padding: 0.6rem 1.1rem; border-radius: 999px; font-weight: 600; white-space: nowrap; transition: filter .15s; }
+  .btn:hover { filter: brightness(1.08); }
+  @media (max-width: 46rem) { .offer { grid-template-columns: 3.4rem 1fr; } .offer .btn { grid-column: 2; justify-self: start; } }
+  .foot { color: var(--muted); font-size: 0.85rem; margin-top: 2rem; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<aside class="side">
+  <a class="brand" href="#" onclick="show('home');return false" aria-label="alternance, accueil">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="12" fill="#6fe0c0"/><text x="20" y="28.5" text-anchor="middle" font-family="Newsreader, serif" font-style="italic" font-size="28" fill="#0c1f1a">a</text></svg>
+    <span>alternance</span>
+  </a>
+  <nav aria-label="Navigation principale">
+    <button type="button" data-nav="home" aria-current="page" onclick="show('home')">Accueil</button>
+    <button type="button" data-nav="offers" onclick="show('offers')">Offres</button>
+    <button type="button" onclick="show('home');document.getElementById('list').scrollIntoView()">Candidatures</button>
+  </nav>
+  <div class="me">Léo<br><button type="button">Se déconnecter</button></div>
+</aside>
+
+<main>
+  <div data-view="home" class="on">
+    <h1>Bonjour Léo</h1>
+    <p class="sub">5 nouvelles offres depuis hier. Une candidature attend votre validation.</p>
+
+    <div class="cards">
+      <a class="card offers" href="#" onclick="show('offers');return false" aria-label="Voir les 14 offres pertinentes">
+        <span class="big num">14</span>
+        <span><span class="lbl">offres pertinentes</span><br><span class="go">Voir les offres</span></span>
+      </a>
+      <section class="card bot" aria-labelledby="bot-t">
+        <header><h2 id="bot-t">Le bot travaille</h2><span class="live" role="status"><i aria-hidden="true"></i>En cours</span></header>
+        <ul class="feed" id="feed" aria-live="polite" aria-label="Dernières actions du bot"></ul>
+        <div class="when"><div class="t num">18:00</div><div class="s">prochaine collecte, <span class="num" id="in">dans 2 h 14 min</span></div></div>
+      </section>
+    </div>
+
+    <section class="card list" id="list" aria-labelledby="l-t">
+      <div class="lh"><h2 id="l-t">Candidatures</h2><div class="seg" role="group" aria-label="Affichage"><button type="button" aria-pressed="true">Tableau</button><button type="button" aria-pressed="false">Kanban</button></div></div>
+      <div id="rows"></div>
+    </section>
+  </div>
+
+  <div data-view="offers">
+    <button type="button" class="back" onclick="show('home')">Retour à l'accueil</button>
+    <h1>14 offres pertinentes</h1>
+    <div id="offers" style="margin-top:1.6rem"></div>
+  </div>
+  <p class="foot">Maquette de direction artistique. Données fictives.</p>
+</main>
+
+<script>
+const apps = [
+  ["Globex IA", "Alternant Machine Learning", "À préparer", "#f0b45a", 4.6],
+  ["Initech Data", "Alternant Data Engineer", "À valider", "#6fe0c0", 4.4],
+  ["Acme Analytics", "Alternant Data Analyst", "Analysée", "#9db5ae", 4.2],
+  ["Stark Mobilité", "Alternant MLOps", "Entretien", "#7fb2ff", 4.1],
+  ["Hooli Labs", "Alternant IA générative", "Envoyée", "#e9f3f0", 3.9]
+];
+document.getElementById("rows").innerHTML = apps.map(a => `<a class="row" href="#">
+  <div><b>${a[0]}</b><span class="sub2">${a[1]}</span></div>
+  <span class="st" style="--c:${a[3]}"><i></i>${a[2]}</span>
+  <span class="ring" style="--p:${a[4] / 5 * 100}"><span>${a[4].toFixed(1).replace(".", ",")}</span></span></a>`).join("");
+
+const offers = [
+  ["4,6", "Alternant Machine Learning, Globex IA", "Votre projet de classification et Python correspondent aux trois compétences demandées."],
+  ["4,4", "Alternant Data Engineer, Initech Data", "SQL, Docker et PostgreSQL sont dans votre profil. Airflow manque."],
+  ["4,2", "Alternant Data Analyst, Acme Analytics", "Mission centrée sur les tableaux de bord que vous avez déjà réalisés."],
+  ["4,1", "Alternant MLOps, Stark Mobilité", "Déploiement de modèles avec Docker, comme dans votre projet de fin de semestre."]
+];
+document.getElementById("offers").innerHTML = offers.map(o => `<article class="card offer"><div class="s num">${o[0]}</div><div><h3>${o[1]}</h3><p>${o[2]}</p></div><button type="button" class="btn">Préparer la candidature</button></article>`).join("");
+
+function show(view) {
+  document.querySelectorAll("[data-view]").forEach(el => el.classList.toggle("on", el.dataset.view === view));
+  document.querySelectorAll("nav [data-nav]").forEach(b => b.dataset.nav === view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  window.scrollTo({ top: 0 });
+}
+
+const steps = [
+  ["14:02", "La Bonne Alternance : 61 offres lues"],
+  ["14:03", "France Travail : 38 offres lues"],
+  ["14:03", "Analyse de Data Engineer, Initech"],
+  ["14:03", "Score 4,4 sur 5, confiance élevée"],
+  ["14:04", "Analyse de ML Engineer, Globex IA"],
+  ["14:04", "Score 4,6 sur 5, nouvelle offre pertinente"]
+];
+const feed = document.getElementById("feed");
+const li = s => { const el = document.createElement("li"); el.innerHTML = `<time>${s[0]}</time>${s[1]}`; return el; };
+if (matchMedia("(prefers-reduced-motion: reduce)").matches) steps.slice(-3).forEach(s => feed.append(li(s)));
+else (function play(i = 0) {
+  if (i === 0) feed.innerHTML = "";
+  if (i < steps.length) { feed.append(li(steps[i])); while (feed.children.length > 3) feed.firstChild.remove(); setTimeout(() => play(i + 1), 1800); }
+  else setTimeout(() => play(0), 5000);
+})();
+let left = 2 * 3600 + 14 * 60;
+setInterval(() => { left--; const h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60); document.getElementById("in").textContent = `dans ${h} h ${String(m).padStart(2, "0")} min`; }, 1000);
+</script>
+</body>
+</html>

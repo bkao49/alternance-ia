@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette A · Maison</title>
+<!-- Aperçu seulement : dans l'application, les polices seront hébergées avec elle (aucun appel à Google). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #ffffff;
+    --stone: #f4f4f2;
+    --ink: #000000;
+    --grey: #6a6a68;
+    --line: #e3e3df;
+    --sapin: #0f5d3f;
+    --serif: "Instrument Serif", "Times New Roman", serif;
+    --sans: "Geist", system-ui, sans-serif;
+    --gutter: clamp(1.25rem, 4vw, 3.5rem);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0c0c0c; --stone: #171717; --ink: #f5f5f3; --grey: #9a9a96; --line: #2a2a28; --sapin: #4fc08d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 1rem/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--sapin); outline-offset: 3px; }
+  .num { font-variant-numeric: tabular-nums; }
+  .wrap { padding-inline: var(--gutter); max-width: 92rem; margin-inline: auto; }
+
+  /* Barre du haut : liens textuels, sans boutons ni pastilles */
+  header.top { display: flex; align-items: baseline; gap: 2.5rem; padding-block: 1.4rem; border-bottom: 1px solid var(--line); }
+  .mark { font: italic 400 1.6rem/1 var(--serif); text-decoration: none; letter-spacing: -0.01em; }
+  nav { display: flex; gap: 1.75rem; flex: 1; flex-wrap: wrap; }
+  nav button { background: none; border: 0; padding: 0.15rem 0; color: var(--grey); font-size: 0.95rem; border-bottom: 1px solid transparent; }
+  nav button:hover { color: var(--ink); }
+  nav button[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); }
+  nav .count { margin-left: 0.35rem; color: var(--sapin); font-weight: 500; }
+  .who { color: var(--grey); font-size: 0.9rem; }
+  .who button { background: none; border: 0; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; padding: 0 0 0 1rem; }
+
+  /* Accueil */
+  .hello { padding-block: clamp(3rem, 8vw, 7rem) clamp(2rem, 4vw, 3.5rem); }
+  h1 { font: 400 clamp(3.4rem, 10vw, 9rem)/0.92 var(--serif); letter-spacing: -0.025em; margin: 0; }
+  .lede { max-width: 38rem; margin: 1.6rem 0 0; color: var(--grey); font-size: clamp(1.05rem, 1.6vw, 1.3rem); line-height: 1.5; }
+  .lede strong { color: var(--ink); font-weight: 500; }
+
+  .stage { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(2rem, 5vw, 5rem); padding-block: 1rem 3.5rem; align-items: start; }
+  @media (max-width: 62rem) { .stage { grid-template-columns: 1fr; } }
+
+  .big { display: block; text-decoration: none; padding-bottom: 2rem; border-bottom: 1px solid var(--line); }
+  .big .n { font: 400 clamp(8rem, 24vw, 19rem)/0.8 var(--serif); letter-spacing: -0.04em; display: block; transition: transform .35s cubic-bezier(.2,.7,.2,1); transform-origin: left bottom; }
+  .big:hover .n { transform: translateX(0.6rem); }
+  .big .cap { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; margin-top: 1.4rem; font-size: 1.15rem; }
+  .big .cap span:last-child { color: var(--sapin); text-decoration: underline; text-underline-offset: 4px; }
+
+  .funnel { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1.25rem; margin: 2rem 0 0; padding: 0; list-style: none; }
+  .funnel li { display: flex; flex-direction: column; gap: 0.35rem; }
+  .funnel .v { font: 400 2.1rem/1 var(--serif); }
+  .funnel .l { font-size: 0.8rem; color: var(--grey); }
+  .funnel .bar { height: 2px; background: var(--line); position: relative; margin-top: 0.4rem; }
+  .funnel .bar i { position: absolute; inset: 0 auto 0 0; background: var(--ink); width: var(--w); }
+  @media (max-width: 40rem) { .funnel { grid-template-columns: repeat(4, 1fr); row-gap: 1.5rem; } }
+
+  /* Le bot : l'élément qui bouge */
+  .bot { border: 1px solid var(--ink); padding: clamp(1.25rem, 2.4vw, 2rem); }
+  .bot h2 { font: 400 1.9rem/1.1 var(--serif); margin: 0 0 0.35rem; }
+  .live { display: inline-flex; align-items: center; gap: 0.55rem; color: var(--sapin); font-size: 0.92rem; font-weight: 500; }
+  .live i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--sapin); animation: pulse 1.8s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sapin) 45%, transparent); } 50% { box-shadow: 0 0 0 0.45rem transparent; } }
+  .feed { list-style: none; margin: 1.4rem 0 0; padding: 0; min-height: 15.5rem; border-top: 1px solid var(--line); }
+  .feed li { display: grid; grid-template-columns: 3.4rem 1fr; gap: 0.75rem; padding: 0.7rem 0; border-bottom: 1px solid var(--line); font-size: 0.93rem; animation: in .5s ease both; }
+  .feed time { color: var(--grey); font-variant-numeric: tabular-nums; }
+  .feed b { font-weight: 500; }
+  @keyframes in { from { opacity: 0; transform: translateY(0.4rem); } to { opacity: 1; transform: none; } }
+  .next { display: flex; justify-content: space-between; gap: 1rem; align-items: end; margin-top: 1.4rem; }
+  .next .when { font: 400 2.6rem/1 var(--serif); }
+  .next .in { color: var(--grey); font-size: 0.9rem; text-align: right; }
+  .rule { margin: 1.1rem 0 0; font-size: 0.82rem; color: var(--grey); }
+
+  /* Tableau */
+  section.table { padding-block: 1rem 5rem; }
+  .thead { display: flex; justify-content: space-between; align-items: end; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+  h2.title { font: 400 clamp(2rem, 4vw, 3.2rem)/1 var(--serif); margin: 0; letter-spacing: -0.015em; }
+  .tools { display: flex; gap: 1.5rem; align-items: center; }
+  .tools input { border: 0; border-bottom: 1px solid var(--line); background: none; padding: 0.4rem 0; width: 12rem; font: inherit; color: inherit; }
+  .tools input:focus { outline: 0; border-bottom-color: var(--ink); }
+  .seg button { background: none; border: 0; padding: 0.2rem 0; margin-left: 1.1rem; color: var(--grey); border-bottom: 1px solid transparent; }
+  .seg button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 44rem; }
+  th { text-align: left; font-weight: 400; color: var(--grey); font-size: 0.85rem; padding: 0.6rem 1rem 0.6rem 0; border-bottom: 1px solid var(--ink); }
+  td { padding: 1.05rem 1rem 1.05rem 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody tr { transition: background .15s; }
+  tbody tr:hover { background: var(--stone); }
+  td.who2 b { display: block; font-weight: 500; }
+  td.who2 span { color: var(--grey); font-size: 0.9rem; }
+  .st { display: inline-flex; align-items: center; gap: 0.55rem; white-space: nowrap; }
+  .st i { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--c); }
+  .score { display: flex; align-items: center; gap: 0.8rem; font-variant-numeric: tabular-nums; }
+  .score .t { width: 5rem; height: 2px; background: var(--line); position: relative; }
+  .score .t i { position: absolute; inset: 0 auto 0 0; background: var(--ink); width: var(--w); }
+  td a { color: var(--ink); text-underline-offset: 4px; }
+  td.right, th.right { text-align: right; padding-right: 0; }
+
+  /* Page Offres */
+  [data-view] { display: none; }
+  [data-view].on { display: block; }
+  .offers-head { padding-block: clamp(2.5rem, 6vw, 5rem) 2rem; }
+  .back { background: none; border: 0; padding: 0; color: var(--grey); text-decoration: underline; text-underline-offset: 3px; margin-bottom: 2rem; }
+  .filters { display: flex; gap: 1.5rem; margin-top: 1.6rem; }
+  .filters button { background: none; border: 0; padding: 0.15rem 0; color: var(--grey); border-bottom: 1px solid transparent; }
+  .filters button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  .offer { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) auto; gap: 2rem; align-items: start; padding-block: 1.8rem; border-top: 1px solid var(--line); }
+  .offer:last-child { border-bottom: 1px solid var(--line); }
+  .offer .s { font: 400 3.6rem/0.9 var(--serif); }
+  .offer .s small { font: 400 0.9rem var(--sans); color: var(--grey); margin-left: 0.2rem; }
+  .offer h3 { font: 400 1.7rem/1.15 var(--serif); margin: 0; }
+  .offer p { margin: 0.45rem 0 0; color: var(--grey); max-width: 44rem; }
+  .offer .meta { margin-top: 0.6rem; font-size: 0.85rem; color: var(--grey); }
+  .btn { border: 1px solid var(--ink); background: none; padding: 0.7rem 1.2rem; font-size: 0.95rem; white-space: nowrap; transition: background .15s, color .15s; }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  @media (max-width: 46rem) { .offer { grid-template-columns: 4.5rem 1fr; gap: 1rem; } .offer .btn { grid-column: 2; justify-self: start; } .offer .s { font-size: 2.6rem; } }
+
+  footer { border-top: 1px solid var(--line); padding-block: 2rem 3rem; color: var(--grey); font-size: 0.85rem; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top wrap">
+  <a class="mark" href="#" onclick="show('home');return false">alternance</a>
+  <nav aria-label="Navigation principale">
+    <button type="button" data-nav="home" aria-current="page" onclick="show('home')">Accueil</button>
+    <button type="button" data-nav="offers" onclick="show('offers')">Offres<span class="count num">14</span></button>
+    <button type="button" data-nav="apps" onclick="show('home');document.getElementById('table').scrollIntoView()">Candidatures</button>
+    <button type="button" data-nav="tasks">À valider<span class="count num">1</span></button>
+  </nav>
+  <div class="who">Léo<button type="button">Se déconnecter</button></div>
+</header>
+
+<main>
+  <div data-view="home" class="on">
+    <section class="wrap hello" aria-labelledby="hello">
+      <h1 id="hello">Bonjour Léo.</h1>
+      <p class="lede">La dernière collecte a trouvé <strong>5 nouvelles offres</strong>. Une candidature attend votre validation avant de pouvoir partir.</p>
+    </section>
+
+    <section class="wrap stage" aria-label="Vue d'ensemble">
+      <div>
+        <a class="big" href="#" onclick="show('offers');return false" aria-label="Voir les 14 offres pertinentes">
+          <span class="n num">14</span>
+          <span class="cap"><span>offres pertinentes pour votre profil</span><span>Voir les offres</span></span>
+        </a>
+        <ol class="funnel" aria-label="Entonnoir de candidature">
+          <li><span class="v num">42</span><span class="l">détectées</span><span class="bar"><i style="--w:100%"></i></span></li>
+          <li><span class="v num">31</span><span class="l">analysées</span><span class="bar"><i style="--w:74%"></i></span></li>
+          <li><span class="v num">14</span><span class="l">pertinentes</span><span class="bar"><i style="--w:33%"></i></span></li>
+          <li><span class="v num">6</span><span class="l">préparées</span><span class="bar"><i style="--w:14%"></i></span></li>
+          <li><span class="v num">5</span><span class="l">envoyées</span><span class="bar"><i style="--w:12%"></i></span></li>
+          <li><span class="v num">3</span><span class="l">réponses</span><span class="bar"><i style="--w:7%"></i></span></li>
+          <li><span class="v num">1</span><span class="l">entretien</span><span class="bar"><i style="--w:3%"></i></span></li>
+        </ol>
+      </div>
+
+      <aside class="bot" aria-labelledby="bot-title">
+        <h2 id="bot-title">Le bot travaille</h2>
+        <span class="live" role="status"><i aria-hidden="true"></i><span id="state">Collecte en cours sur La Bonne Alternance</span></span>
+        <ul class="feed" id="feed" aria-live="polite" aria-label="Activité du bot"></ul>
+        <div class="next">
+          <div><div class="when num" id="when">18:00</div><div class="in">prochaine collecte</div></div>
+          <div class="in num" id="in">dans 2 h 14 min</div>
+        </div>
+        <p class="rule">Sources officielles uniquement. Aucune candidature n'est envoyée sans votre accord.</p>
+      </aside>
+    </section>
+
+    <section class="wrap table" id="table" aria-labelledby="t-title">
+      <div class="thead">
+        <h2 class="title" id="t-title">Candidatures</h2>
+        <div class="tools">
+          <input type="search" placeholder="Rechercher" aria-label="Rechercher une candidature">
+          <div class="seg" role="group" aria-label="Affichage"><button type="button" aria-pressed="true">Tableau</button><button type="button" aria-pressed="false">Kanban</button></div>
+        </div>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Entreprise et poste</th><th>Statut</th><th>Score</th><th>Dernière activité</th><th class="right"><span class="visually">Action</span></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div data-view="offers">
+    <section class="wrap offers-head">
+      <button type="button" class="back" onclick="show('home')">Retour à l'accueil</button>
+      <h1 style="font-size:clamp(3rem,8vw,7rem)">14 offres pertinentes</h1>
+      <p class="lede">Classées par score sur 5. Chaque score s'explique : ouvrez une offre pour voir ce qui correspond à votre profil.</p>
+      <div class="filters" role="group" aria-label="Filtrer"><button type="button" aria-pressed="true">Toutes</button><button type="button" aria-pressed="false">Nouvelles</button><button type="button" aria-pressed="false">À préparer</button></div>
+    </section>
+    <section class="wrap" id="offers" style="padding-bottom:5rem"></section>
+  </div>
+</main>
+
+<footer class="wrap">Maquette de direction artistique. Données fictives.</footer>
+
+<script>
+const apps = [
+  ["Acme Analytics", "Alternant Data Analyst", "Analysée", "#6a6a68", 4.2, "il y a 2 h"],
+  ["Globex IA", "Alternant Machine Learning", "À préparer", "#b7791f", 4.6, "hier"],
+  ["Initech Data", "Alternant Data Engineer", "À valider", "#0f5d3f", 4.4, "hier"],
+  ["Hooli Labs", "Alternant IA générative", "Envoyée", "#000", 3.9, "il y a 3 jours"],
+  ["Stark Mobilité", "Alternant MLOps", "Entretien", "#0f5d3f", 4.1, "il y a 5 jours"],
+  ["Umbrella Santé", "Alternant Data Scientist", "En attente", "#9a9a96", 3.7, "il y a 6 jours"],
+  ["Wayne Énergie", "Alternant Analytics Engineer", "Refusée", "#b42318", 3.5, "il y a 9 jours"]
+];
+document.getElementById("rows").innerHTML = apps.map(a => `<tr>
+  <td class="who2"><b>${a[0]}</b><span>${a[1]}</span></td>
+  <td><span class="st" style="--c:${a[3]}"><i></i>${a[2]}</span></td>
+  <td><span class="score num">${a[4].toFixed(1).replace(".", ",")}<span class="t"><i style="--w:${a[4]/5*100}%"></i></span></span></td>
+  <td style="color:var(--grey)">${a[5]}</td>
+  <td class="right"><a href="#">Ouvrir</a></td></tr>`).join("");
+
+const offers = [
+  ["4,6", "Alternant Machine Learning", "Globex IA", "Paris 9e, hybride", "Votre projet de classification et Python correspondent aux trois compétences demandées. Rythme 3 jours en entreprise, 2 jours d'école.", "La Bonne Alternance"],
+  ["4,4", "Alternant Data Engineer", "Initech Data", "Lyon, présentiel", "SQL, Docker et PostgreSQL sont dans votre profil. Le poste demande aussi Airflow, absent de vos expériences.", "France Travail"],
+  ["4,2", "Alternant Data Analyst", "Acme Analytics", "Nantes, hybride", "Mission centrée sur les tableaux de bord que vous avez déjà réalisés. Début en septembre, comme prévu.", "La Bonne Alternance"],
+  ["4,1", "Alternant MLOps", "Stark Mobilité", "Toulouse, hybride", "Déploiement de modèles avec Docker : correspond à votre projet de fin de semestre. Niveau Bac+5 demandé.", "France Travail"],
+  ["3,9", "Alternant IA générative", "Hooli Labs", "Paris 2e, hybride", "Sujet proche de votre intérêt. Peu de détails sur les missions, donc un score prudent.", "La Bonne Alternance"]
+];
+document.getElementById("offers").innerHTML = offers.map(o => `<article class="offer">
+  <div class="s num">${o[0]}<small>/5</small></div>
+  <div><h3>${o[1]}, ${o[2]}</h3><p>${o[4]}</p><div class="meta">${o[3]}. Source : ${o[5]}.</div></div>
+  <button type="button" class="btn">Préparer la candidature</button></article>`).join("");
+
+function show(view) {
+  document.querySelectorAll("[data-view]").forEach(el => el.classList.toggle("on", el.dataset.view === view));
+  document.querySelectorAll("nav [data-nav]").forEach(b => b.toggleAttribute("aria-current", b.dataset.nav === view));
+  document.querySelectorAll("nav [data-nav]").forEach(b => { if (b.dataset.nav !== view) b.removeAttribute("aria-current"); else b.setAttribute("aria-current", "page"); });
+  window.scrollTo({ top: 0 });
+}
+
+// Flux du bot : une ligne à la fois, puis il recommence. Désactivé si l'utilisateur préfère moins d'animations.
+const script = [
+  ["14:02", "<b>La Bonne Alternance</b> : 61 offres lues"],
+  ["14:02", "Doublons écartés : 9"],
+  ["14:03", "<b>France Travail</b> : 38 offres lues"],
+  ["14:03", "Analyse de « Data Engineer, Initech Data »"],
+  ["14:03", "Score <b>4,4 sur 5</b>, confiance élevée"],
+  ["14:04", "Analyse de « ML Engineer, Globex IA »"],
+  ["14:04", "Score <b>4,6 sur 5</b>, 5 nouvelles offres pertinentes"]
+];
+const feed = document.getElementById("feed");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function line(l) { const li = document.createElement("li"); li.innerHTML = `<time>${l[0]}</time><span>${l[1]}</span>`; return li; }
+if (reduce) script.forEach(l => feed.append(line(l)));
+else (function play(i = 0) {
+  if (i === 0) feed.innerHTML = "";
+  if (i < script.length) { feed.append(line(script[i])); if (feed.children.length > 6) feed.firstChild.remove(); setTimeout(() => play(i + 1), 1700); }
+  else setTimeout(() => play(0), 4500);
+})();
+
+// Compte à rebours jusqu'à la prochaine collecte (démonstration : 2 h 14 min à partir de l'ouverture).
+let left = (2 * 60 + 14) * 60;
+setInterval(() => { left--; const h = Math.floor(left / 3600), m = Math.floor(left % 3600 / 60); document.getElementById("in").textContent = `dans ${h} h ${String(m).padStart(2, "0")} min`; }, 1000);
+</script>
+<style>.visually{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}</style>
+</body>
+</html>
