@@ -9,6 +9,8 @@ dependencies = [
     "sqlalchemy==2.1.6",
     "alembic==1.20.1",
     "psycopg[binary]==3.3.6",
+    "argon2-cffi==25.1.0",
+    "itsdangerous==2.2.0",
 ]
 
 [project.optional-dependencies]
@@ -31,3 +33,6 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]
