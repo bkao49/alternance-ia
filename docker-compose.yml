@@ -1,0 +1,8 @@
+# Squelette : un seul service pour l'instant. La base (PostgreSQL + pgvector)
+# arrive avec l'issue P1-1, le worker avec P2-4, Caddy avec P6-1.
+services:
+  api:
+    build: ./backend
+    ports:
+      - "127.0.0.1:${API_PORT:-8100}:8000"
+    restart: unless-stopped
