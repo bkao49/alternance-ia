@@ -1,5 +1,7 @@
 import logging
+import os
 import secrets
+import time
 
 import psycopg
 import pytest
@@ -48,15 +50,28 @@ def test_csrf_token_is_bound_to_the_session():
 
 def test_limiter_blocks_after_max_failures_then_releases():
     now = [1000.0]
-    limiter = security.LoginLimiter(max_failures=3, window=60, clock=lambda: now[0])
+    limiter = security.LoginLimiter(window=60, clock=lambda: now[0])
     for _ in range(2):
         limiter.record_failure("k")
-    assert limiter.retry_after("k") == 0
+    assert limiter.retry_after("k", 3) == 0
     limiter.record_failure("k")
-    assert 0 < limiter.retry_after("k") <= 61
-    assert limiter.retry_after("autre") == 0
+    assert 0 < limiter.retry_after("k", 3) <= 61
+    assert limiter.retry_after("k", 4) == 0  # un plafond plus large n'est pas atteint
+    assert limiter.retry_after("autre", 3) == 0
     now[0] += 61
-    assert limiter.retry_after("k") == 0
+    assert limiter.retry_after("k", 3) == 0
+
+
+def test_limiter_memory_is_bounded():
+    limiter = security.LoginLimiter()
+    for i in range(security.LoginLimiter.MAX_KEYS + 50):
+        limiter.record_failure(f"k{i}")
+    assert len(limiter._failures) <= security.LoginLimiter.MAX_KEYS
+
+
+def test_non_ascii_csrf_header_is_refused_not_a_crash():
+    secret = secrets.token_hex(32)
+    assert not security.csrf_is_valid(secret, "sid", "é€")
 
 
 # --- API, contre un vrai PostgreSQL ------------------------------------------------------------
@@ -108,15 +123,47 @@ def test_blocked_after_five_failures_even_with_the_right_password(client, alice)
     assert blocked.json()["code"] == "too_many_attempts"
 
 
-def test_a_success_resets_the_email_counter_but_not_the_ip_counter(client, alice):
+def test_a_success_resets_pair_and_email_counters_but_not_the_ip_counter(client, alice):
     limiter = client.app.state.login_limiter
     for _ in range(4):
         login(client, password="mauvais-mot-de-passe")
     assert login(client).status_code == 200
-    assert limiter.retry_after("email:alice@example.test") == 0
+    assert limiter.retry_after("pair:testclient|alice@example.test", 1) == 0
+    assert limiter.retry_after("email:alice@example.test", 1) == 0
     # L'IP garde ses échecs : sinon un compte valide servirait à réinitialiser la limite des essais.
-    login(client, password="mauvais-mot-de-passe")
-    assert limiter.retry_after("ip:testclient") > 0
+    assert limiter.retry_after("ip:testclient", 4) > 0
+
+
+def other_client(client, ip):
+    return TestClient(client.app, base_url="https://testserver", client=(ip, 4242))
+
+
+def test_a_third_party_cannot_lock_the_owner_out(client, alice):
+    attacker = other_client(client, "203.0.113.9")
+    for _ in range(5):
+        assert login(attacker, password="mauvais-mot-de-passe").status_code == 401
+    assert login(attacker).status_code == 429  # l'attaquant est bloqué
+    assert login(client).status_code == 200  # le propriétaire, depuis une autre IP, se connecte
+
+
+def test_forwarded_for_header_cannot_dodge_the_limiter(client, alice):
+    for i in range(5):
+        response = client.post(
+            "/auth/login",
+            json={"email": "alice@example.test", "password": "mauvais-mot-de-passe"},
+            headers={"X-Forwarded-For": f"198.51.100.{i}"},
+        )
+        assert response.status_code == 401
+    spoofed = client.post(
+        "/auth/login",
+        json={"email": "alice@example.test", "password": "mauvais-mot-de-passe"},
+        headers={"X-Forwarded-For": "198.51.100.200"},
+    )
+    assert spoofed.status_code == 429
+
+
+def test_email_is_normalised_at_login(client, alice):
+    assert login(client, email="  ALICE@Example.TEST ").status_code == 200
 
 
 @pytest.mark.parametrize(("method", "path"), [("GET", "/auth/me"), ("POST", "/auth/logout")])
@@ -165,6 +212,7 @@ def test_validation_errors_never_echo_the_password(client):
 def test_logs_contain_neither_password_nor_email(client, alice, caplog):
     with caplog.at_level(logging.DEBUG):
         login(client, password="mot-de-passe-secret-xyz")
+    assert "échec de connexion" in caplog.text  # l'événement est bien journalisé, sans détail
     assert "mot-de-passe-secret-xyz" not in caplog.text
     assert "alice@example.test" not in caplog.text
 
@@ -179,3 +227,37 @@ def test_login_function_is_the_only_pre_login_read_access(migrated_db, monkeypat
         assert conn.execute(text("SELECT count(*) FROM auth_lookup_user('autre@example.test')")).scalar() == 0
     db._engine(migrated_db).dispose()
     db._engine.cache_clear()
+
+
+def test_signed_token_with_an_invalid_user_id_is_refused(client, alice):
+    token, _ = security.create_session(os.environ["SECRET_KEY"], "pas-un-uuid")
+    client.cookies.set("session", token)
+    assert client.get("/auth/me").status_code == 401
+
+
+def test_expired_session_is_refused(client, alice, monkeypatch):
+    login(client)
+    assert client.get("/auth/me").status_code == 200
+    real_time = time.time
+    monkeypatch.setattr(time, "time", lambda: real_time() + 8 * 24 * 3600)
+    assert client.get("/auth/me").status_code == 401
+
+
+def test_non_ascii_csrf_header_returns_403_not_500(client, alice):
+    login(client)
+    response = client.post("/auth/logout", headers={"X-CSRF-Token": b"\xe9\xe9"})
+    assert response.status_code == 403
+
+
+def test_login_function_privileges_are_minimal(migrated_db):
+    with psycopg.connect(migrated_db) as conn:
+        def one(sql):
+            return conn.execute(sql).fetchone()[0]
+
+        assert one("SELECT proowner::regrole::text FROM pg_proc WHERE proname = 'auth_lookup_user'") == "auth_reader"
+        assert not one("SELECT has_function_privilege('public', 'auth_lookup_user(text)', 'EXECUTE')")
+        assert one("SELECT has_function_privilege('app_rw', 'auth_lookup_user(text)', 'EXECUTE')")
+        assert not one("SELECT has_schema_privilege('auth_reader', 'public', 'CREATE')")
+        assert one("SELECT has_column_privilege('auth_reader', 'users', 'password_hash', 'SELECT')")
+        assert not one("SELECT has_column_privilege('auth_reader', 'users', 'created_at', 'SELECT')")
+        assert not one("SELECT has_table_privilege('auth_reader', 'job_postings', 'SELECT')")

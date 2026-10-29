@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import secrets
+import threading
 import time
 from collections.abc import Callable
 
@@ -11,6 +12,8 @@ from itsdangerous import BadSignature, URLSafeTimedSerializer
 _hasher = PasswordHasher()
 # Hash factice : vérifié quand le compte n'existe pas, pour que le temps de réponse ne révèle rien.
 _DUMMY_HASH = _hasher.hash("mot-de-passe-factice-pour-egaliser-le-temps")
+# Argon2 est volontairement coûteux en mémoire : on borne les vérifications simultanées.
+_verify_slots = threading.BoundedSemaphore(4)
 
 
 def hash_password(password: str) -> str:
@@ -19,7 +22,8 @@ def hash_password(password: str) -> str:
 
 def verify_password(stored_hash: str | None, password: str) -> bool:
     try:
-        matches = _hasher.verify(stored_hash or _DUMMY_HASH, password)
+        with _verify_slots:
+            matches = _hasher.verify(stored_hash or _DUMMY_HASH, password)
     except (VerificationError, InvalidHashError):
         return False
     return matches and stored_hash is not None
@@ -50,19 +54,23 @@ def csrf_token(secret: str, sid: str) -> str:
 
 
 def csrf_is_valid(secret: str, sid: str, supplied: str | None) -> bool:
-    return bool(supplied) and hmac.compare_digest(csrf_token(secret, sid), supplied)
+    if not supplied:
+        return False
+    return hmac.compare_digest(csrf_token(secret, sid).encode(), supplied.encode("utf-8", "replace"))
 
 
 class LoginLimiter:
-    """Bloque une clé (adresse IP ou e-mail) après `max_failures` échecs dans la fenêtre.
+    """Compte les échecs par clé dans une fenêtre glissante ; chaque appel donne son plafond.
 
     En mémoire : se réinitialise au redémarrage et n'est pas partagé entre processus.
     """
 
-    def __init__(self, max_failures: int = 5, window: int = 900, clock: Callable[[], float] = time.monotonic):
-        self.max_failures = max_failures
+    MAX_KEYS = 10_000  # borne la mémoire : au-delà, les plus anciennes clés sont oubliées
+
+    def __init__(self, window: int = 900, clock: Callable[[], float] = time.monotonic):
         self.window = window
         self._clock = clock
+        self._lock = threading.Lock()
         self._failures: dict[str, list[float]] = {}
 
     def _recent(self, key: str) -> list[float]:
@@ -74,15 +82,20 @@ class LoginLimiter:
             self._failures.pop(key, None)
         return recent
 
-    def retry_after(self, key: str) -> int:
-        recent = self._recent(key)
-        if len(recent) < self.max_failures:
+    def retry_after(self, key: str, max_failures: int) -> int:
+        with self._lock:
+            recent = self._recent(key)
+        if len(recent) < max_failures:
             return 0
         return int(self.window - (self._clock() - recent[0])) + 1
 
     def record_failure(self, key: str) -> None:
-        self._recent(key)
-        self._failures.setdefault(key, []).append(self._clock())
+        with self._lock:
+            self._recent(key)
+            if len(self._failures) >= self.MAX_KEYS and key not in self._failures:
+                self._failures.pop(next(iter(self._failures)))
+            self._failures.setdefault(key, []).append(self._clock())
 
     def reset(self, key: str) -> None:
-        self._failures.pop(key, None)
+        with self._lock:
+            self._failures.pop(key, None)

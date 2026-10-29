@@ -1,3 +1,4 @@
+import logging
 import uuid
 from dataclasses import dataclass
 
@@ -11,6 +12,11 @@ from app.db import user_scope
 from app.errors import ApiError
 
 router = APIRouter()
+logger = logging.getLogger("app.auth")
+
+# Plafonds d'échecs par fenêtre de 15 min. Le couple (IP, e-mail) est strict ; l'IP seule et l'e-mail
+# seul sont plus larges, pour qu'un tiers ne puisse pas verrouiller le compte du propriétaire.
+LIMIT_PAIR, LIMIT_IP, LIMIT_EMAIL = 5, 20, 50
 
 SESSION_COOKIE = "session"
 CSRF_COOKIE = "csrf_token"
@@ -63,21 +69,29 @@ def login(body: LoginRequest, request: Request, response: Response) -> Me:
     settings = get_settings()
     limiter: security.LoginLimiter = request.app.state.login_limiter
     email = body.email.strip().lower()
-    keys = (f"ip:{_client_ip(request)}", f"email:{email}")
+    ip = _client_ip(request)
+    pair, ip_key, email_key = f"pair:{ip}|{email}", f"ip:{ip}", f"email:{email}"
 
-    wait = max(limiter.retry_after(k) for k in keys)
+    wait = max(
+        limiter.retry_after(pair, LIMIT_PAIR),
+        limiter.retry_after(ip_key, LIMIT_IP),
+        limiter.retry_after(email_key, LIMIT_EMAIL),
+    )
     if wait:
+        logger.warning("connexion bloquée par la limitation des essais")
         raise ApiError(429, "too_many_attempts", "Trop de tentatives, réessayez plus tard",
                        headers={"Retry-After": str(wait)})
 
     with user_scope() as conn:
         row = conn.execute(text("SELECT user_id, pw_hash FROM auth_lookup_user(:email)"), {"email": email}).first()
     if not security.verify_password(row.pw_hash if row else None, body.password):
-        for key in keys:
+        for key in (pair, ip_key, email_key):
             limiter.record_failure(key)
+        logger.info("échec de connexion")
         raise ApiError(401, "invalid_credentials", "Identifiants invalides")
 
-    limiter.reset(keys[1])
+    limiter.reset(pair)
+    limiter.reset(email_key)
     user_id = str(row.user_id)
     token, sid = security.create_session(settings.secret_key, user_id)
     common = {"max_age": settings.session_max_age, "secure": settings.cookie_secure, "samesite": "strict"}
@@ -88,8 +102,9 @@ def login(body: LoginRequest, request: Request, response: Response) -> Me:
 
 @router.post("/auth/logout", status_code=204, tags=["auth"])
 def logout(response: Response, _: Session = Depends(require_csrf)) -> None:
-    response.delete_cookie(SESSION_COOKIE)
-    response.delete_cookie(CSRF_COOKIE)
+    secure = get_settings().cookie_secure
+    response.delete_cookie(SESSION_COOKIE, httponly=True, secure=secure, samesite="strict")
+    response.delete_cookie(CSRF_COOKIE, secure=secure, samesite="strict")
 
 
 @router.get("/auth/me", response_model=Me, tags=["auth"])

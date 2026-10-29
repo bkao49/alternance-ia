@@ -28,7 +28,7 @@ def upgrade() -> None:
         """CREATE FUNCTION auth_lookup_user(p_email text)
         RETURNS TABLE (user_id uuid, pw_hash text)
         LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp
-        AS $$ SELECT id, password_hash FROM users WHERE email = p_email $$"""
+        AS $$ SELECT id, password_hash FROM public.users WHERE email = p_email $$"""
     )
     # ALTER OWNER exige que le nouveau propriétaire puisse créer dans le schéma : droit retiré aussitôt.
     op.execute("GRANT CREATE ON SCHEMA public TO auth_reader")
@@ -42,3 +42,4 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION IF EXISTS auth_lookup_user(text)")
     op.execute("DROP POLICY IF EXISTS users_login_lookup ON users")
     op.execute("REVOKE SELECT (id, email, password_hash) ON users FROM auth_reader")
+    op.execute("REVOKE auth_reader FROM CURRENT_USER")
