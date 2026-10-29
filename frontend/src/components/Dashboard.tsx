@@ -13,7 +13,6 @@ import { NewApplicationDialog, type NewApplication } from "./NewApplicationDialo
 import { CriteriaPage } from "./CriteriaPage";
 import { ProfilePage } from "./ProfilePage";
 import { Sidebar, type Page } from "./Sidebar";
-import { StatsStrip } from "./StatsStrip";
 
 type View = "table" | "kanban";
 
@@ -127,8 +126,6 @@ export function Dashboard({ user, onLogout, botActivity, page = "home" }: Props)
               <RelevantOffers count={state.stats.counts.relevant} />
               <BotPanel activity={botActivity} />
             </div>
-
-            <StatsStrip stats={state.stats} />
 
             <section id="candidatures" aria-labelledby="applications-title" className="applications">
               <div className="toolbar">

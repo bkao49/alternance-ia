@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   bodyRows,
-  counter,
   firstCompany,
   renderApp,
   signedInApp,
@@ -52,16 +51,6 @@ describe("accueil", () => {
     expect(within(nav).getByRole("link", { name: "Candidatures" })).toHaveAttribute("href", "#candidatures");
     expect(within(nav).queryByRole("link", { name: /Offres/ })).not.toBeInTheDocument();
     expect(within(nav).getByText("bientôt")).toBeInTheDocument();
-  });
-});
-
-describe("chiffres clés", () => {
-  it("affiche les compteurs et les taux de conversion", async () => {
-    await signedInApp();
-    expect(counter("Entretiens")).toHaveTextContent("1");
-    expect(counter("Envoyées")).toHaveTextContent("5");
-    expect(counter("Détectées")).toHaveTextContent("42");
-    expect(screen.getByText("Envoyée → entretien").parentElement).toHaveTextContent("20 %");
   });
 });
 
@@ -168,7 +157,7 @@ describe("règle : « Envoyée » seulement par confirmation humaine", () => {
 
     expect(await within(dialog).findByText(/envoyée le/)).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "J'ai envoyé cette candidature" })).not.toBeInTheDocument();
-    expect(counter("Envoyées")).toHaveTextContent("6");
+    expect(within(dialog).getByText("Envoyée")).toBeInTheDocument();
   });
 });
 
