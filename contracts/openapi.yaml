@@ -132,6 +132,8 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ApplicationCreate" }
       responses:
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "201":
           description: Candidature créée
@@ -216,6 +218,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ConfirmSent" }
       responses:
+        "422": { $ref: "#/components/responses/ValidationError" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "200":
           description: Candidature passée à « Envoyée »
@@ -267,6 +270,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/StatusCreate" }
       responses:
+        "409": { $ref: "#/components/responses/Conflict" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "201":
           description: Statut créé
@@ -289,6 +293,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/StatusCreate" }
       responses:
+        "409": { $ref: "#/components/responses/Conflict" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "200":
           description: Statut mis à jour
@@ -392,7 +397,9 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Conflict:
-      description: Règle métier violée (par exemple `confirmation_required`)
+      description: |
+        Règle métier violée. Codes : `confirmation_required`, `already_sent`, `status_name_taken`,
+        `status_missing`.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -529,10 +536,10 @@ components:
       properties:
         id: { type: string, format: uuid }
         offer_id: { type: [string, "null"], format: uuid }
-        company: { type: string }
-        title: { type: string }
+        company: { type: [string, "null"] }
+        title: { type: [string, "null"] }
         status: { $ref: "#/components/schemas/Status" }
-        notes: { type: string }
+        notes: { type: [string, "null"] }
         sent_at: { type: [string, "null"], format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
@@ -580,7 +587,7 @@ components:
         from_status: { type: [string, "null"] }
         to_status: { type: string }
         actor: { type: string, enum: [user, system] }
-        comment: { type: string }
+        comment: { type: [string, "null"] }
         occurred_at: { type: string, format: date-time }
     EventPage:
       allOf:

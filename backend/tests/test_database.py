@@ -82,6 +82,20 @@ def test_migration_is_reversible(migrated_db, alembic_config):
         assert public_tables(conn) == EXPECTED_TABLES
 
 
+def test_a_user_cannot_have_two_statuses_with_the_same_system_key(two_users):
+    conn, alice, *_ = two_users
+    as_app(conn, alice)
+    insert = "INSERT INTO status_definitions (user_id, name, position, system_key) VALUES (%s, %s, 9, 'sent')"
+    conn.execute(insert, (alice, "Envoyée 1"))
+    with pytest.raises(errors.UniqueViolation):
+        conn.execute(insert, (alice, "Envoyée 2"))
+    conn.rollback()
+    as_app(conn, alice)
+    conn.execute("INSERT INTO status_definitions (user_id, name, position) VALUES (%s, 'Libre 1', 10)", (alice,))
+    conn.execute("INSERT INTO status_definitions (user_id, name, position) VALUES (%s, 'Libre 2', 11)", (alice,))
+    # sans clé système, plusieurs statuts personnalisés restent possibles
+
+
 def test_pgvector_is_installed(migrated_db):
     with psycopg.connect(migrated_db) as conn:
         assert conn.execute("SELECT 1 FROM pg_extension WHERE extname = 'vector'").fetchone()
