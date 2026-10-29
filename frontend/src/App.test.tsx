@@ -31,6 +31,30 @@ describe("connexion", () => {
   });
 });
 
+describe("accueil", () => {
+  it("salue l'utilisateur et résume les chiffres réels", async () => {
+    await signedInApp();
+    expect(screen.getByRole("heading", { level: 1, name: "Bonjour Demo." })).toBeInTheDocument();
+    expect(screen.getByText(/14 offres pertinentes à regarder\. Une candidature attend votre validation\./)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "14 offres pertinentes" })).toBeInTheDocument();
+  });
+
+  it("n'invente aucune activité du bot hors démonstration", async () => {
+    await signedInApp();
+    const bot = screen.getByRole("region", { name: "Le bot" });
+    expect(bot).toHaveTextContent("Aucune collecte pour l'instant");
+    expect(within(bot).queryByRole("list")).not.toBeInTheDocument();
+  });
+
+  it("garde l'écran des offres annoncé mais inactif tant qu'il n'existe pas", async () => {
+    await signedInApp();
+    const nav = screen.getByRole("navigation", { name: "Navigation principale" });
+    expect(within(nav).getByRole("link", { name: "Candidatures" })).toHaveAttribute("href", "#candidatures");
+    expect(within(nav).queryByRole("link", { name: /Offres/ })).not.toBeInTheDocument();
+    expect(within(nav).getByText("bientôt")).toBeInTheDocument();
+  });
+});
+
 describe("chiffres clés", () => {
   it("affiche les compteurs et les taux de conversion", async () => {
     await signedInApp();
