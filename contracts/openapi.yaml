@@ -1,0 +1,633 @@
+openapi: 3.1.0
+info:
+  title: Assistant alternance API
+  version: 0.1.0
+  description: |
+    Contrat v1 entre le frontend et le backend. Toute modification passe par une PR étiquetée `contract`.
+    Règle centrale : le statut « Envoyée » n'est atteignable que par `POST /applications/{id}/confirm-sent`,
+    c'est-à-dire par un clic humain. Aucun autre endpoint ne peut le poser.
+servers:
+  - url: http://127.0.0.1:8100
+    description: Développement local (docker compose)
+security:
+  - sessionCookie: []
+tags:
+  - name: auth
+  - name: offers
+  - name: applications
+  - name: statuses
+  - name: tasks
+  - name: dashboard
+
+paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Ouvrir une session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Session ouverte (cookie HttpOnly, Secure, SameSite)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Fermer la session
+      responses:
+        "204": { description: Session fermée }
+  /auth/me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: Utilisateur connecté
+      responses:
+        "200":
+          description: Utilisateur connecté
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /offers:
+    get:
+      tags: [offers]
+      operationId: listOffers
+      summary: Lister les offres détectées
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 }, description: Recherche texte }
+        - { name: min_score, in: query, schema: { type: number, minimum: 0, maximum: 5 } }
+        - { name: source, in: query, schema: { type: string } }
+        - { name: include_expired, in: query, schema: { type: boolean, default: false } }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [score_desc, detected_desc, title_asc], default: score_desc }
+      responses:
+        "200":
+          description: Page d'offres
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfferPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /offers/{offerId}:
+    get:
+      tags: [offers]
+      operationId: getOffer
+      summary: Détail d'une offre avec le détail du score
+      parameters:
+        - { $ref: "#/components/parameters/OfferId" }
+      responses:
+        "200":
+          description: Offre
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OfferDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /applications:
+    get:
+      tags: [applications]
+      operationId: listApplications
+      summary: Lister les candidatures
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - { name: status_id, in: query, schema: { type: string, format: uuid } }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+      responses:
+        "200":
+          description: Page de candidatures
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicationPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [applications]
+      operationId: createApplication
+      summary: Créer une candidature (depuis une offre ou à la main)
+      description: Le statut initial est « Détectée » ou « À préparer ». Jamais « Envoyée ».
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApplicationCreate" }
+      responses:
+        "201":
+          description: Candidature créée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /applications/{applicationId}:
+    parameters:
+      - { $ref: "#/components/parameters/ApplicationId" }
+    get:
+      tags: [applications]
+      operationId: getApplication
+      summary: Détail d'une candidature
+      responses:
+        "200":
+          description: Candidature
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [applications]
+      operationId: updateApplication
+      summary: Modifier les notes ou les liens (pas le statut)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApplicationUpdate" }
+      responses:
+        "200":
+          description: Candidature mise à jour
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /applications/{applicationId}/status:
+    post:
+      tags: [applications]
+      operationId: changeApplicationStatus
+      summary: Changer le statut
+      description: |
+        Refuse le statut « Envoyée » (erreur 409 `confirmation_required`) :
+        utiliser `confirm-sent`. Chaque changement est enregistré dans l'historique.
+      parameters:
+        - { $ref: "#/components/parameters/ApplicationId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StatusChange" }
+      responses:
+        "200":
+          description: Candidature avec son nouveau statut
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /applications/{applicationId}/confirm-sent:
+    post:
+      tags: [applications]
+      operationId: confirmApplicationSent
+      summary: Confirmer que la candidature a été envoyée par l'utilisateur
+      description: |
+        Seul chemin vers le statut « Envoyée ». `confirmed` doit valoir `true` ; sinon 409.
+        L'application n'envoie jamais rien : l'utilisateur envoie lui-même, puis confirme ici.
+      parameters:
+        - { $ref: "#/components/parameters/ApplicationId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConfirmSent" }
+      responses:
+        "200":
+          description: Candidature passée à « Envoyée »
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /applications/{applicationId}/events:
+    get:
+      tags: [applications]
+      operationId: listApplicationEvents
+      summary: Historique des statuts
+      parameters:
+        - { $ref: "#/components/parameters/ApplicationId" }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+      responses:
+        "200":
+          description: Page d'événements, du plus récent au plus ancien
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /statuses:
+    get:
+      tags: [statuses]
+      operationId: listStatuses
+      summary: Lister les statuts (ordre d'affichage)
+      responses:
+        "200":
+          description: Statuts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Status" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [statuses]
+      operationId: createStatus
+      summary: Créer un statut personnalisé
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StatusCreate" }
+      responses:
+        "201":
+          description: Statut créé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /statuses/{statusId}:
+    patch:
+      tags: [statuses]
+      operationId: updateStatus
+      summary: Renommer, recolorer ou réordonner un statut
+      description: Les 10 statuts par défaut peuvent être renommés mais pas supprimés.
+      parameters:
+        - { name: statusId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StatusCreate" }
+      responses:
+        "200":
+          description: Statut mis à jour
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Status" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /tasks:
+    get:
+      tags: [tasks]
+      operationId: listTasks
+      summary: Lister les tâches de validation humaine
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - name: state
+          in: query
+          schema: { type: string, enum: [open, done], default: open }
+      responses:
+        "200":
+          description: Page de tâches
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaskPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /tasks/{taskId}:
+    get:
+      tags: [tasks]
+      operationId: getTask
+      summary: Détail d'une tâche (offre, score, analyse, documents, étapes restantes)
+      parameters:
+        - { name: taskId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Tâche
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /documents/{documentId}/download:
+    get:
+      tags: [tasks]
+      operationId: downloadDocument
+      summary: Télécharger un CV ou une lettre
+      description: Redirige vers une URL signée, courte et liée à l'utilisateur.
+      parameters:
+        - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "302": { description: Redirection vers l'URL signée }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /dashboard/stats:
+    get:
+      tags: [dashboard]
+      operationId: getDashboardStats
+      summary: Compteurs et taux de conversion
+      responses:
+        "200":
+          description: Statistiques
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DashboardStats" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Cookie de session. Les méthodes POST, PATCH et PUT exigent aussi l'en-tête X-CSRF-Token.
+
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PageSize: { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+    OfferId: { name: offerId, in: path, required: true, schema: { type: string, format: uuid } }
+    ApplicationId: { name: applicationId, in: path, required: true, schema: { type: string, format: uuid } }
+
+  responses:
+    Unauthorized:
+      description: Non connecté
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Ressource introuvable (ou appartenant à un autre utilisateur)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Règle métier violée (par exemple `confirmation_required`)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ValidationError:
+      description: Données invalides
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Trop de tentatives, réessayer plus tard
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, examples: [confirmation_required] }
+        message: { type: string }
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              issue: { type: string }
+    PageMeta:
+      type: object
+      required: [page, page_size, total]
+      properties:
+        page: { type: integer }
+        page_size: { type: integer }
+        total: { type: integer }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    Me:
+      type: object
+      required: [id, email]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+
+    ScoreCriterion:
+      type: object
+      required: [key, score, weight, explanation]
+      properties:
+        key:
+          type: string
+          enum: [technical_skills, projects, domain, level, education, contract_location, ad_quality]
+        score: { type: number, minimum: 0, maximum: 1 }
+        weight: { type: number }
+        explanation: { type: string }
+        fact_ids:
+          type: array
+          items: { type: string, format: uuid }
+    Score:
+      type: object
+      required: [value, confidence, criteria, blocking_reasons]
+      properties:
+        value: { type: number, minimum: 0, maximum: 5 }
+        confidence: { type: string, enum: [low, medium, high] }
+        explanation: { type: string }
+        blocking_reasons:
+          type: array
+          items: { type: string }
+        criteria:
+          type: array
+          items: { $ref: "#/components/schemas/ScoreCriterion" }
+    Offer:
+      type: object
+      required: [id, title, company, source, url, detected_at, expired]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        company: { type: string }
+        location: { type: string }
+        source: { type: string, examples: [la_bonne_alternance] }
+        url: { type: string, format: uri }
+        detected_at: { type: string, format: date-time }
+        expired: { type: boolean }
+        score: { type: number, minimum: 0, maximum: 5 }
+    OfferDetail:
+      allOf:
+        - { $ref: "#/components/schemas/Offer" }
+        - type: object
+          properties:
+            description_text:
+              type: string
+              description: Texte d'annonce. Donnée non fiable, à afficher échappé, jamais comme HTML.
+            analysis_summary: { type: string }
+            score_detail: { $ref: "#/components/schemas/Score" }
+    OfferPage:
+      allOf:
+        - { $ref: "#/components/schemas/PageMeta" }
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Offer" }
+
+    Status:
+      type: object
+      required: [id, name, position, color, system_key]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        position: { type: integer }
+        color: { type: string, examples: ["#4f46e5"] }
+        system_key:
+          type: [string, "null"]
+          enum:
+            [detected, analyzed, to_prepare, human_review, sent, waiting, interview, rejected, offer_received, abandoned, null]
+          description: Clé des 10 statuts par défaut ; null pour un statut personnalisé.
+    StatusCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        color: { type: string }
+        position: { type: integer }
+
+    Application:
+      type: object
+      required: [id, status, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        offer_id: { type: [string, "null"], format: uuid }
+        company: { type: string }
+        title: { type: string }
+        status: { $ref: "#/components/schemas/Status" }
+        notes: { type: string }
+        sent_at: { type: [string, "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ApplicationCreate:
+      type: object
+      properties:
+        offer_id: { type: string, format: uuid }
+        company: { type: string }
+        title: { type: string }
+        notes: { type: string }
+        initial_status: { type: string, enum: [detected, to_prepare], default: to_prepare }
+      description: Fournir `offer_id`, ou `company` et `title` pour une saisie manuelle.
+    ApplicationUpdate:
+      type: object
+      properties:
+        notes: { type: string }
+        company: { type: string }
+        title: { type: string }
+    StatusChange:
+      type: object
+      required: [status_id]
+      properties:
+        status_id: { type: string, format: uuid }
+        comment: { type: string, maxLength: 500 }
+    ConfirmSent:
+      type: object
+      required: [confirmed]
+      properties:
+        confirmed: { type: boolean, description: "Doit valoir true : l'utilisateur certifie avoir envoyé lui-même la candidature." }
+        comment: { type: string, maxLength: 500 }
+    ApplicationPage:
+      allOf:
+        - { $ref: "#/components/schemas/PageMeta" }
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Application" }
+    Event:
+      type: object
+      required: [id, to_status, occurred_at, actor]
+      properties:
+        id: { type: string, format: uuid }
+        from_status: { type: [string, "null"] }
+        to_status: { type: string }
+        actor: { type: string, enum: [user, system] }
+        comment: { type: string }
+        occurred_at: { type: string, format: date-time }
+    EventPage:
+      allOf:
+        - { $ref: "#/components/schemas/PageMeta" }
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Event" }
+
+    Document:
+      type: object
+      required: [id, kind, filename]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [cv, cover_letter] }
+        filename: { type: string }
+    Task:
+      type: object
+      required: [id, application_id, reason, remaining_steps, documents, state]
+      properties:
+        id: { type: string, format: uuid }
+        application_id: { type: string, format: uuid }
+        state: { type: string, enum: [open, done] }
+        reason: { type: string, description: Pourquoi cette offre est proposée }
+        remaining_steps:
+          type: array
+          items: { type: string }
+        offer: { $ref: "#/components/schemas/Offer" }
+        score_detail: { $ref: "#/components/schemas/Score" }
+        documents:
+          type: array
+          items: { $ref: "#/components/schemas/Document" }
+        created_at: { type: string, format: date-time }
+    TaskPage:
+      allOf:
+        - { $ref: "#/components/schemas/PageMeta" }
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/Task" }
+
+    DashboardStats:
+      type: object
+      required: [counts, conversion]
+      properties:
+        counts:
+          type: object
+          description: Nombre d'éléments par étape de l'entonnoir
+          required: [detected, analyzed, relevant, prepared, to_validate, sent, replies, interviews, rejections, offers]
+          properties:
+            detected: { type: integer }
+            analyzed: { type: integer }
+            relevant: { type: integer }
+            prepared: { type: integer }
+            to_validate: { type: integer }
+            sent: { type: integer }
+            replies: { type: integer }
+            interviews: { type: integer }
+            rejections: { type: integer }
+            offers: { type: integer }
+        conversion:
+          type: object
+          required: [sent_to_reply, sent_to_interview, sent_to_offer]
+          properties:
+            sent_to_reply: { type: [number, "null"], minimum: 0, maximum: 1 }
+            sent_to_interview: { type: [number, "null"], minimum: 0, maximum: 1 }
+            sent_to_offer: { type: [number, "null"], minimum: 0, maximum: 1 }
