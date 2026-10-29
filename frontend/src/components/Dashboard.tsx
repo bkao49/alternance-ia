@@ -6,13 +6,18 @@ import type { Application, Me } from "../api/types";
 import { useDashboardData } from "../hooks";
 import { ApplicationDialog } from "./ApplicationDialog";
 import { ApplicationsTable } from "./ApplicationsTable";
+import { BotPanel, type BotActivity } from "./BotPanel";
+import { Greeting, RelevantOffers } from "./Hero";
 import { KanbanBoard } from "./KanbanBoard";
 import { NewApplicationDialog, type NewApplication } from "./NewApplicationDialog";
+import { Sidebar } from "./Sidebar";
 import { StatsStrip } from "./StatsStrip";
 
 type View = "table" | "kanban";
 
-export function Dashboard({ user, onLogout }: { user: Me; onLogout: () => Promise<void> }) {
+type Props = { user: Me; onLogout: () => Promise<void>; botActivity?: BotActivity };
+
+export function Dashboard({ user, onLogout, botActivity }: Props) {
   const api = useApi();
   const { state, reload } = useDashboardData();
   const [view, setView] = useState<View>("table");
@@ -88,20 +93,11 @@ export function Dashboard({ user, onLogout }: { user: Me; onLogout: () => Promis
 
   return (
     <div className="shell">
-      <header className="topbar">
-        <h1>Suivi d'alternance</h1>
-        <div className="topbar-actions">
-          <button type="button" className="primary" onClick={() => setCreating(true)}>
-            Nouvelle candidature
-          </button>
-          <span className="muted who">{user.email}</span>
-          <button type="button" onClick={() => void signOut()}>
-            Se déconnecter
-          </button>
-        </div>
-      </header>
+      <Sidebar user={user} onSignOut={() => void signOut()} />
 
-      <main>
+      <main id="accueil" className="page">
+        <Greeting user={user} stats={state.phase === "ready" ? state.stats : undefined} onCreate={() => setCreating(true)} />
+
         {state.phase === "loading" && <p role="status">Chargement…</p>}
         {state.phase === "error" && (
           <p role="alert" className="error">
@@ -114,9 +110,14 @@ export function Dashboard({ user, onLogout }: { user: Me; onLogout: () => Promis
 
         {state.phase === "ready" && (
           <>
+            <div className="stage">
+              <RelevantOffers count={state.stats.counts.relevant} />
+              <BotPanel activity={botActivity} />
+            </div>
+
             <StatsStrip stats={state.stats} />
 
-            <section aria-labelledby="applications-title" className="card">
+            <section id="candidatures" aria-labelledby="applications-title" className="applications">
               <div className="toolbar">
                 <h2 id="applications-title">Candidatures</h2>
                 <div className="filters">

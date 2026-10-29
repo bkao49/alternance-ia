@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 
 import { ApiFailure } from "../api/client";
+import { APP_NAME } from "../brand";
+import { Logo } from "./Logo";
 
 type Props = {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -37,9 +39,12 @@ export function LoginPage({ onLogin, demo }: Props) {
 
   return (
     <main className="login">
-      <form className="card login-card" onSubmit={submit}>
-        <h1>Suivi d'alternance</h1>
-        <p className="muted">Connectez-vous pour retrouver vos candidatures.</p>
+      <form className="login-card" onSubmit={submit}>
+        <h1 className="brand">
+          <Logo className="brand-logo" />
+          <span className="brand-name">{APP_NAME}</span>
+        </h1>
+        <p className="muted">Connectez-vous pour retrouver vos offres et vos candidatures.</p>
         {demo && (
           <p className="notice" role="note">
             Mode démonstration : données fictives, mot de passe <code>{demo.password}</code>.
