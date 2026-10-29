@@ -1,39 +1,67 @@
 import { useMemo, useState } from "react";
 
 import type { Application, Status } from "../api/types";
-import { formatDate } from "../format";
+import type { ScoresByOffer } from "../hooks";
+import { formatDate, formatScore } from "../format";
 import { MoveSelect, StatusBadge } from "./common";
 
-type SortKey = "company" | "title" | "status" | "created_at";
+type SortKey = "company" | "title" | "status" | "score" | "created_at";
 type Sort = { key: SortKey; direction: "ascending" | "descending" };
 
 const COLUMNS: [SortKey, string][] = [
   ["company", "Entreprise"],
   ["title", "Poste"],
   ["status", "Statut"],
+  ["score", "Score"],
   ["created_at", "Ajoutée le"],
 ];
 
-function compare(a: Application, b: Application, key: SortKey): number {
+function compare(a: Application, b: Application, key: SortKey, scores: ScoresByOffer): number {
+  // Sans score, une candidature passe après les autres en tri croissant (comme une valeur vide).
+  if (key === "score") return scoreOf(a, scores) - scoreOf(b, scores);
   if (key === "status") return a.status.position - b.status.position;
   if (key === "created_at") return a.created_at.localeCompare(b.created_at);
   return (a[key] ?? "").localeCompare(b[key] ?? "", "fr", { sensitivity: "base" });
 }
 
+const scoreOf = (a: Application, scores: ScoresByOffer) => (a.offer_id ? (scores[a.offer_id] ?? -1) : -1);
+
+/** Note sur 5 avec une petite jauge ; sans score (offre non analysée ou saisie à la main), un tiret lu « pas de score ». */
+function Score({ value }: { value: number | undefined }) {
+  if (value === undefined) {
+    return (
+      <span className="score muted">
+        <span aria-hidden="true">–</span>
+        <span className="visually-hidden">pas de score</span>
+      </span>
+    );
+  }
+  return (
+    <span className="score num">
+      {formatScore(value)}
+      <span className="visually-hidden"> sur 5</span>
+      <span className="score-track" aria-hidden="true">
+        <i style={{ width: `${(value / 5) * 100}%` }} />
+      </span>
+    </span>
+  );
+}
+
 type Props = {
   applications: Application[];
+  scores: ScoresByOffer;
   statuses: Status[];
   onOpen: (application: Application) => void;
   onMove: (application: Application, statusId: string) => void;
 };
 
-export function ApplicationsTable({ applications, statuses, onOpen, onMove }: Props) {
+export function ApplicationsTable({ applications, statuses, scores, onOpen, onMove }: Props) {
   const [sort, setSort] = useState<Sort>({ key: "created_at", direction: "descending" });
 
   const rows = useMemo(() => {
-    const sorted = [...applications].sort((a, b) => compare(a, b, sort.key));
+    const sorted = [...applications].sort((a, b) => compare(a, b, sort.key, scores));
     return sort.direction === "ascending" ? sorted : sorted.reverse();
-  }, [applications, sort]);
+  }, [applications, sort, scores]);
 
   function toggle(key: SortKey) {
     setSort((current) =>
@@ -73,6 +101,9 @@ export function ApplicationsTable({ applications, statuses, onOpen, onMove }: Pr
               <td>{application.title}</td>
               <td>
                 <StatusBadge status={application.status} />
+              </td>
+              <td>
+                <Score value={application.offer_id ? scores[application.offer_id] : undefined} />
               </td>
               <td>{formatDate(application.created_at)}</td>
               <td>
