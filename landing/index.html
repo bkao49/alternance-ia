@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__APP_NAME__ · les offres Data et IA, sans rien envoyer à ta place</title>
+<meta name="description" content="__APP_NAME__ trouve les offres de stage, d'alternance, de CDD et de CDI en Data et IA, les note sur 5 et prépare des candidatures sans rien inventer ni rien envoyer sans ton accord.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<script>document.documentElement.classList.add("js", ...(matchMedia("(prefers-reduced-motion: reduce)").matches ? [] : ["motion"]))</script>
+<script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+<a class="skip" href="#contenu">Aller au contenu</a>
+
+<header class="top">
+  <a class="brand" href="#haut">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><circle class="fill" cx="20" cy="20" r="20"/><path class="stroke" d="M10 27 C16 27 15 15 21 15 S27 13 30 11"/><circle class="ink" cx="30" cy="11" r="2.9"/></svg>
+    <span>__APP_NAME__</span>
+  </a>
+  <nav aria-label="Sections">
+    <a href="#etapes">Comment ça marche</a>
+    <a href="#apercu">Aperçu</a>
+    <a href="#garanties">Garanties</a>
+    <a href="#technique">Technique</a>
+  </nav>
+  <a class="btn btn-line" href="__REPO_URL__">GitHub</a>
+</header>
+
+<main id="contenu">
+  <div class="story">
+    <div class="story-text">
+      <section class="hero" id="haut" aria-labelledby="hero-t">
+        <p class="eyebrow">Projet open source, en construction</p>
+        <h1 id="hero-t">Les offres viennent à toi. <em>Tu</em> gardes la main.</h1>
+        <p class="lede">__APP_NAME__ trouve les offres de stage, d'alternance, de CDD et de CDI en Data et IA, les note sur 5 et prépare tes candidatures. Sans rien inventer, et sans rien envoyer sans ton accord.</p>
+        <ul class="chips" aria-label="Contrats couverts"><li>Stage</li><li>Alternance</li><li>CDD</li><li>CDI</li></ul>
+        <div class="actions">
+          <a class="btn btn-fill" href="__REPO_URL__">Voir le code sur GitHub</a>
+          <a class="btn btn-line" href="#etapes">Comment ça marche</a>
+        </div>
+      </section>
+
+      <section id="etapes" aria-labelledby="etapes-t">
+        <h2 id="etapes-t" class="h2">Comment ça marche</h2>
+        <ol class="steps">
+          <li class="step" data-step>
+            <span class="step-n">01</span>
+            <h3>Collecte</h3>
+            <p>Régulièrement, le bot lit les offres de sources autorisées, comme France Travail ou La Bonne Alternance, dans le respect de leurs conditions d'utilisation. Les doublons sont écartés.</p>
+          </li>
+          <li class="step" data-step>
+            <span class="step-n">02</span>
+            <h3>Score sur 5</h3>
+            <p>Chaque offre est comparée à ton profil : des règles simples, une proximité de sens, puis un avis argumenté. Tu vois pourquoi une offre obtient 4,4 et ce qui lui manque.</p>
+          </li>
+          <li class="step" data-step>
+            <span class="step-n">03</span>
+            <h3>CV adapté</h3>
+            <p>Pour les offres que tu retiens, un CV et une lettre sont préparés à partir de ton profil, uniquement avec des faits que tu as déclarés. Rien n'est ajouté.</p>
+          </li>
+          <li class="step" data-step>
+            <span class="step-n">04</span>
+            <h3>Validation humaine</h3>
+            <p>Tu relis, tu corriges, tu envoies toi-même. Une candidature ne passe « Envoyée » qu'après ta confirmation.</p>
+          </li>
+        </ol>
+      </section>
+    </div>
+
+    <div class="story-visual" aria-hidden="true">
+      <!-- Version 2D statique : affichée sans WebGL ou quand le mouvement est réduit. -->
+      <svg class="still" viewBox="0 0 320 400">
+        <g class="card dim"><rect x="40" y="40" width="240" height="56" rx="12"/><rect class="bar" x="58" y="74" width="48" height="4" rx="2"/></g>
+        <g class="card dim"><rect x="40" y="108" width="240" height="56" rx="12"/><rect class="bar" x="58" y="142" width="70" height="4" rx="2"/></g>
+        <g class="card"><rect x="40" y="176" width="240" height="56" rx="12"/><rect class="bar hot" x="58" y="210" width="128" height="4" rx="2"/></g>
+        <g class="card"><rect x="40" y="244" width="240" height="56" rx="12"/><rect class="bar hot" x="58" y="278" width="140" height="4" rx="2"/></g>
+        <g class="card pick"><rect x="28" y="312" width="264" height="64" rx="14"/><path d="M246 336 l8 8 l16 -16"/></g>
+      </svg>
+      <canvas id="scene"></canvas>
+    </div>
+  </div>
+
+  <section class="band" id="apercu" aria-labelledby="apercu-t">
+    <h2 id="apercu-t" class="h2" data-reveal>Le tableau de bord</h2>
+    <p class="lede" data-reveal>Une page pour tout voir : les offres qui valent le coup, ce que fait le bot, et où en est chaque candidature.</p>
+
+    <figure class="window" data-reveal aria-label="Aperçu du tableau de bord, avec des données fictives">
+      <div class="win-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="win-body" aria-hidden="true">
+        <p class="win-hello">Bonjour Léo.</p>
+        <div class="win-stage">
+          <div class="win-offers"><span class="big num">14</span><span>offres pertinentes</span></div>
+          <div class="win-bot">
+            <b>Le bot travaille</b>
+            <ul>
+              <li><time>14:03</time>Analyse de Data Engineer, Initech</li>
+              <li><time>14:03</time>Score 4,4 sur 5, confiance élevée</li>
+              <li><time>14:04</time>Nouvelle offre pertinente</li>
+            </ul>
+          </div>
+        </div>
+        <div class="win-rows">
+          <div><b>Globex IA</b><span>Machine Learning Engineer</span><em>CDI</em><span class="st">À préparer</span><span class="num">4,6</span></div>
+          <div><b>Initech Data</b><span>Data Engineer</span><em>Alternance</em><span class="st hot">À valider</span><span class="num">4,4</span></div>
+          <div><b>Umbrella Data</b><span>Data Analyst</span><em>Stage</em><span class="st">Analysée</span><span class="num">4,2</span></div>
+          <div><b>Hooli Labs</b><span>Ingénieur IA générative</span><em>CDD</em><span class="st">Entretien</span><span class="num">4,1</span></div>
+        </div>
+      </div>
+      <figcaption>Données fictives.</figcaption>
+    </figure>
+
+    <div class="charts">
+      <figure class="chart" data-reveal data-chart="collected">
+        <figcaption><span class="big num">1&nbsp;204</span> offres lues en 30 jours</figcaption>
+      </figure>
+      <figure class="chart" data-reveal data-chart="scores">
+        <figcaption><span class="big num">14</span> au-dessus de 4 sur 5</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band" id="garanties" aria-labelledby="garanties-t">
+    <h2 id="garanties-t" class="h2" data-reveal>Trois promesses, écrites dans le code</h2>
+    <div class="promises">
+      <article class="promise promise-red" data-reveal>
+        <h3>Aucun envoi automatique</h3>
+        <p>Le bot prépare, il n'envoie jamais. Chaque candidature part de ta main, après relecture.</p>
+      </article>
+      <article class="promise" data-reveal>
+        <h3>Aucune invention</h3>
+        <p>Un CV ne contient que des faits présents dans ton profil. Une compétence que tu n'as pas déclarée n'y apparaît pas.</p>
+      </article>
+      <article class="promise" data-reveal>
+        <h3>Données protégées</h3>
+        <p>Données isolées par utilisateur, mots de passe hachés, rien n'est revendu. Le texte d'une annonce est lu comme une donnée, jamais comme une instruction.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="band" id="technique" aria-labelledby="technique-t">
+    <h2 id="technique-t" class="h2" data-reveal>Pour les recruteurs</h2>
+    <p class="lede" data-reveal>Un projet personnel mené comme en équipe : une issue, une branche, une PR relue. Des agents IA écrivent une partie du code ; un humain relit et fusionne chaque changement.</p>
+    <dl class="specs" data-reveal>
+      <div><dt>Front</dt><dd>React 19, Vite, TypeScript, client généré depuis le contrat OpenAPI</dd></div>
+      <div><dt>Back</dt><dd>Python 3.12, FastAPI, un worker pour la collecte</dd></div>
+      <div><dt>Base</dt><dd>PostgreSQL et pgvector, isolation par utilisateur (Row Level Security)</dd></div>
+      <div><dt>IA</dt><dd>Claude, appelé via une passerelle unique : cache, plafond de coût et journal des appels</dd></div>
+      <div><dt>Sécurité</dt><dd>Argon2, session signée, protection CSRF, limitation des essais, aucun secret dans git</dd></div>
+      <div><dt>CI</dt><dd>GitHub Actions : lint, types, tests sur un vrai PostgreSQL, gitleaks, CodeQL, audit des dépendances</dd></div>
+      <div><dt>Déploiement</dt><dd>Docker Compose, dépendances et images épinglées</dd></div>
+    </dl>
+  </section>
+</main>
+
+<footer class="foot">
+  <p class="foot-name">__APP_NAME__</p>
+  <p>Projet personnel open source. Chiffres et captures fictifs. Aucun traceur, aucun cookie.</p>
+  <a class="btn btn-line" href="__REPO_URL__">Le code sur GitHub</a>
+</footer>
+</body>
+</html>
