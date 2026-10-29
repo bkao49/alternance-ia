@@ -1,4 +1,4 @@
-"""Compteurs du tableau de bord (GET /stats)."""
+"""Compteurs du tableau de bord, servis par GET /stats."""
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
