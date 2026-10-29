@@ -1,8 +1,52 @@
-# Squelette : un seul service pour l'instant. La base (PostgreSQL + pgvector)
-# arrive avec l'issue P1-1, le worker avec P2-4, Caddy avec P6-1.
+# Stack locale : base PostgreSQL + pgvector, migrations, API.
+# Le worker arrive avec P2-4, Caddy avec P6-1. Les variables viennent du fichier .env (voir .env.example).
 services:
+  db:
+    # Propriétaire (POSTGRES_USER) : sert UNIQUEMENT aux migrations. L'API utilise le rôle « app »
+    # créé par infra/db/10-roles.sh. Aucun port publié : seule l'API du réseau compose y accède.
+    image: pgvector/pgvector@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
+    environment:
+      POSTGRES_USER: owner
+      POSTGRES_DB: app
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est vide : copiez .env.example en .env puis renseignez-le}"
+      APP_DB_PASSWORD: "${APP_DB_PASSWORD:?APP_DB_PASSWORD est vide : copiez .env.example en .env puis renseignez-le}"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./infra/db/10-roles.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    # -h 127.0.0.1 : le serveur temporaire d'initialisation n'écoute que sur le socket, donc « healthy » arrive après 10-roles.sh.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U owner -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    # Amorçage ponctuel : applique les migrations en propriétaire, puis s'arrête.
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      MIGRATION_DATABASE_URL: "postgresql://owner:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est vide : copiez .env.example en .env puis renseignez-le}@db:5432/app"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build: ./backend
+    environment:
+      DATABASE_URL: "postgresql://app:${APP_DB_PASSWORD:?APP_DB_PASSWORD est vide : copiez .env.example en .env puis renseignez-le}@db:5432/app"
+      SECRET_KEY: "${SECRET_KEY:?SECRET_KEY est vide : générez-la (32 caractères minimum) et mettez-la dans .env}"
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      ALLOW_DEMO_DATA: ${ALLOW_DEMO_DATA:-false}
     ports:
       - "127.0.0.1:${API_PORT:-8100}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
+
+volumes:
+  db_data:
