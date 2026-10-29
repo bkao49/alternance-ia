@@ -32,3 +32,23 @@ function onScroll() {
 addEventListener("scroll", onScroll, { passive: true });
 addEventListener("resize", onScroll);
 onScroll();
+
+function hasWebGL(): boolean {
+  try {
+    const c = document.createElement("canvas");
+    return !!(c.getContext("webgl2") ?? c.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
+// La 3D (three.js) n'est chargée que si elle sera montrée ; sinon la version 2D reste affichée.
+const canvas = document.querySelector<HTMLCanvasElement>("#scene");
+if (canvas && motion && hasWebGL()) {
+  import("./scene")
+    .then(({ startScene }) => {
+      canvas.parentElement?.classList.add("has-3d");
+      startScene(canvas, () => progress);
+    })
+    .catch(() => canvas.parentElement?.classList.remove("has-3d"));
+}
