@@ -1,6 +1,6 @@
 import type { Application, Status } from "../api/types";
 import { formatDate } from "../format";
-import { MoveSelect } from "./common";
+import { MoveSelect, safeColor } from "./common";
 
 type Props = {
   applications: Application[];
@@ -9,22 +9,26 @@ type Props = {
   onMove: (application: Application, statusId: string) => void;
 };
 
-/** Une colonne par statut. Pas de glisser-déposer : le « Déplacer vers… » fonctionne au clavier. */
+/** Une colonne par statut. Pas de glisser-déposer : le menu « Déplacer vers… » fonctionne au clavier. */
 export function KanbanBoard({ applications, statuses, onOpen, onMove }: Props) {
   const columns = [...statuses].sort((a, b) => a.position - b.position);
 
   return (
-    <div className="kanban" role="list" aria-label="Candidatures par statut">
+    <ul className="kanban" aria-label="Candidatures par statut">
       {columns.map((status) => {
         const cards = applications.filter((a) => a.status.id === status.id);
         const headingId = `column-${status.id}`;
         return (
-          <section key={status.id} className="column" role="listitem" aria-labelledby={headingId}>
+          <li key={status.id} className="column" aria-labelledby={headingId}>
             <h3 id={headingId} className="column-title">
-              <span className="dot" style={{ background: status.color }} aria-hidden="true" />
+              <span className="dot" style={{ background: safeColor(status.color) }} aria-hidden="true" />
               {status.name}
-              <span className="count" aria-label={`${cards.length} candidature${cards.length > 1 ? "s" : ""}`}>
-                {cards.length}
+              <span className="count">
+                <span aria-hidden="true">{cards.length}</span>
+                <span className="visually-hidden">
+                  {" "}
+                  : {cards.length} candidature{cards.length > 1 ? "s" : ""}
+                </span>
               </span>
             </h3>
             {status.system_key === "sent" && (
@@ -46,9 +50,9 @@ export function KanbanBoard({ applications, statuses, onOpen, onMove }: Props) {
                 </li>
               ))}
             </ul>
-          </section>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }

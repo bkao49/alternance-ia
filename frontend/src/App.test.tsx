@@ -1,40 +1,16 @@
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createApi } from "./api/client";
-import { ApiContext } from "./api/context";
-import App from "./App";
-import { createMockFetch, DEMO_PASSWORD } from "./mock/mockFetch";
-
-type User = ReturnType<typeof userEvent.setup>;
-
-function renderApp(): User {
-  const api = createApi(createMockFetch());
-  render(
-    <ApiContext.Provider value={api}>
-      <App />
-    </ApiContext.Provider>,
-  );
-  return userEvent.setup();
-}
-
-async function signIn(user: User, password = DEMO_PASSWORD) {
-  await user.type(await screen.findByLabelText("Adresse e-mail"), "demo@example.test");
-  await user.type(screen.getByLabelText("Mot de passe"), password);
-  await user.click(screen.getByRole("button", { name: "Se connecter" }));
-}
-
-async function signedInApp(): Promise<User> {
-  const user = renderApp();
-  await signIn(user);
-  await screen.findByRole("heading", { name: "Candidatures" });
-  return user;
-}
-
-const bodyRows = () => within(screen.getByRole("table")).getAllByRole("row").slice(1);
-const firstCompany = () => within(bodyRows()[0] as HTMLElement).getAllByRole("rowheader")[0]?.textContent;
-const counter = (label: string) => within(screen.getByRole("region", { name: "Chiffres clés" })).getByText(label).parentElement;
+import {
+  bodyRows,
+  counter,
+  firstCompany,
+  renderApp,
+  signedInApp,
+  signIn,
+  validateMove,
+  type User,
+} from "./test/helpers";
 
 beforeEach(() => {
   document.cookie = "csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
@@ -104,14 +80,15 @@ describe("vue Kanban", () => {
   it("range les candidatures dans une colonne par statut", async () => {
     const user = await signedInApp();
     const board = await openKanban(user);
-    expect(within(board).getAllByRole("listitem").filter((el) => el.tagName === "SECTION")).toHaveLength(10);
-    expect(within(column(board, /Détectée/)).getAllByRole("button", { name: /Cyberdyne|Soylent/ })).toHaveLength(2);
+    expect(board.querySelectorAll(":scope > li")).toHaveLength(10);
+    expect(within(column(board, /Détectée/)).getAllByRole("button", { name: /^(Cyberdyne Vision|Soylent Foods)$/ })).toHaveLength(2);
   });
 
   it("déplace une carte d'une colonne à l'autre, au clavier comme à la souris", async () => {
     const user = await signedInApp();
     const board = await openKanban(user);
     await user.selectOptions(within(board).getByLabelText("Déplacer Cyberdyne Vision vers…"), "Analysée");
+    await user.click(validateMove("Cyberdyne Vision"));
 
     expect(await within(column(board, /Analysée/)).findByRole("button", { name: "Cyberdyne Vision" })).toBeInTheDocument();
     expect(within(column(board, /Détectée/)).queryByRole("button", { name: "Cyberdyne Vision" })).not.toBeInTheDocument();
@@ -132,6 +109,7 @@ describe("parcours : créer une candidature puis changer son statut", () => {
     expect(bodyRows()).toHaveLength(13);
 
     await user.selectOptions(screen.getByLabelText("Déplacer Zorg Industries vers…"), "Entretien");
+    await user.click(validateMove("Zorg Industries"));
     const row = (await screen.findByRole("button", { name: "Zorg Industries" })).closest("tr") as HTMLElement;
     await within(row).findByText("Entretien");
 

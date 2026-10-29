@@ -1,8 +1,8 @@
 import type { Application, ApplicationEvent, DashboardStats, Status } from "../api/types";
 import { seedApplications, seedStatuses } from "./data";
+import { DEMO } from "./demoInfo";
 
-export const DEMO_PASSWORD = "demo-demo";
-const DEMO_USER = { id: "user-demo", email: "demo@example.test" };
+const DEMO_USER = { id: "user-demo", email: DEMO.email };
 const REPLY_KEYS = ["interview", "rejected", "offer_received"];
 const PREPARED_KEYS = ["human_review", "sent", "waiting", "interview", "rejected", "offer_received"];
 
@@ -68,7 +68,7 @@ export function createMockFetch() {
     const body = hasBody ? ((await request.json().catch(() => ({}))) as Record<string, unknown>) : {};
 
     if (method === "POST" && path === "/auth/login") {
-      if (body.password !== DEMO_PASSWORD) return error(401, "invalid_credentials", "Identifiants invalides");
+      if (body.password !== DEMO.password) return error(401, "invalid_credentials", "Identifiants invalides");
       signedIn = true;
       document.cookie = "csrf_token=demo; path=/";
       return json(DEMO_USER);
@@ -138,4 +138,3 @@ export function createMockFetch() {
   };
 }
 
-export const mockFetch = createMockFetch();

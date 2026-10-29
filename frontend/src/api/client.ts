@@ -1,6 +1,5 @@
 import createClient, { type Middleware } from "openapi-fetch";
 
-import { mockFetch } from "../mock/mockFetch";
 import type { paths } from "./schema";
 
 export class ApiFailure extends Error {
@@ -39,8 +38,8 @@ export function createApi(fetchImpl?: (request: Request) => Promise<Response>) {
 
 export type Api = ReturnType<typeof createApi>;
 
-// `npm run dev:mock` : l'interface tourne avec des données fictives, sans backend.
-export const api: Api = createApi(import.meta.env.MODE === "mock" ? mockFetch : undefined);
+/** Client réel. Le faux backend de démonstration n'est jamais importé ici (voir `main.tsx`). */
+export const api: Api = createApi();
 
 type Result<T> = { data?: T; error?: unknown; response: Response };
 

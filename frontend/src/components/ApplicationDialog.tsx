@@ -9,16 +9,19 @@ import { Dialog, MoveSelect, StatusBadge } from "./common";
 type Props = {
   application: Application;
   statuses: Status[];
+  announcement: string;
+  problem: string | null;
   onMove: (statusId: string) => void;
   onConfirmSent: () => Promise<void>;
   onClose: () => void;
 };
 
-export function ApplicationDialog({ application, statuses, onMove, onConfirmSent, onClose }: Props) {
+export function ApplicationDialog({ application, statuses, announcement, problem, onMove, onConfirmSent, onClose }: Props) {
   const api = useApi();
   const [events, setEvents] = useState<ApplicationEvent[] | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [checked, setChecked] = useState(false);
+  const [sending, setSending] = useState(false);
   const checkboxId = useId();
   const isSent = application.status.system_key === "sent";
 
@@ -33,13 +36,31 @@ export function ApplicationDialog({ application, statuses, onMove, onConfirmSent
     };
   }, [api, application.id, application.status.id]);
 
+  async function confirmSent() {
+    setSending(true); // une seule requête, même en cas de double clic
+    try {
+      await onConfirmSent();
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <Dialog title={application.company ?? "Candidature"} onClose={onClose}>
+      {/* Dans la fenêtre : une zone d'annonce située derrière une modale n'est pas lue. */}
+      <p className="visually-hidden" role="status" aria-live="polite">
+        {announcement}
+      </p>
       <p className="muted">{application.title}</p>
       <p>
         <StatusBadge status={application.status} />
         {application.sent_at && <span className="muted"> · envoyée le {formatDateTime(application.sent_at)}</span>}
       </p>
+      {problem && (
+        <p role="alert" className="error">
+          {problem}
+        </p>
+      )}
 
       <div className="actions">
         <MoveSelect application={application} statuses={statuses} onMove={onMove} label="Changer le statut" />
@@ -61,7 +82,7 @@ export function ApplicationDialog({ application, statuses, onMove, onConfirmSent
             <label htmlFor={checkboxId}>Je confirme avoir envoyé moi-même cette candidature</label>
           </div>
           <div className="actions">
-            <button type="button" className="primary" disabled={!checked} onClick={onConfirmSent}>
+            <button type="button" className="primary" disabled={!checked || sending} onClick={() => void confirmSent()}>
               Marquer comme envoyée
             </button>
             <button type="button" onClick={() => setConfirming(false)}>

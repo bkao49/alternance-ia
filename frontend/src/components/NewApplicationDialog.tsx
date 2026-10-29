@@ -9,7 +9,8 @@ export type NewApplication = {
   initial_status: "detected" | "to_prepare";
 };
 
-type Props = { onCreate: (body: NewApplication) => Promise<void>; onClose: () => void };
+/** Renvoie `null` en cas de succès, sinon le message d'erreur à montrer dans la fenêtre. */
+type Props = { onCreate: (body: NewApplication) => Promise<string | null>; onClose: () => void };
 
 export function NewApplicationDialog({ onCreate, onClose }: Props) {
   const [company, setCompany] = useState("");
@@ -17,16 +18,21 @@ export function NewApplicationDialog({ onCreate, onClose }: Props) {
   const [notes, setNotes] = useState("");
   const [initialStatus, setInitialStatus] = useState<NewApplication["initial_status"]>("to_prepare");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
-    try {
-      await onCreate({ company: company.trim(), title: title.trim(), notes: notes.trim() || undefined, initial_status: initialStatus });
-      onClose();
-    } finally {
-      setBusy(false);
-    }
+    setError(null);
+    const failure = await onCreate({
+      company: company.trim(),
+      title: title.trim(),
+      notes: notes.trim() || undefined,
+      initial_status: initialStatus,
+    });
+    setBusy(false);
+    if (failure === null) onClose();
+    else setError(failure); // la fenêtre reste ouverte : la saisie n'est pas perdue
   }
 
   return (
@@ -51,6 +57,11 @@ export function NewApplicationDialog({ onCreate, onClose }: Props) {
           Notes (facultatif)
           <textarea rows={3} maxLength={5000} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </label>
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
         <div className="actions">
           <button type="submit" className="primary" disabled={busy || !company.trim() || !title.trim()}>
             Ajouter

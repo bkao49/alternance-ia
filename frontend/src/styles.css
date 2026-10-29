@@ -525,3 +525,25 @@ select.move {
     transition: background-color 0.12s ease, filter 0.12s ease;
   }
 }
+
+.move-group {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+button.move-go {
+  min-height: 2rem;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.9rem;
+}
+
+ul.kanban, ul.cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+li.column {
+  list-style: none;
+}

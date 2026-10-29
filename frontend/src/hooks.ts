@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { unwrap, type Api } from "./api/client";
+import type { Middleware } from "openapi-fetch";
+
+import { ApiFailure, unwrap, type Api } from "./api/client";
 import { useApi } from "./api/context";
 import type { Application, DashboardStats, Me, Status } from "./api/types";
 
@@ -17,8 +19,18 @@ export function useSession(): SessionState {
       .GET("/auth/me")
       .then((result) => active && setUser(result.data ?? null))
       .catch(() => active && setUser(null));
+
+    // Session expirée en cours d'usage : n'importe quelle réponse 401 ramène à l'écran de connexion.
+    const onExpiredSession: Middleware = {
+      onResponse({ request, response }) {
+        const path = new URL(request.url).pathname;
+        if (response.status === 401 && !path.endsWith("/auth/login") && !path.endsWith("/auth/me")) setUser(null);
+      },
+    };
+    api.use(onExpiredSession);
     return () => {
       active = false;
+      api.eject(onExpiredSession);
     };
   }, [api]);
 
@@ -29,7 +41,11 @@ export function useSession(): SessionState {
     [api],
   );
   const logout = useCallback(async () => {
-    await api.POST("/auth/logout");
+    const result = await api.POST("/auth/logout");
+    // 401 : la session n'existait déjà plus. Toute autre erreur : on ne prétend pas être déconnecté.
+    if (result.error !== undefined && result.response.status !== 401) {
+      throw new ApiFailure(result.response.status, "logout_failed", "Déconnexion impossible, réessayez.");
+    }
     setUser(null);
   }, [api]);
 

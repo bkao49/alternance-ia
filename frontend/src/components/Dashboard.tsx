@@ -12,7 +12,7 @@ import { StatsStrip } from "./StatsStrip";
 
 type View = "table" | "kanban";
 
-export function Dashboard({ user, onLogout }: { user: Me; onLogout: () => void }) {
+export function Dashboard({ user, onLogout }: { user: Me; onLogout: () => Promise<void> }) {
   const api = useApi();
   const { state, reload } = useDashboardData();
   const [view, setView] = useState<View>("table");
@@ -33,14 +33,27 @@ export function Dashboard({ user, onLogout }: { user: Me; onLogout: () => void }
     );
   }, [applications, search, statusFilter]);
 
-  async function run(action: () => Promise<unknown>, message: string) {
+  /** Renvoie `null` si l'action a réussi, sinon le message d'erreur. L'état est rechargé dans les deux cas. */
+  async function run(action: () => Promise<unknown>, message: string): Promise<string | null> {
     try {
       await action();
       await reload();
       setProblem(null);
       setAnnouncement(message);
+      return null;
     } catch (failure) {
-      setProblem(failure instanceof Error ? failure.message : "Action impossible");
+      const text = failure instanceof Error ? failure.message : "Action impossible";
+      setProblem(text);
+      await reload();
+      return text;
+    }
+  }
+
+  async function signOut() {
+    try {
+      await onLogout();
+    } catch (failure) {
+      setProblem(failure instanceof Error ? failure.message : "Déconnexion impossible");
     }
   }
 
@@ -82,7 +95,7 @@ export function Dashboard({ user, onLogout }: { user: Me; onLogout: () => void }
             Nouvelle candidature
           </button>
           <span className="muted who">{user.email}</span>
-          <button type="button" onClick={onLogout}>
+          <button type="button" onClick={() => void signOut()}>
             Se déconnecter
           </button>
         </div>
@@ -167,8 +180,12 @@ export function Dashboard({ user, onLogout }: { user: Me; onLogout: () => void }
         <ApplicationDialog
           application={selected}
           statuses={state.statuses}
+          announcement={announcement}
+          problem={problem}
           onMove={(statusId) => void move(selected, statusId)}
-          onConfirmSent={() => confirmSent(selected)}
+          onConfirmSent={async () => {
+            await confirmSent(selected);
+          }}
           onClose={() => setSelectedId(null)}
         />
       )}

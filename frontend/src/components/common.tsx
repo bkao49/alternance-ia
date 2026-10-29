@@ -1,18 +1,27 @@
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import type { Application, Status } from "../api/types";
+
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+/** La couleur vient de l'API : on n'en injecte dans le style que si c'est bien un code hexadécimal. */
+export const safeColor = (color: string) => (HEX_COLOR.test(color) ? color : "#64748b");
 
 /** Pastille de couleur + texte : l'information ne repose jamais sur la couleur seule. */
 export function StatusBadge({ status }: { status: Status }) {
   return (
     <span className="badge">
-      <span className="dot" style={{ background: status.color }} aria-hidden="true" />
+      <span className="dot" style={{ background: safeColor(status.color) }} aria-hidden="true" />
       {status.name}
     </span>
   );
 }
 
-/** « Envoyée » n'apparaît jamais ici : ce statut ne s'obtient que par la confirmation d'envoi. */
+/**
+ * Choix d'un statut + bouton de validation : changer la sélection au clavier ne déplace rien tant
+ * qu'on n'a pas validé. « Envoyée » n'apparaît jamais ici : ce statut ne s'obtient que par la
+ * confirmation d'envoi.
+ */
 export function MoveSelect({
   application,
   statuses,
@@ -24,21 +33,33 @@ export function MoveSelect({
   onMove: (statusId: string) => void;
   label?: string;
 }) {
+  const [target, setTarget] = useState("");
+  const name = application.company ?? "la candidature";
   const options = statuses.filter((s) => s.system_key !== "sent" && s.id !== application.status.id);
+
   return (
-    <select
-      className="move"
-      aria-label={label ?? `Déplacer ${application.company ?? "la candidature"} vers…`}
-      value=""
-      onChange={(event) => event.target.value && onMove(event.target.value)}
-    >
-      <option value="">Déplacer vers…</option>
-      {options.map((status) => (
-        <option key={status.id} value={status.id}>
-          {status.name}
-        </option>
-      ))}
-    </select>
+    <span className="move-group">
+      <select className="move" aria-label={label ?? `Déplacer ${name} vers…`} value={target} onChange={(e) => setTarget(e.target.value)}>
+        <option value="">Déplacer vers…</option>
+        {options.map((status) => (
+          <option key={status.id} value={status.id}>
+            {status.name}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="move-go"
+        disabled={!target}
+        aria-label={`Valider le déplacement de ${name}`}
+        onClick={() => {
+          onMove(target);
+          setTarget("");
+        }}
+      >
+        Déplacer
+      </button>
+    </span>
   );
 }
 
