@@ -4,7 +4,7 @@ import type { Middleware } from "openapi-fetch";
 
 import { ApiFailure, unwrap, type Api } from "./api/client";
 import { useApi } from "./api/context";
-import type { Application, DashboardStats, Me, Status } from "./api/types";
+import type { Application, DashboardStats, Me, Offer, Status } from "./api/types";
 
 export type SessionState = { user: Me | null | undefined; login: (email: string, password: string) => Promise<void>; logout: () => Promise<void> };
 
@@ -52,7 +52,10 @@ export function useSession(): SessionState {
   return { user, login, logout };
 }
 
-export type DashboardData = { statuses: Status[]; applications: Application[]; stats: DashboardStats };
+/** Score de chaque offre qui en a un, par identifiant d'offre : une candidature liée à une offre en hérite. */
+export type ScoresByOffer = Record<string, number>;
+
+export type DashboardData = { statuses: Status[]; applications: Application[]; stats: DashboardStats; scores: ScoresByOffer };
 export type DashboardState =
   | { phase: "loading" }
   | { phase: "error"; message: string }
@@ -70,13 +73,30 @@ async function fetchDashboard(api: Api): Promise<DashboardState> {
     }
   }
 
+  async function loadScores(): Promise<ScoresByOffer> {
+    const scores: ScoresByOffer = {};
+    try {
+      let seen = 0;
+      for (let page = 1; ; page += 1) {
+        const result = unwrap(await api.GET("/offers", { params: { query: { page, page_size: PAGE_SIZE } } }));
+        for (const offer of result.items as Offer[]) if (offer.score !== undefined) scores[offer.id] = offer.score;
+        seen += result.items.length;
+        if (seen >= result.total || result.items.length === 0) break;
+      }
+    } catch {
+      // Les scores sont un plus : sans eux, la colonne affiche des tirets et le reste de l'écran fonctionne.
+    }
+    return scores;
+  }
+
   try {
-    const [statuses, stats, applications] = await Promise.all([
+    const [statuses, stats, applications, scores] = await Promise.all([
       api.GET("/statuses").then(unwrap),
       api.GET("/dashboard/stats").then(unwrap),
       loadAllApplications(),
+      loadScores(),
     ]);
-    return { phase: "ready", statuses, stats, applications };
+    return { phase: "ready", statuses, stats, applications, scores };
   } catch (error) {
     return { phase: "error", message: error instanceof Error ? error.message : "Chargement impossible" };
   }

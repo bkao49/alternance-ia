@@ -1,5 +1,5 @@
 import type { Application, ApplicationEvent, DashboardStats, Status } from "../api/types";
-import { seedApplications, seedStatuses } from "./data";
+import { seedApplications, seedOffers, seedStatuses } from "./data";
 import { DEMO } from "./demoInfo";
 
 const DEMO_USER = { id: "user-demo", email: DEMO.email };
@@ -16,6 +16,7 @@ const error = (status: number, code: string, message: string) => json({ code, me
 export function createMockFetch() {
   const statuses: Status[] = seedStatuses();
   const applications: Application[] = seedApplications(statuses);
+  const offers = seedOffers(applications);
   const events = new Map<string, ApplicationEvent[]>();
   let signedIn = false;
   let nextId = applications.length + 1;
@@ -83,6 +84,11 @@ export function createMockFetch() {
     if (method === "GET" && path === "/statuses") return json(statuses);
     if (method === "GET" && path === "/dashboard/stats") return json(stats());
 
+    if (method === "GET" && path === "/offers") {
+      const page = Number(url.searchParams.get("page") ?? 1);
+      const size = Number(url.searchParams.get("page_size") ?? 25);
+      return json({ items: offers.slice((page - 1) * size, page * size), page, page_size: size, total: offers.length });
+    }
     if (method === "GET" && path === "/applications") {
       const page = Number(url.searchParams.get("page") ?? 1);
       const size = Number(url.searchParams.get("page_size") ?? 25);
