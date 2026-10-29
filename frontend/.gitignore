@@ -1,0 +1,4 @@
+# Généré depuis ../contracts/openapi.yaml par `npm run gen:api` (jamais édité à la main).
+src/api/schema.d.ts
+dist/
+node_modules/
