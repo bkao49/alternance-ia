@@ -233,12 +233,56 @@ def test_conversion_is_null_when_nothing_was_sent(alice, contract):  # noqa: F81
     assert stats["conversion"] == {"sent_to_reply": None, "sent_to_interview": None, "sent_to_offer": None}
 
 
-def test_conversion_is_capped_at_one(alice):  # noqa: F811
-    advance(alice, new_application(alice)["id"], "interview")  # réponse sans envoi confirmé
-    advance(alice, new_application(alice)["id"], "human_review", "sent")
+def test_conversion_ignores_replies_without_a_confirmed_send(alice):  # noqa: F811
+    advance(alice, new_application(alice)["id"], "interview")  # jamais envoyée, passée à la main
+    advance(alice, new_application(alice)["id"], "human_review", "sent")  # envoyée, sans réponse
     stats = alice.get("/dashboard/stats").json()
-    assert stats["counts"]["replies"] == 1 and stats["counts"]["sent"] == 1
-    assert stats["conversion"]["sent_to_reply"] == 1.0
+    assert stats["counts"]["replies"] == 1 and stats["counts"]["interviews"] == 1  # entonnoir inchangé
+    assert stats["counts"]["sent"] == 1
+    assert stats["conversion"] == {"sent_to_reply": 0.0, "sent_to_interview": 0.0, "sent_to_offer": 0.0}
+
+
+def test_custom_status_is_ignored_and_revisits_are_counted_once(alice):  # noqa: F811
+    custom = alice.post("/statuses", {"name": "Relance perso"})
+    assert custom.status_code == 201
+    application_id = new_application(alice)["id"]
+    advance(alice, application_id, "human_review", "sent", "interview", "waiting", "interview", "waiting", "interview")
+    assert alice.post(f"/applications/{application_id}/status", {"status_id": custom.json()["id"]}).status_code == 200
+    stats = alice.get("/dashboard/stats").json()
+    assert stats["counts"]["interviews"] == 1 and stats["counts"]["replies"] == 1
+    assert stats["counts"]["prepared"] == 1 and stats["counts"]["sent"] == 1
+    assert stats["conversion"]["sent_to_interview"] == 1.0
+
+
+def test_stats_are_distinct_for_two_users_with_data(alice, bob, migrated_db):  # noqa: F811
+    add_offer(migrated_db, alice.user_id, "a")
+    for i in range(3):
+        add_offer(migrated_db, bob.user_id, f"b{i}")
+    advance(alice, new_application(alice)["id"], "human_review", "sent", "interview")
+    advance(bob, new_application(bob)["id"], "human_review", "sent")
+    advance(bob, new_application(bob)["id"], "human_review")
+    a, b = (api.get("/dashboard/stats").json() for api in (alice, bob))
+    assert (a["counts"]["detected"], a["counts"]["sent"], a["counts"]["interviews"], a["counts"]["to_validate"]) == (1, 1, 1, 0)
+    assert (b["counts"]["detected"], b["counts"]["sent"], b["counts"]["interviews"], b["counts"]["to_validate"]) == (3, 1, 0, 1)
+    assert a["conversion"]["sent_to_interview"] == 1.0 and b["conversion"]["sent_to_interview"] == 0.0
+
+
+def test_offer_detail_does_not_leak_analysis_or_score(alice, bob, migrated_db):  # noqa: F811
+    offer_id = add_offer(migrated_db, alice.user_id, "a")
+    add_analysis(migrated_db, alice.user_id, offer_id)
+    add_score(migrated_db, alice.user_id, offer_id, 4.0)
+    other = add_offer(migrated_db, bob.user_id, "b")  # même source, autre utilisateur
+    detail = bob.get(f"/offers/{other}").json()
+    assert "analysis_summary" not in detail and "score_detail" not in detail and "score" not in detail
+    assert bob.get(f"/offers/{offer_id}").status_code == 404
+
+
+def test_expired_offer_detail_is_returned(alice, migrated_db, contract):  # noqa: F811
+    offer_id = add_offer(migrated_db, alice.user_id, "a", expired=True)
+    assert titles(alice) == []
+    detail = alice.get(f"/offers/{offer_id}").json()
+    assert detail["expired"] is True
+    assert_conforms(contract, "OfferDetail", detail)
 
 
 def test_stats_are_isolated_between_users(alice, bob, migrated_db):  # noqa: F811

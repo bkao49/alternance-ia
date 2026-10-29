@@ -25,13 +25,18 @@ REPLY_KEYS = ["interview", "rejected", "offer_received"]
 #   sent        candidatures avec sent_at non nul (renseigné uniquement par confirm-sent)
 #   replies     candidatures ayant atteint interview, rejected ou offer_received
 #   interviews / rejections / offers  candidatures ayant atteint interview / rejected / offer_received
+# Taux de conversion : même définition, mais le numérateur ne compte que les candidatures avec
+# sent_at non nul (sent_replies, sent_interviews, sent_offers), pour que taux <= 1 par construction.
+# Offres expirées : detected, analyzed et relevant les INCLUENT, alors que GET /offers les masque par
+# défaut (décision à valider par le PO).
 STATS_SQL = """
     WITH latest AS (
         SELECT DISTINCT ON (job_posting_id) job_posting_id, value
         FROM scores ORDER BY job_posting_id, created_at DESC, id
     ), reached AS (
-        SELECT DISTINCT e.application_id, s.system_key
+        SELECT DISTINCT e.application_id, s.system_key, a.sent_at IS NOT NULL AS was_sent
         FROM events e JOIN status_definitions s ON s.id = e.to_status_id
+        JOIN applications a ON a.id = e.application_id
         WHERE s.system_key IS NOT NULL
     )
     SELECT
@@ -47,14 +52,17 @@ STATS_SQL = """
             WHERE system_key = ANY(CAST(:replies AS text[]))) AS replies,
         (SELECT count(*) FROM reached WHERE system_key = 'interview') AS interviews,
         (SELECT count(*) FROM reached WHERE system_key = 'rejected') AS rejections,
-        (SELECT count(*) FROM reached WHERE system_key = 'offer_received') AS offers
+        (SELECT count(*) FROM reached WHERE system_key = 'offer_received') AS offers,
+        (SELECT count(DISTINCT application_id) FROM reached
+            WHERE was_sent AND system_key = ANY(CAST(:replies AS text[]))) AS sent_replies,
+        (SELECT count(*) FROM reached WHERE was_sent AND system_key = 'interview') AS sent_interviews,
+        (SELECT count(*) FROM reached WHERE was_sent AND system_key = 'offer_received') AS sent_offers
 """
 
 
 def _rate(part: int, sent: int) -> float | None:
-    """Taux de conversion depuis « envoyée » ; null si rien n'a été envoyé. Plafonné à 1 : une
-    candidature peut avoir une réponse sans sent_at (statut changé à la main)."""
-    return None if sent == 0 else min(1.0, part / sent)
+    """Taux de conversion depuis « envoyée » ; null si rien n'a été envoyé."""
+    return None if sent == 0 else part / sent
 
 
 @router.get("/dashboard/stats", operation_id="getDashboardStats")
@@ -63,12 +71,13 @@ def get_dashboard_stats(session: Session = Depends(current_session)):
         counts = dict(conn.execute(
             text(STATS_SQL), {"relevant": RELEVANT_SCORE, "prepared": PREPARED_KEYS, "replies": REPLY_KEYS}
         ).mappings().one())
+    from_sent = {key: counts.pop(key) for key in ("sent_replies", "sent_interviews", "sent_offers")}
     sent = counts["sent"]
     return {
         "counts": counts,
         "conversion": {
-            "sent_to_reply": _rate(counts["replies"], sent),
-            "sent_to_interview": _rate(counts["interviews"], sent),
-            "sent_to_offer": _rate(counts["offers"], sent),
+            "sent_to_reply": _rate(from_sent["sent_replies"], sent),
+            "sent_to_interview": _rate(from_sent["sent_interviews"], sent),
+            "sent_to_offer": _rate(from_sent["sent_offers"], sent),
         },
     }
