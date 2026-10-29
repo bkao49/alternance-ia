@@ -92,3 +92,14 @@ jobs:
         run: |
           npx --yes @stoplight/spectral-cli@6.17.0 lint contracts/openapi.yaml --fail-severity=warn
           npx --yes openapi-typescript@7.13.0 contracts/openapi.yaml -o "$RUNNER_TEMP/api.d.ts"
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Valider docker-compose.yml (variables factices, non secrètes)
+        env:
+          POSTGRES_PASSWORD: factice
+          APP_DB_PASSWORD: factice
+          SECRET_KEY: factice-factice-factice-factice-12
+        run: docker compose config -q
