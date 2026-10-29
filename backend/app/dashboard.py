@@ -1,3 +1,5 @@
+"""Compteurs du tableau de bord (GET /stats)."""
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
