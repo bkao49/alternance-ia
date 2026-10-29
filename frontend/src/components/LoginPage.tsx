@@ -39,7 +39,7 @@ export function LoginPage({ onLogin, demo }: Props) {
 
   return (
     <main className="login">
-      <form className="card login-card" onSubmit={submit}>
+      <form className="login-card" onSubmit={submit}>
         <h1 className="brand">
           <Logo className="brand-logo" />
           <span className="brand-name">{APP_NAME}</span>

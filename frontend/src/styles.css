@@ -504,6 +504,11 @@ h2.offers-label {
   font-size: 0.85rem;
 }
 
+/* Candidatures : la cible du lien de la barre latérale garde un peu d'air au-dessus */
+.applications {
+  scroll-margin-top: var(--space-5);
+}
+
 /* Candidatures : barre d'outils */
 .toolbar {
   display: flex;
