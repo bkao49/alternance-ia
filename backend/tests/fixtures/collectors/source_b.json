@@ -1,0 +1,11 @@
+{
+  "_avertissement": "Données entièrement fictives (entreprises inventées). Aucune vraie annonce.",
+  "resultats": [
+    {"id": "b-9001", "intitule": "STAGIAIRE  DATA-SCIENTIST", "entreprise": "GLOBEX", "lieu": "lyon",
+     "lien": "https://emplois.example.org/b-9001", "contrat": "STAGE",
+     "description": "Même offre que A-001, publiée sur une autre source."},
+    {"id": "b-9002", "intitule": "Stagiaire Data Scientist", "entreprise": "Globex", "lieu": "Lyon",
+     "lien": "https://emplois.example.org/b-9002", "contrat": "CDI",
+     "description": "Même intitulé mais en CDI : ce n'est pas un doublon."}
+  ]
+}
