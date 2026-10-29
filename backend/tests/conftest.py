@@ -38,6 +38,7 @@ def migrated_db(monkeypatch):
         admin.execute(f'CREATE DATABASE "{name}"')
     url = admin_url.rsplit("/", 1)[0] + "/" + name
     monkeypatch.setenv("DATABASE_URL", url)
+    monkeypatch.delenv("MIGRATION_DATABASE_URL", raising=False)
     command.upgrade(make_alembic_config(), "head")
     yield url
     with psycopg.connect(admin_url, autocommit=True) as admin:
