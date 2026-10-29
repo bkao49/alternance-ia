@@ -5,6 +5,10 @@
 # Le mot de passe vient de l'environnement (APP_DB_PASSWORD) : il n'est écrit dans aucun fichier.
 set -eu
 
+# À améliorer plus tard (relecture Sécurité de la PR #55) : le propriétaire « owner » est superutilisateur
+# dans l'image PostgreSQL, donc la fonction SECURITY DEFINER auth_lookup_user l'est aussi (étroite, search_path fixé).
+# Un propriétaire non superutilisateur serait préférable.
+
 : "${APP_DB_PASSWORD:?APP_DB_PASSWORD est obligatoire}"
 
 psql -v ON_ERROR_STOP=1 \
