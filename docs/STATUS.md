@@ -29,3 +29,7 @@ Phase 0 — Cadrage
 - Mono-utilisateur avec `user_id` partout
 - Aucun envoi automatique de candidature
 - Dépôt public ; commits avec l'adresse noreply GitHub (aucun e-mail personnel publié)
+- Compte bot `prome-theus35` (Write, token classic 30 jours) pour les agents ; le PO approuve avec son compte
+- 3 casquettes d'agents (Constructeur, Relecteur, Chef de projet) au lieu de 9 sessions
+- Hébergement : décision reportée en Phase 6 (VPS par défaut, Supabase/Vercel comparés alors)
+- Modèles IA prévus : Claude Haiku 5.5 (analyse, vérification), Claude Sonnet 5.5 en batch (CV, lettre)
