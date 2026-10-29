@@ -23,9 +23,15 @@ def alembic_config() -> Config:
 
 @pytest.fixture
 def migrated_db(monkeypatch):
-    """Base PostgreSQL neuve, migrée jusqu'à head. Ignoré si TEST_DATABASE_URL est absent."""
+    """Base PostgreSQL neuve, migrée jusqu'à head.
+
+    Sans TEST_DATABASE_URL : ignoré en local, mais en échec en CI pour qu'une variable
+    disparue ne rende pas la CI verte à tort.
+    """
     admin_url = os.environ.get("TEST_DATABASE_URL")
     if not admin_url:
+        if os.environ.get("CI"):
+            pytest.fail("TEST_DATABASE_URL doit être défini en CI : ces tests ne peuvent pas être ignorés")
         pytest.skip("TEST_DATABASE_URL non défini (PostgreSQL requis)")
     name = f"test_{uuid.uuid4().hex[:12]}"
     with psycopg.connect(admin_url, autocommit=True) as admin:
