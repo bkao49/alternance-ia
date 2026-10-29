@@ -14,3 +14,4 @@ backups/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+graphify-out/
