@@ -9,6 +9,7 @@ import uuid
 from sqlalchemy import text
 
 from app.db import user_scope
+from app.defaults import seed_default_statuses
 from app.security import hash_password
 
 MIN_PASSWORD_LENGTH = 12
@@ -23,6 +24,7 @@ def create_user(email: str, password: str) -> str:
             text("INSERT INTO users (id, email, password_hash) VALUES (:id, :email, :hash)"),
             {"id": user_id, "email": email.strip().lower(), "hash": hash_password(password)},
         )
+        seed_default_statuses(conn, user_id)
     return user_id
 
 

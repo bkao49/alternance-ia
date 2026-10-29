@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app import auth
+from app import applications, auth, statuses
 from app.errors import install_error_handlers
 from app.security import LoginLimiter
 
@@ -10,6 +10,8 @@ def create_app() -> FastAPI:
     application.state.login_limiter = LoginLimiter()
     install_error_handlers(application)
     application.include_router(auth.router)
+    application.include_router(statuses.router)
+    application.include_router(applications.router)
 
     @application.get("/health")
     def health() -> dict[str, str]:
