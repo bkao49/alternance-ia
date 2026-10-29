@@ -25,6 +25,11 @@ paths:
       tags: [auth]
       operationId: login
       summary: Ouvrir une session
+      description: |
+        En cas de succès, pose deux cookies : `session` (HttpOnly, Secure, SameSite=Strict) et
+        `csrf_token` (lisible par le frontend, Secure, SameSite=Strict). Le frontend renvoie la
+        valeur de `csrf_token` dans l'en-tête `X-CSRF-Token` pour chaque POST, PATCH ou PUT.
+        Au-delà de 5 échecs (couple IP + e-mail), 20 (IP) ou 50 (e-mail) en 15 minutes : 429.
       security: []
       requestBody:
         required: true
@@ -38,6 +43,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/ValidationError" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
   /auth/logout:
     post:
@@ -45,6 +51,7 @@ paths:
       operationId: logout
       summary: Fermer la session
       responses:
+        "403": { $ref: "#/components/responses/Forbidden" }
         "204": { description: Session fermée }
   /auth/me:
     get:
@@ -125,6 +132,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ApplicationCreate" }
       responses:
+        "403": { $ref: "#/components/responses/Forbidden" }
         "201":
           description: Candidature créée
           content:
@@ -157,6 +165,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ApplicationUpdate" }
       responses:
+        "403": { $ref: "#/components/responses/Forbidden" }
         "200":
           description: Candidature mise à jour
           content:
@@ -181,6 +190,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/StatusChange" }
       responses:
+        "403": { $ref: "#/components/responses/Forbidden" }
         "200":
           description: Candidature avec son nouveau statut
           content:
@@ -206,6 +216,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ConfirmSent" }
       responses:
+        "403": { $ref: "#/components/responses/Forbidden" }
         "200":
           description: Candidature passée à « Envoyée »
           content:
@@ -256,6 +267,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/StatusCreate" }
       responses:
+        "403": { $ref: "#/components/responses/Forbidden" }
         "201":
           description: Statut créé
           content:
@@ -277,6 +289,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/StatusCreate" }
       responses:
+        "403": { $ref: "#/components/responses/Forbidden" }
         "200":
           description: Statut mis à jour
           content:
@@ -351,7 +364,10 @@ components:
       type: apiKey
       in: cookie
       name: session
-      description: Cookie de session. Les méthodes POST, PATCH et PUT exigent aussi l'en-tête X-CSRF-Token.
+      description: |
+        Cookie de session. Les méthodes POST, PATCH et PUT exigent aussi l'en-tête `X-CSRF-Token`,
+        dont la valeur est celle du cookie `csrf_token` posé à la connexion (double soumission).
+        Sans jeton valide : 403 `csrf_invalid`.
 
   parameters:
     Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
@@ -362,6 +378,11 @@ components:
   responses:
     Unauthorized:
       description: Non connecté
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Jeton CSRF absent ou invalide (`csrf_invalid`)
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
