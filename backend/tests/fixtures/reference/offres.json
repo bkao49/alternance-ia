@@ -1,0 +1,746 @@
+{
+ "note": "Jeu fictif : profil, critères, offres et notes attendues inventés. Aucune donnée réelle.",
+ "facts": [
+  {
+   "id": "11111111-0000-4000-8000-000000000001",
+   "kind": "experience",
+   "text": "Stage d'analyse de données chez Entreprise Fictive A",
+   "technologies": [
+    "Python",
+    "SQL",
+    "pandas"
+   ]
+  },
+  {
+   "id": "11111111-0000-4000-8000-000000000002",
+   "kind": "project",
+   "text": "Projet de classification avec scikit-learn",
+   "technologies": [
+    "scikit-learn",
+    "Python"
+   ]
+  },
+  {
+   "id": "11111111-0000-4000-8000-000000000003",
+   "kind": "project",
+   "text": "Traitement de données volumineuses avec Spark",
+   "technologies": [
+    "Spark"
+   ]
+  },
+  {
+   "id": "11111111-0000-4000-8000-000000000004",
+   "kind": "skill",
+   "text": "Conteneurs et déploiement",
+   "technologies": [
+    "Docker",
+    "Git"
+   ]
+  },
+  {
+   "id": "11111111-0000-4000-8000-000000000005",
+   "kind": "education",
+   "text": "Master 1 Data Science, école fictive",
+   "technologies": []
+  }
+ ],
+ "criteria": {
+  "keywords": [
+   "data",
+   "analyste",
+   "scientist",
+   "machine learning"
+  ],
+  "locations": [
+   {
+    "label": "Lyon",
+    "radius_km": 30
+   }
+  ],
+  "remote_accepted": true,
+  "contract_types": [
+   "apprenticeship",
+   "internship"
+  ],
+  "education_level": "bac_plus_5",
+  "min_salary_eur": 18000,
+  "excluded_keywords": [
+   "commercial",
+   "vente"
+  ]
+ },
+ "offers": [
+  {
+   "id": "ref-01",
+   "title": "Data analyst alternance",
+   "location": "Lyon 3e",
+   "description": "Offre fictive n°01 : Data analyst alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 5.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "SQL",
+     "pandas"
+    ],
+    "education_level": "bac_plus_4",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon 3e",
+    "remote": "partial",
+    "salary_eur_year": 20000,
+    "start_date": null,
+    "summary": "Offre fictive 01."
+   }
+  },
+  {
+   "id": "ref-02",
+   "title": "Data scientist alternance",
+   "location": "Villeurbanne",
+   "description": "Offre fictive n°02 : Data scientist alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 4.5,
+   "extraction": {
+    "skills": [
+     "Python",
+     "scikit-learn",
+     "SQL"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Villeurbanne",
+    "remote": "partial",
+    "salary_eur_year": 21000,
+    "start_date": null,
+    "summary": "Offre fictive 02."
+   }
+  },
+  {
+   "id": "ref-03",
+   "title": "Data engineer stage",
+   "location": "Lyon",
+   "description": "Offre fictive n°03 : Data engineer stage. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 4.5,
+   "extraction": {
+    "skills": [
+     "Python",
+     "Spark",
+     "Docker",
+     "SQL"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "internship",
+    "location": "Lyon",
+    "remote": null,
+    "salary_eur_year": 14400,
+    "start_date": null,
+    "summary": "Offre fictive 03."
+   }
+  },
+  {
+   "id": "ref-04",
+   "title": "Analyste data en alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°04 : Analyste data en alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 4.0,
+   "extraction": {
+    "skills": [
+     "SQL",
+     "Tableau",
+     "Python"
+    ],
+    "education_level": "bac_plus_3",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 19000,
+    "start_date": null,
+    "summary": "Offre fictive 04."
+   }
+  },
+  {
+   "id": "ref-05",
+   "title": "Machine learning engineer alternance",
+   "location": "Lyon 7e",
+   "description": "Offre fictive n°05 : Machine learning engineer alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 4.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "scikit-learn",
+     "PyTorch",
+     "Docker"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon 7e",
+    "remote": "partial",
+    "salary_eur_year": null,
+    "start_date": null,
+    "summary": "Offre fictive 05."
+   }
+  },
+  {
+   "id": "ref-06",
+   "title": "Data analyst stage",
+   "location": "Lyon",
+   "description": "Offre fictive n°06 : Data analyst stage. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 3.0,
+   "extraction": {
+    "skills": [
+     "Excel",
+     "SQL"
+    ],
+    "education_level": "bac_plus_4",
+    "duration_months": 12,
+    "contract_type": "internship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 14000,
+    "start_date": null,
+    "summary": "Offre fictive 06."
+   }
+  },
+  {
+   "id": "ref-07",
+   "title": "Data scientist stage",
+   "location": "Paris",
+   "description": "Offre fictive n°07 : Data scientist stage. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 2.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "scikit-learn",
+     "SQL"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "internship",
+    "location": "Paris",
+    "remote": "none",
+    "salary_eur_year": 18000,
+    "start_date": null,
+    "summary": "Offre fictive 07."
+   }
+  },
+  {
+   "id": "ref-08",
+   "title": "Data analyst alternance (télétravail)",
+   "location": "Brest",
+   "description": "Offre fictive n°08 : Data analyst alternance (télétravail). Aucune donnée réelle.",
+   "expired": false,
+   "rating": 4.5,
+   "extraction": {
+    "skills": [
+     "Python",
+     "SQL"
+    ],
+    "education_level": "bac_plus_4",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Brest",
+    "remote": "full",
+    "salary_eur_year": 19000,
+    "start_date": null,
+    "summary": "Offre fictive 08."
+   }
+  },
+  {
+   "id": "ref-09",
+   "title": "Analyste BI alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°09 : Analyste BI alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 3.0,
+   "extraction": {
+    "skills": [
+     "Power BI",
+     "SQL",
+     "DAX"
+    ],
+    "education_level": "bac_plus_3",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": null,
+    "start_date": null,
+    "summary": "Offre fictive 09."
+   }
+  },
+  {
+   "id": "ref-10",
+   "title": "Développeur Java alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°10 : Développeur Java alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 1.0,
+   "extraction": {
+    "skills": [
+     "Java",
+     "Spring",
+     "SQL"
+    ],
+    "education_level": "bac_plus_4",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 18000,
+    "start_date": null,
+    "summary": "Offre fictive 10."
+   }
+  },
+  {
+   "id": "ref-11",
+   "title": "Data analyst alternance",
+   "location": "Marseille",
+   "description": "Offre fictive n°11 : Data analyst alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 2.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "SQL",
+     "pandas"
+    ],
+    "education_level": "bac_plus_4",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Marseille",
+    "remote": "none",
+    "salary_eur_year": 19000,
+    "start_date": null,
+    "summary": "Offre fictive 11."
+   }
+  },
+  {
+   "id": "ref-12",
+   "title": "Data scientist CDI",
+   "location": "Lyon",
+   "description": "Offre fictive n°12 : Data scientist CDI. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 0.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "scikit-learn"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": null,
+    "contract_type": "permanent",
+    "location": "Lyon",
+    "remote": "partial",
+    "salary_eur_year": 45000,
+    "start_date": null,
+    "summary": "Offre fictive 12."
+   }
+  },
+  {
+   "id": "ref-13",
+   "title": "Chargé de ventes data",
+   "location": "Lyon",
+   "description": "Offre fictive n°13 : Chargé de ventes data. Aucune donnée réelle. Mission commerciale : vente de solutions.",
+   "expired": false,
+   "rating": 0.0,
+   "extraction": {
+    "skills": [
+     "CRM"
+    ],
+    "education_level": "bac_plus_3",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": null,
+    "start_date": null,
+    "summary": "Offre fictive 13."
+   }
+  },
+  {
+   "id": "ref-14",
+   "title": "Data analyst alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°14 : Data analyst alternance. Aucune donnée réelle.",
+   "expired": true,
+   "rating": 0.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "SQL"
+    ],
+    "education_level": "bac_plus_4",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 20000,
+    "start_date": null,
+    "summary": "Offre fictive 14."
+   }
+  },
+  {
+   "id": "ref-15",
+   "title": "Data engineer alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°15 : Data engineer alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 4.0,
+   "extraction": {
+    "skills": [
+     "Spark",
+     "Python",
+     "Docker",
+     "Kafka"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "partial",
+    "salary_eur_year": 20000,
+    "start_date": null,
+    "summary": "Offre fictive 15."
+   }
+  },
+  {
+   "id": "ref-16",
+   "title": "Ingénieur data alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°16 : Ingénieur data alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 4.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "SQL"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 22000,
+    "start_date": null,
+    "summary": "Offre fictive 16."
+   }
+  },
+  {
+   "id": "ref-17",
+   "title": "Data scientist alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°17 : Data scientist alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 3.0,
+   "extraction": {
+    "skills": [
+     "R",
+     "SAS",
+     "Python"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 20000,
+    "start_date": null,
+    "summary": "Offre fictive 17."
+   }
+  },
+  {
+   "id": "ref-18",
+   "title": "Assistant administratif",
+   "location": "Lyon",
+   "description": "Offre fictive n°18 : Assistant administratif. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 0.0,
+   "extraction": {
+    "skills": [],
+    "education_level": null,
+    "duration_months": 12,
+    "contract_type": "fixed_term",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": null,
+    "start_date": null,
+    "summary": "Offre fictive 18."
+   }
+  },
+  {
+   "id": "ref-19",
+   "title": "Data analyst alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°19 : Data analyst alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 2.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "SQL",
+     "pandas"
+    ],
+    "education_level": "doctorate",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 21000,
+    "start_date": null,
+    "summary": "Offre fictive 19."
+   }
+  },
+  {
+   "id": "ref-20",
+   "title": "Data scientist alternance",
+   "location": null,
+   "description": "Offre fictive n°20 : Data scientist alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 2.5,
+   "extraction": {
+    "skills": [],
+    "education_level": null,
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": null,
+    "remote": null,
+    "salary_eur_year": null,
+    "start_date": null,
+    "summary": "Offre fictive 20."
+   }
+  },
+  {
+   "id": "ref-21",
+   "title": "Machine learning alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°21 : Machine learning alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 3.5,
+   "extraction": {
+    "skills": [
+     "Python",
+     "TensorFlow"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "partial",
+    "salary_eur_year": 20000,
+    "start_date": null,
+    "summary": "Offre fictive 21."
+   }
+  },
+  {
+   "id": "ref-22",
+   "title": "Analyste de données stage",
+   "location": "Saint-Étienne",
+   "description": "Offre fictive n°22 : Analyste de données stage. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 3.5,
+   "extraction": {
+    "skills": [
+     "SQL",
+     "Python",
+     "pandas"
+    ],
+    "education_level": "bac_plus_4",
+    "duration_months": 12,
+    "contract_type": "internship",
+    "location": "Saint-Étienne",
+    "remote": "none",
+    "salary_eur_year": 15000,
+    "start_date": null,
+    "summary": "Offre fictive 22."
+   }
+  },
+  {
+   "id": "ref-23",
+   "title": "Data analyst alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°23 : Data analyst alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 2.0,
+   "extraction": {
+    "skills": [
+     "SAP",
+     "Excel"
+    ],
+    "education_level": "bac_plus_3",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 17000,
+    "start_date": null,
+    "summary": "Offre fictive 23."
+   }
+  },
+  {
+   "id": "ref-24",
+   "title": "Data scientist alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°24 : Data scientist alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 5.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "SQL",
+     "Spark",
+     "scikit-learn",
+     "Docker"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "partial",
+    "salary_eur_year": 23000,
+    "start_date": null,
+    "summary": "Offre fictive 24."
+   }
+  },
+  {
+   "id": "ref-25",
+   "title": "Technicien support informatique",
+   "location": "Lyon",
+   "description": "Offre fictive n°25 : Technicien support informatique. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 0.5,
+   "extraction": {
+    "skills": [
+     "Windows"
+    ],
+    "education_level": "bac_plus_2",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 16000,
+    "start_date": null,
+    "summary": "Offre fictive 25."
+   }
+  },
+  {
+   "id": "ref-26",
+   "title": "Data analyst alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°26 : Data analyst alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 3.0,
+   "extraction": {
+    "skills": [],
+    "education_level": null,
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": null,
+    "salary_eur_year": null,
+    "start_date": null,
+    "summary": "Offre fictive 26."
+   }
+  },
+  {
+   "id": "ref-27",
+   "title": "Business analyst alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°27 : Business analyst alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 3.0,
+   "extraction": {
+    "skills": [
+     "SQL",
+     "Excel",
+     "Power BI"
+    ],
+    "education_level": "bac_plus_4",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 18500,
+    "start_date": null,
+    "summary": "Offre fictive 27."
+   }
+  },
+  {
+   "id": "ref-28",
+   "title": "Data scientist alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°28 : Data scientist alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 0.0,
+   "extraction": {
+    "skills": [
+     "Python",
+     "SQL"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "other",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 20000,
+    "start_date": null,
+    "summary": "Offre fictive 28."
+   }
+  },
+  {
+   "id": "ref-29",
+   "title": "Data analyst alternance",
+   "location": "Lyon",
+   "description": "Offre fictive n°29 : Data analyst alternance. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 3.5,
+   "extraction": {
+    "skills": [
+     "Python",
+     "SQL",
+     "pandas"
+    ],
+    "education_level": "bac_plus_4",
+    "duration_months": 12,
+    "contract_type": "apprenticeship",
+    "location": "Lyon",
+    "remote": "none",
+    "salary_eur_year": 12000,
+    "start_date": null,
+    "summary": "Offre fictive 29."
+   }
+  },
+  {
+   "id": "ref-30",
+   "title": "Stagiaire machine learning",
+   "location": "Lyon",
+   "description": "Offre fictive n°30 : Stagiaire machine learning. Aucune donnée réelle.",
+   "expired": false,
+   "rating": 4.5,
+   "extraction": {
+    "skills": [
+     "Python",
+     "scikit-learn",
+     "SQL",
+     "pandas"
+    ],
+    "education_level": "bac_plus_5",
+    "duration_months": 12,
+    "contract_type": "internship",
+    "location": "Lyon",
+    "remote": "partial",
+    "salary_eur_year": 15000,
+    "start_date": null,
+    "summary": "Offre fictive 30."
+   }
+  }
+ ]
+}
