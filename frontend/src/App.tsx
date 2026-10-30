@@ -6,7 +6,10 @@ import type { Page } from "./components/Sidebar";
 import { useSession } from "./hooks";
 import { BOT_DEMO, DEMO } from "./mock/demoInfo";
 
-const pageOf = (): Page => (window.location.hash === "#criteres" ? "criteria" : "home");
+const pageOf = (): Page => {
+  if (window.location.hash === "#criteres") return "criteria";
+  return window.location.hash === "#profil" ? "profile" : "home";
+};
 
 export default function App() {
   const { user, login, logout } = useSession();

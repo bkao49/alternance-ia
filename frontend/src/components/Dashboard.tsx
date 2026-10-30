@@ -11,6 +11,7 @@ import { Greeting, RelevantOffers } from "./Hero";
 import { KanbanBoard } from "./KanbanBoard";
 import { NewApplicationDialog, type NewApplication } from "./NewApplicationDialog";
 import { CriteriaPage } from "./CriteriaPage";
+import { ProfilePage } from "./ProfilePage";
 import { Sidebar, type Page } from "./Sidebar";
 import { StatsStrip } from "./StatsStrip";
 
@@ -99,6 +100,11 @@ export function Dashboard({ user, onLogout, botActivity, page = "home" }: Props)
       {page === "criteria" && (
         <main className="page">
           <CriteriaPage />
+        </main>
+      )}
+      {page === "profile" && (
+        <main className="page">
+          <ProfilePage />
         </main>
       )}
       {page === "home" && (

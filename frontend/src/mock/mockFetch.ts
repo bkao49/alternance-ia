@@ -1,4 +1,4 @@
-import type { Application, ApplicationEvent, DashboardStats, SearchPreferences, Status } from "../api/types";
+import type { Application, ApplicationEvent, DashboardStats, ProfileFact, SearchPreferences, Status } from "../api/types";
 import { seedApplications, seedStatuses } from "./data";
 import { DEMO } from "./demoInfo";
 
@@ -18,6 +18,7 @@ export function createMockFetch() {
   const applications: Application[] = seedApplications(statuses);
   const events = new Map<string, ApplicationEvent[]>();
   let signedIn = false;
+  let facts: ProfileFact[] = [];
   let preferences: SearchPreferences = {
     keywords: [], locations: [], remote_accepted: false, contract_types: [], start_date: null,
     duration_months: null, alternance_rhythm: null, education_level: null, min_salary_eur: null,
@@ -70,6 +71,7 @@ export function createMockFetch() {
     const path = url.pathname.replace(/^\/api/, "");
     const method = request.method;
     const hasBody = method === "POST" || method === "PATCH" || method === "PUT";
+    const factMatch = /^\/profile\/facts(?:\/([^/]+))?$/.exec(path);
     const body = hasBody ? ((await request.json().catch(() => ({}))) as Record<string, unknown>) : {};
 
     if (method === "POST" && path === "/auth/login") {
@@ -88,6 +90,26 @@ export function createMockFetch() {
     if (method === "GET" && path === "/statuses") return json(statuses);
     if (method === "GET" && path === "/dashboard/stats") return json(stats());
     if (method === "GET" && path === "/preferences") return json(preferences);
+    if (factMatch) {
+      const id = factMatch[1];
+      if (!id && method === "GET") return json(facts);
+      if (!id && method === "POST") {
+        const created = { ...(body as Omit<ProfileFact, "id" | "created_at">), id: `fact-${nextId++}`, created_at: new Date().toISOString() };
+        facts = [created, ...facts];
+        return json(created, 201);
+      }
+      const current = facts.find((f) => f.id === id);
+      if (!current) return error(404, "not_found", "Fait introuvable");
+      if (method === "PUT") {
+        const changed = { ...current, ...(body as object) } as ProfileFact;
+        facts = facts.map((f) => (f.id === id ? changed : f));
+        return json(changed);
+      }
+      if (method === "DELETE") {
+        facts = facts.filter((f) => f.id !== id);
+        return new Response(null, { status: 204 });
+      }
+    }
     if (method === "PUT" && path === "/preferences") {
       preferences = { ...(body as Omit<SearchPreferences, "updated_at">), updated_at: new Date().toISOString() };
       return json(preferences);
