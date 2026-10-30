@@ -20,6 +20,7 @@ tags:
   - name: dashboard
   - name: preferences
   - name: account
+  - name: profile
 
 paths:
   /auth/login:
@@ -426,6 +427,82 @@ paths:
         "422": { $ref: "#/components/responses/ValidationError" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
 
+  /profile/facts:
+    get:
+      tags: [profile]
+      operationId: listProfileFacts
+      summary: Lister mes faits de profil
+      description: |
+        Le profil est une liste de faits atomiques et vérifiables (une expérience, un diplôme, une
+        compétence…). Un CV ou une lettre ne contiendra que ces faits. Tri : date de début décroissante.
+      parameters:
+        - name: kind
+          in: query
+          schema: { $ref: "#/components/schemas/ProfileFactKind" }
+      responses:
+        "200":
+          description: Faits du profil (500 au plus par utilisateur)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ProfileFact" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [profile]
+      operationId: createProfileFact
+      summary: Ajouter un fait
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileFactInput" }
+      responses:
+        "201":
+          description: Fait créé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileFact" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: Limite de 500 faits atteinte (`too_many_facts`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /profile/facts/{factId}:
+    parameters:
+      - { name: factId, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      tags: [profile]
+      operationId: updateProfileFact
+      summary: Remplacer un fait
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileFactInput" }
+      responses:
+        "200":
+          description: Fait mis à jour
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileFact" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [profile]
+      operationId: deleteProfileFact
+      summary: Supprimer un fait
+      responses:
+        "204": { description: Fait supprimé }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     sessionCookie:
@@ -433,7 +510,7 @@ components:
       in: cookie
       name: session
       description: |
-        Cookie de session. Les méthodes POST, PATCH et PUT exigent aussi l'en-tête `X-CSRF-Token`,
+        Cookie de session. Les méthodes POST, PATCH, PUT et DELETE exigent aussi l'en-tête `X-CSRF-Token`,
         dont la valeur est celle du cookie `csrf_token` posé à la connexion (double soumission).
         Sans jeton valide : 403 `csrf_invalid`.
 
@@ -810,3 +887,47 @@ components:
           type: boolean
           const: true
           description: Doit valoir true, l'utilisateur confirme une suppression définitive.
+    ProfileFactKind:
+      type: string
+      enum: [experience, education, project, skill, certification, language, other]
+    ProfileFactFields:
+      type: object
+      required: [kind, text, start_date, end_date, technologies, source]
+      description: |
+        Remplacement complet. Données personnelles : jamais journalisées, envoyées à une IA seulement
+        par la passerelle (pseudonymisées). Textes rognés ; une chaîne faite seulement d'espaces est refusée.
+      properties:
+        kind: { $ref: "#/components/schemas/ProfileFactKind" }
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Le fait, en une phrase vérifiable
+          examples: [Stage de data analyst de 6 mois chez Acme (fictif)]
+        start_date: { type: [string, "null"], format: date }
+        end_date:
+          type: [string, "null"]
+          format: date
+          description: Postérieure ou égale à start_date ; null si en cours ou sans objet
+        technologies:
+          type: array
+          maxItems: 30
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 60 }
+          examples: [[Python, SQL]]
+        source:
+          type: [string, "null"]
+          maxLength: 120
+          description: D'où vient le fait (« CV 2026 », « saisie manuelle »…)
+    ProfileFactInput:
+      allOf:
+        - { $ref: "#/components/schemas/ProfileFactFields" }
+      unevaluatedProperties: false
+    ProfileFact:
+      allOf:
+        - { $ref: "#/components/schemas/ProfileFactFields" }
+        - type: object
+          required: [id, created_at]
+          properties:
+            id: { type: string, format: uuid }
+            created_at: { type: string, format: date-time }
