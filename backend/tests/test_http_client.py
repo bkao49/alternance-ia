@@ -1,17 +1,26 @@
 """Client HTTP poli (#59) et protection SSRF (#40), sur un faux serveur : aucun appel réseau."""
 
+import gzip
 import socket
 
 import httpx
 import pytest
 
-from app.collectors.base import NetworkError, QuotaExceeded, SourceBlocked
+from app.collectors.base import (
+    CollectorError,
+    InvalidResponse,
+    NetworkError,
+    QuotaExceeded,
+    SourceBlocked,
+)
 from app.collectors.http_client import (
     MAX_BYTES,
     USER_AGENT,
     PageNotFound,
+    PageTooLarge,
     PoliteClient,
     RobotsDisallowed,
+    Throttle,
     UnsafeUrl,
     is_public_address,
 )
@@ -42,7 +51,9 @@ class FakeSite:
         status, headers, body = self.routes.get(request.url.path, (404, {}, ""))
         if callable(body):
             status, headers, body = body(request)
-        return httpx.Response(status, headers=headers, text=body)
+        content = body if isinstance(body, bytes) else body.encode()
+        # Flux brut, comme un vrai serveur : le client le lit avec iter_raw().
+        return httpx.Response(status, headers=headers, stream=httpx.ByteStream(content))
 
     def paths(self) -> list[str]:
         return [r.url.path for r in self.requests]
@@ -64,7 +75,7 @@ def client(site, resolver=None, clock=None, **kwargs) -> PoliteClient:
     clock = clock or FakeClock()
     return PoliteClient(
         "web_test", ["example.com"], transport=httpx.MockTransport(site),
-        resolver=resolver or (lambda _host: [PUBLIC_IP]), clock=clock, sleep=clock.sleep,
+        resolver=resolver or (lambda _host: [PUBLIC_IP]), throttle=Throttle(clock, clock.sleep),
         **kwargs,
     )
 
@@ -195,7 +206,7 @@ def test_redirect_to_private_address_or_other_domain_is_refused():
 
 def test_oversized_page_is_refused():
     site = FakeSite({"/a": (200, HTML, "x" * (MAX_BYTES + 1))})
-    with pytest.raises(Exception, match="volumineuse"):
+    with pytest.raises(PageTooLarge):
         client(site).get("https://example.com/a")
 
 
@@ -210,3 +221,72 @@ def test_transport_failure_is_a_network_error():
 def test_allowlist_cannot_contain_ip_addresses():
     with pytest.raises(ValueError):
         PoliteClient("web_test", ["10.0.0.1"])
+
+
+def test_gzip_pages_and_robots_are_decompressed():
+    gz = {**HTML, "content-encoding": "gzip"}
+    site = FakeSite({"/a": (200, gz, gzip.compress("<p>compressé</p>".encode()))},
+                    robots=(200, {"content-encoding": "gzip"}, gzip.compress(ROBOTS_OK.encode())))
+    web = client(site)
+    assert web.get("https://example.com/a").text == "<p>compressé</p>"
+    with pytest.raises(RobotsDisallowed):
+        web.get("https://example.com/prive/x")
+
+
+def test_decompression_bomb_is_stopped_at_the_limit():
+    bomb = gzip.compress(b"\0" * (MAX_BYTES * 20))  # environ 40 Mo une fois décompressé
+    site = FakeSite({"/a": (200, {**HTML, "content-encoding": "gzip"}, bomb)})
+    with pytest.raises(PageTooLarge):
+        client(site).get("https://example.com/a")
+
+
+def test_declared_oversized_length_is_refused_before_reading():
+    site = FakeSite({"/a": (200, {**HTML, "content-length": str(MAX_BYTES + 1)}, "x")})
+    with pytest.raises(PageTooLarge):
+        client(site).get("https://example.com/a")
+
+
+@pytest.mark.parametrize("status", [200, 403, 503])
+def test_declared_anti_bot_challenge_blocks_the_source(status):
+    site = FakeSite({"/a": (status, {**HTML, "cf-mitigated": "challenge"}, "Just a moment")})
+    with pytest.raises(SourceBlocked):
+        client(site).get("https://example.com/a")
+
+
+@pytest.mark.parametrize("status", [300, 304])
+def test_unexpected_robots_answer_forbids_everything(status):
+    site = FakeSite({"/a": (200, HTML, "ok")}, robots=(status, {}, ""))
+    with pytest.raises(InvalidResponse):
+        client(site).get("https://example.com/a")
+    assert site.paths() == ["/robots.txt"]
+
+
+def test_too_long_crawl_delay_is_remembered_without_rereading_robots():
+    site = FakeSite({"/a": (200, HTML, "a")}, robots=(200, {}, "User-agent: *\nCrawl-delay: 600\n"))
+    web = client(site)
+    for _ in range(2):
+        with pytest.raises(CollectorError, match="Crawl-delay"):
+            web.get("https://example.com/a")
+    assert site.paths() == ["/robots.txt"]
+
+
+def test_https_to_http_redirect_is_refused():
+    site = FakeSite({"/a": (302, {"location": "http://example.com/b"}, "")})
+    with pytest.raises(UnsafeUrl):
+        client(site).get("https://example.com/a")
+
+
+def test_interval_cannot_go_below_three_seconds_and_is_shared_between_sources():
+    clock = FakeClock()
+    throttle = Throttle(clock, clock.sleep)
+    site = FakeSite({"/a": (200, HTML, "a")})
+    for source in ("web_un", "web_deux"):
+        PoliteClient(source, ["jobs.example.com", "example.com"], transport=httpx.MockTransport(site),
+                     resolver=lambda _h: [PUBLIC_IP], throttle=throttle, min_interval=0,
+                     ).get("https://jobs.example.com/a")
+    assert clock.slept == [3.0, 3.0, 3.0]
+
+
+@pytest.mark.parametrize("address", ["64:ff9b::a00:1", "2002:a00:1::1", "2001:0:a00:1::1"])
+def test_ipv6_prefixes_embedding_ipv4_are_refused(address):
+    assert not is_public_address(address)
