@@ -2,7 +2,7 @@ const dateFormat = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "sh
 const dateTimeFormat = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeStyle: "short" });
 
 export const formatDate = (iso: string) => dateFormat.format(new Date(iso));
-export const formatDateTime = (iso: string) => dateTimeFormat.format(new Date(iso));
+/** Score sur 5 avec une virgule (« 4,4 ») ; tiret quand l'offre n'a pas été analysée. */
+export const formatScore = (score: number | undefined) => (score === undefined ? "–" : score.toFixed(1).replace(".", ","));
 
-/** Taux entre 0 et 1 ; `null` quand il n'y a encore aucune candidature envoyée. */
-export const formatRate = (rate: number | null) => (rate === null ? "n/a" : `${Math.round(rate * 100)} %`);
+export const formatDateTime = (iso: string) => dateTimeFormat.format(new Date(iso));

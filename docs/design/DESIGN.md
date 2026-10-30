@@ -20,8 +20,10 @@ modifier ces deux fichiers. Les quatre logos possibles sont dans la maquette I.
 
 ## Couleurs
 
-Thème **sombre** par défaut (celui de la maquette) ; thème **clair** dérivé, appliqué quand le système le
-demande (`prefers-color-scheme: light`). Mêmes noms de jetons dans les deux thèmes.
+Thème **sombre**, toujours, quel que soit le réglage du système : c'est celui de la maquette et l'identité
+du produit. Un thème **clair** dérivé existe dans les jetons (`data-theme="light"` sur `<html>`) mais n'est
+jamais appliqué automatiquement ; il attend un réglage explicite de l'utilisateur. Mêmes noms de jetons
+dans les deux thèmes.
 
 | Jeton | Sombre | Clair | Rôle |
 |---|---|---|---|
