@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from fake_web import FakeClock, no_network  # noqa: F401
+from fake_web import FakeClock, no_network, raw_response  # noqa: F401
 
 from app.collectors.adzuna import AdzunaCollector
 from app.collectors.api_client import ApiClient
@@ -39,9 +39,9 @@ class FakeApi:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         if self.status != 200:
-            return httpx.Response(self.status, headers=self.headers, text="<html>erreur</html>")
+            return raw_response(self.status, self.headers, text="<html>erreur</html>")
         page = int(request.url.path.rsplit("/", 1)[1])
-        return httpx.Response(200, json=self.pages.get(page, {"results": []}))
+        return raw_response(200, json_body=self.pages.get(page, {"results": []}))
 
 
 def adzuna(api: FakeApi, app_id=FAKE_ID, app_key=FAKE_KEY) -> tuple[AdzunaCollector, FakeClock]:
@@ -140,7 +140,8 @@ def test_transport_failure_does_not_leak_the_key():
                        throttle=Throttle(FakeClock(), lambda _s: None))
     result = AdzunaCollector(FAKE_ID, FAKE_KEY, client).collect(SearchQuery())
     assert isinstance(result.error, NetworkError)
-    assert FAKE_KEY not in str(result.error) and result.error.__cause__ is None
+    assert FAKE_KEY not in str(result.error)
+    assert result.error.__cause__ is None and result.error.__context__ is None
 
 
 def test_adzuna_outage_does_not_stop_other_sources():
@@ -149,3 +150,42 @@ def test_adzuna_outage_does_not_stop_other_sources():
     down, ok = collect_all([collector, other], SearchQuery())
     assert isinstance(down.error, NetworkError) and down.offers == []
     assert ok.error is None and ok.offers
+
+
+def test_httpx_debug_logs_never_show_the_key(caplog):
+    logging.getLogger("httpx").setLevel(logging.DEBUG)  # configuration plus bavarde, plus tard
+    try:
+        caplog.set_level(logging.DEBUG)
+        collector, _ = adzuna(FakeApi())
+        collector.collect(SearchQuery(max_results=3))
+        logging.getLogger("httpx").info("HTTP Request: GET https://api.adzuna.com/x?app_key=%s", FAKE_KEY)
+    finally:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+    assert FAKE_KEY not in caplog.text and FAKE_ID not in caplog.text
+
+
+def test_compression_bomb_from_the_api_is_stopped():
+    import gzip
+
+    bomb = gzip.compress(b" " * 40_000_000)
+    client = ApiClient("adzuna", "api.adzuna.com", throttle=Throttle(FakeClock(), lambda _s: None),
+                       transport=httpx.MockTransport(
+                           lambda _r: raw_response(200, {"content-encoding": "gzip"}, content=bomb)))
+    result = AdzunaCollector(FAKE_ID, FAKE_KEY, client).collect(SearchQuery())
+    assert isinstance(result.error, CollectorError) and "volumineuse" in result.error.message
+
+
+def test_fixed_term_filter_and_apprenticeship_read_from_the_snippet():
+    api = FakeApi()
+    collector, _ = adzuna(api)
+    collector.collect(SearchQuery(contract_types=frozenset({ContractType.FIXED_TERM})))
+    assert api.requests[0].url.params["contract"] == "1"
+    offer = collector.normalize({"id": "9", "title": "Data Analyst", "contract_type": "contract",
+                                 "description": "Poste en contrat d'apprentissage de 24 mois.",
+                                 "redirect_url": "https://www.adzuna.fr/land/ad/9"})
+    assert offer.contract_type is ContractType.APPRENTICESHIP
+
+
+def test_api_path_must_stay_on_the_fixed_host():
+    with ApiClient("adzuna", "api.adzuna.com") as client, pytest.raises(ValueError):
+        client.get_json("@autre-hote.test/x")
