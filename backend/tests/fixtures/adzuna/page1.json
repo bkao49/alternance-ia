@@ -1,0 +1,42 @@
+{
+  "_avertissement": "Réponse fictive au format de l'API Adzuna (entreprises inventées). Aucune vraie annonce.",
+  "__CLASS__": "Adzuna::API::Response::JobSearchResults",
+  "count": 4,
+  "results": [
+    {
+      "__CLASS__": "Adzuna::API::Response::Job",
+      "id": "4400000001",
+      "title": "<strong>Data</strong> Scientist &amp; IA",
+      "description": "Nous recherchons un(e) <strong>Data Scientist</strong> pour nos modèles de prévision…",
+      "redirect_url": "https://www.adzuna.fr/land/ad/4400000001?se=fictif&utm_medium=api&v=FAKE",
+      "created": "2026-10-28T09:15:00Z",
+      "company": {"__CLASS__": "Adzuna::API::Response::Company", "display_name": "Globex SAS"},
+      "location": {"__CLASS__": "Adzuna::API::Response::Location", "display_name": "Lyon, Rhône",
+                   "area": ["France", "Auvergne-Rhône-Alpes", "Rhône", "Lyon"]},
+      "contract_type": "permanent",
+      "contract_time": "full_time",
+      "salary_min": 45000,
+      "category": {"label": "Emplois Informatique", "tag": "it-jobs"}
+    },
+    {
+      "id": "4400000002",
+      "title": "Alternance - Data Analyst",
+      "description": "Contrat d'apprentissage de 24 mois.",
+      "redirect_url": "https://www.adzuna.fr/land/ad/4400000002",
+      "created": "2026-10-27T14:00:00Z",
+      "company": {"display_name": "Initech"},
+      "location": {"display_name": "Paris", "area": ["France", "Ile-de-France", "Paris"]},
+      "contract_type": "contract"
+    },
+    {
+      "id": "4400000003",
+      "title": "ML Engineer",
+      "description": "Mission de 12 mois.",
+      "redirect_url": "https://www.adzuna.fr/land/ad/4400000003",
+      "created": "2026-10-26T08:00:00Z",
+      "company": {"display_name": "Hooli"},
+      "location": {"display_name": "France", "area": ["France"]},
+      "contract_type": "contract"
+    }
+  ]
+}
