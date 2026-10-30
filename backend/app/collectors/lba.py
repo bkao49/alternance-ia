@@ -12,7 +12,7 @@ On ne lit jamais `apply.phone` ni `apply.recipient_id` (RGPD). La liste `recruit
 import datetime as dt
 import os
 import re
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, Self
 
 from app.collectors.api_client import ApiClient
@@ -33,11 +33,13 @@ SEARCH_PATH = "/api/job/v1/search"
 # développement informatique, expertise et support SI, études et prospectives
 # socio-économiques (data analyst), production et exploitation de SI.
 DATA_IA_ROMES = ("M1805", "M1802", "M1403", "M1810")
-DEPARTMENT = re.compile(r"\d{2}|2[AB]|97\d")
-# Code postal, ville, puis arrondissement (« 11 », « 1er ») ou « Cedex 1 » facultatifs.
-POSTAL_CITY = re.compile(
-    r"\b\d{5}\s+(?P<city>[^\d,]+?)(\s+\d{1,2}(e|er|ème)?)?(\s+cedex(\s+\d+)?)?\s*$", re.IGNORECASE,
-)
+DEPARTMENT = re.compile(r"0[1-9]|1\d|2[1-9AB]|[3-8]\d|9[0-5]|97[1-6]", re.IGNORECASE)
+MAX_RESPONSE = 10_000_000  # jusqu'à 150 offres par partenaire, sans pagination
+MAX_ADDRESS = 200  # la ville est à la fin : on ne lit que la fin de l'adresse
+# Code postal puis ville. Le groupe commence et finit par un caractère non blanc : aucun
+# recouvrement avec les espaces voisins, donc pas de retour arrière quadratique (ReDoS).
+POSTAL_CITY = re.compile(r"\b\d{5}\s+(?P<city>[^\d,\s](?:[^\d,]*[^\d,\s])?)")
+CITY_TAIL = re.compile(r"\s+(cedex|france|\d{1,2}(e|er|ème)?|arrondissement)$", re.IGNORECASE)
 
 
 class LbaCollector(Collector):
@@ -46,10 +48,13 @@ class LbaCollector(Collector):
     def __init__(
         self, token: str | None = None, romes: tuple[str, ...] = DATA_IA_ROMES,
         client: ApiClient | None = None,
+        now: Callable[[], dt.datetime] = lambda: dt.datetime.now(dt.UTC),
     ):
-        self.token = os.environ.get("LBA_API_TOKEN", "") if token is None else token
+        self.now = now
+        token = os.environ.get("LBA_API_TOKEN", "") if token is None else token
+        self.token = token.strip()
         self.romes = romes
-        self.client = client or ApiClient(self.source, API_HOST)
+        self.client = client or ApiClient(self.source, API_HOST, max_bytes=MAX_RESPONSE)
 
     def __enter__(self) -> Self:
         return self
@@ -62,11 +67,13 @@ class LbaCollector(Collector):
         Toutes les offres sont en alternance : inutile d'appeler pour un autre contrat."""
         if not self.token:
             raise CollectorError(self.source, "clé LBA_API_TOKEN absente")
+        if not (self.token.isascii() and self.token.isprintable()) or " " in self.token:
+            raise CollectorError(self.source, "clé LBA_API_TOKEN mal formée")
         if query.contract_types and ContractType.APPRENTICESHIP not in query.contract_types:
             return
         params: dict[str, Any] = {"romes": ",".join(self.romes)}
         if query.location and DEPARTMENT.fullmatch(query.location.strip()):
-            params["departements"] = [query.location.strip()]
+            params["departements"] = [query.location.strip().upper()]
         payload = self.client.get_json(
             SEARCH_PATH, params, headers={"Authorization": f"Bearer {self.token}"},
         )
@@ -86,7 +93,7 @@ class LbaCollector(Collector):
         publication = _map(offer.get("publication"))
         expiration = parse_date(publication.get("expiration"))
         if offer.get("status") not in (None, "Active") or (
-                expiration is not None and expiration < dt.datetime.now(dt.UTC)):
+                expiration is not None and expiration < self.now()):
             raise OfferExpired(self.source, external_id)  # pourvue, annulée ou échue
         company = next((workplace.get(k) for k in ("name", "brand", "legal_name")
                         if isinstance(workplace.get(k), str) and workplace.get(k)), None)
@@ -106,22 +113,25 @@ def _map(value: Any) -> Mapping[str, Any]:
 
 
 def _external_id(identifier: Mapping[str, Any]) -> str | None:
-    """Identifiant LBA s'il existe ; sinon partenaire + identifiant chez le partenaire, pour
-    qu'une offre France Travail et une offre LBA ne se confondent jamais."""
-    own = identifier.get("id")
-    if isinstance(own, str) and own.strip():
-        return own.strip()[:200]
+    """Toujours « partenaire:identifiant chez le partenaire » (deux champs obligatoires de la
+    spécification ; `id` peut être nul puis renseigné, il changerait l'identifiant). Une offre
+    France Travail et une offre LBA ne se confondent donc jamais."""
     label, partner_id = identifier.get("partner_label"), identifier.get("partner_job_id")
-    if isinstance(label, str) and isinstance(partner_id, str) and label and partner_id:
-        return f"{label}:{partner_id}"[:200]
-    return None
+    if not (isinstance(label, str) and isinstance(partner_id, str) and label and partner_id):
+        return None
+    value = f"{label}:{partner_id}"
+    return value if len(value) <= 200 else None  # tronquer créerait des collisions
 
 
 def city(address: Any) -> str | None:
-    """« 12 rue Imaginaire 69003 Lyon » → « Lyon » (ville seule, pour l'empreinte)."""
+    """« 12 rue Imaginaire 69003 Lyon » → « Lyon » (ville seule, pour l'empreinte).
+    « 75007 PARIS, FRANCE », « 75011 PARIS 11 », « 44000 Nantes Cedex 1 » → la ville."""
     if not isinstance(address, str):
         return None
-    match = POSTAL_CITY.search(address.strip())
+    match = POSTAL_CITY.search(address.strip()[-MAX_ADDRESS:])
     if not match:
         return None
-    return match["city"].strip().title() or None
+    name = match["city"]
+    while (shorter := CITY_TAIL.sub("", name)) != name:  # « Paris 8e Arrondissement »
+        name = shorter
+    return name.strip().title() or None

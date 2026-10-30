@@ -7,13 +7,13 @@ API « Recherche d'opportunités d'emploi en alternance », produite par La Bonn
 | Accès | `GET https://api.apprentissage.beta.gouv.fr/api/job/v1/search`, clé d'API en `Authorization: Bearer` (`LBA_API_TOKEN` dans `.env`), créée sur api.apprentissage.beta.gouv.fr (compte requis) |
 | Spécification lue le 2026-10-30 | OpenAPI du dépôt public `mission-apprentissage/api-apprentissage` (`sdk/src/routes/jobs/job.routes.openapi.ts`, schéma `JobOfferRead`) ; page produit `api.apprentissage.beta.gouv.fr/fr/explorer/recherche-offre`. Le Swagger en ligne ne s'affiche qu'avec JavaScript |
 | Paramètres utilisés | `romes` (métiers ROME), `departements` (numéro de département). Disponibles et non utilisés : `latitude`, `longitude`, `radius` (0 à 200 km), `rncp`, `target_diploma_level` (3 à 7), `opco` |
-| Quotas | 60 appels par minute et par consommateur (documentation de la route) ; au plus 150 résultats par source, sans pagination. Le collecteur fait **un appel** par collecte |
+| Quotas | 60 appels par minute et par consommateur (documentation de la route), dépassement signalé en **HTTP 419** (traité comme un quota, réessayé plus tard) ; au plus 150 résultats par source, sans pagination. Le collecteur fait **un appel** par collecte et accepte une réponse de 10 Mo au plus (taille réelle à relever au premier appel) |
 | Contrats | Alternance seulement (`Apprentissage`, `Professionnalisation`) : tous les stages, CDD et CDI viennent d'autres sources (Adzuna) |
-| Données gardées | Identifiant (LBA, ou partenaire + identifiant partenaire), intitulé, description, entreprise, ville (tirée de l'adresse), dates, lien de candidature |
+| Données gardées | Identifiant (toujours « partenaire:identifiant chez le partenaire », stable même si l'identifiant LBA apparaît plus tard), intitulé, description, entreprise, ville (tirée de l'adresse), dates, lien de candidature |
 | Données jamais lues | `apply.phone`, `apply.recipient_id` (contact du recruteur) ; la liste `recruiters` (candidatures spontanées, sans offre) n'est pas collectée |
 | Offres pourvues | `offer.status` différent de `Active` (`Filled`, `Cancelled`) ou date d'expiration passée : offre écartée et signalée comme expirée |
 | Conditions | « L'utilisation de cette API est gratuite et réservée à des usages non lucratifs » ; interdiction de revendre les données ou de facturer l'accès ; site sous licence etalab-2.0. Conservation : non précisée. CGU complètes (`/fr/cgu`) non lues |
-| Risque | **Faible** : API publique officielle, usage personnel non lucratif (à confirmer après lecture des CGU) |
+| Risque | **Faible, provisoire** : API publique officielle, usage personnel non lucratif. À confirmer après lecture des CGU, avant l'accord du PO |
 | Accord du PO | **En attente** |
 
 ## Avant d'activer la source

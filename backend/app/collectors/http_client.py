@@ -335,11 +335,13 @@ class PoliteClient:
         return parser
 
 
-def read_body(source: str, response: httpx.Response, deadline: float) -> bytes:
+def read_body(
+    source: str, response: httpx.Response, deadline: float, max_bytes: int = MAX_BYTES,
+) -> bytes:
     """Corps décompressé par tranches bornées : une « bombe » gzip ne dépasse pas MAX_BYTES.
     Partagé par `PoliteClient` et `ApiClient` (ADR 0003). Lève aussi au-delà de `deadline`."""
     length = response.headers.get("content-length", "")
-    if length.isdigit() and int(length) > MAX_BYTES:
+    if length.isdigit() and int(length) > max_bytes:
         raise PageTooLarge(source, "page trop volumineuse")
     encoding = response.headers.get("content-encoding", "").strip().lower()
     if encoding not in ("", "identity", "gzip", "x-gzip", "deflate"):
@@ -350,11 +352,11 @@ def read_body(source: str, response: httpx.Response, deadline: float) -> bytes:
         if time.monotonic() > deadline:
             raise NetworkError(source, "délai total dépassé")
         try:
-            data = inflater.decompress(chunk, MAX_BYTES + 1 - len(body)) if inflater else chunk
+            data = inflater.decompress(chunk, max_bytes + 1 - len(body)) if inflater else chunk
         except zlib.error as exc:
             raise InvalidResponse(source, "compression illisible") from exc
         body.extend(data)
-        if len(body) > MAX_BYTES or (inflater and inflater.unconsumed_tail):
+        if len(body) > max_bytes or (inflater and inflater.unconsumed_tail):
             raise PageTooLarge(source, "page trop volumineuse")
     return bytes(body)
 

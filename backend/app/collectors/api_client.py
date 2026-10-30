@@ -22,6 +22,7 @@ from app.collectors.base import (
     SourceBlocked,
 )
 from app.collectors.http_client import (
+    MAX_BYTES,
     MAX_SECONDS,
     MIN_INTERVAL,
     SHARED_THROTTLE,
@@ -62,8 +63,10 @@ class ApiClient:
         transport: httpx.BaseTransport | None = None,
         throttle: Throttle = SHARED_THROTTLE,
         min_interval: float = MIN_INTERVAL,
+        max_bytes: int = MAX_BYTES,
     ):
         self.source, self.host, self.throttle = source, host, throttle
+        self.max_bytes = max_bytes
         self.min_interval = max(min_interval, MIN_INTERVAL)
         self._http = httpx.Client(
             transport=transport, follow_redirects=False, trust_env=False,
@@ -103,7 +106,9 @@ class ApiClient:
                 method, f"https://{host}{path}", params=params, data=data, headers=headers,
             ) as response:
                 status = response.status_code
-                body = read_body(self.source, response, time.monotonic() + MAX_SECONDS)
+                body = read_body(
+                    self.source, response, time.monotonic() + MAX_SECONDS, self.max_bytes,
+                )
                 found = response.headers
         except httpx.HTTPError as exc:
             failure = type(exc).__name__  # rien d'autre : le message d'httpx contient l'URL
@@ -116,8 +121,8 @@ class ApiClient:
     def _parse(self, status: int, headers: httpx.Headers, body: bytes) -> Any:
         if status in (401, 403):
             raise SourceBlocked(self.source, f"HTTP {status} : accès refusé (clé d'API ?)")
-        if status == 429:
-            raise QuotaExceeded(self.source, "HTTP 429", retry_after(httpx.Response(
+        if status in (419, 429):  # 419 : limite de débit de l'API apprentissage
+            raise QuotaExceeded(self.source, f"HTTP {status}", retry_after(httpx.Response(
                 status, headers=headers)))
         if status >= 500:
             raise NetworkError(self.source, f"HTTP {status}")

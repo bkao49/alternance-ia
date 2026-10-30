@@ -1,8 +1,10 @@
 """Collecteur La Bonne Alternance (#11, #12) sur une réponse fictive enregistrée : aucun appel
 réseau, aucune vraie clé."""
 
+import datetime as dt
 import json
 import logging
+import time
 from pathlib import Path
 
 import httpx
@@ -14,6 +16,7 @@ from app.collectors.base import (
     CollectorError,
     ContractType,
     NetworkError,
+    QuotaExceeded,
     SearchQuery,
     SourceBlocked,
     collect_all,
@@ -24,6 +27,7 @@ from app.collectors.lba import LbaCollector, city
 
 FIXTURES = Path(__file__).parent / "fixtures"
 TOKEN = "jeton-fictif-0000"
+NOW = dt.datetime(2026, 10, 30, 12, tzinfo=dt.UTC)
 RESPONSE = json.loads((FIXTURES / "lba" / "recherche.json").read_text(encoding="utf-8"))
 
 
@@ -43,7 +47,7 @@ def lba(api, token=TOKEN) -> LbaCollector:
     clock = FakeClock()
     client = ApiClient("lba", "api.apprentissage.beta.gouv.fr",
                        transport=httpx.MockTransport(api), throttle=Throttle(clock, clock.sleep))
-    return LbaCollector(token, client=client)
+    return LbaCollector(token, client=client, now=lambda: NOW)
 
 
 def test_search_and_normalize_lba_and_partner_offers():
@@ -58,7 +62,8 @@ def test_search_and_normalize_lba_and_partner_offers():
     assert request.url.params.get_list("departements") == ["69"]
     own, partner = result.offers
     assert (own.external_id, own.title, own.company, own.location) == (
-        "6720aa0000000000000000a1", "Alternant Data Scientist", "Globex", "Lyon")
+        "offres_emploi_lba:6720aa0000000000000000a1", "Alternant Data Scientist", "Globex",
+        "Lyon")
     assert own.contract_type is ContractType.APPRENTICESHIP
     assert (partner.external_id, partner.company, partner.location) == (
         "France Travail:999FT01", "Initech", "Paris")
@@ -67,7 +72,9 @@ def test_search_and_normalize_lba_and_partner_offers():
 
 def test_filled_offer_is_reported_as_expired():
     result = lba(FakeLba()).collect(SearchQuery())
-    assert result.expired == ["6720aa0000000000000000a3"]
+    # Pourvue (statut) et échue (date passée) ; l'offre qui expire en décembre reste.
+    assert result.expired == ["offres_emploi_lba:6720aa0000000000000000a3", "France Travail:999FT02"]
+    assert "offres_emploi_lba:6720aa0000000000000000a1" in {o.external_id for o in result.offers}
 
 
 def test_recruiter_phone_and_spontaneous_recruiters_are_never_kept():
@@ -106,7 +113,40 @@ def test_outage_of_lba_does_not_stop_other_sources():
 @pytest.mark.parametrize(
     ("address", "expected"),
     [("12 rue Imaginaire 69003 Lyon", "Lyon"), ("75011 PARIS 11", "Paris"),
-     ("1 place Fictive 44000 Nantes Cedex 1", "Nantes"), ("Lyon", None), (None, None)],
+     ("1 place Fictive 44000 Nantes Cedex 1", "Nantes"), ("75007 PARIS, FRANCE", "Paris"),
+     ("69001 Lyon France", "Lyon"), ("75008 Paris 8e Arrondissement", "Paris"),
+     ("Lyon", None), (None, None)],
 )
 def test_city_from_address(address, expected):
     assert city(address) == expected
+
+
+def test_hostile_address_is_parsed_in_linear_time():
+    started = time.monotonic()
+    city("00000 a" + " " * 50_000 + ",")
+    city("75011 " + "x " * 500_000)
+    assert time.monotonic() - started < 1
+
+
+@pytest.mark.parametrize(("location", "sent"), [("2a", ["2A"]), ("974", ["974"]), ("00", None),
+                                                ("99", None), ("Lyon", None)])
+def test_only_real_departments_are_sent(location, sent):
+    api = FakeLba()
+    lba(api).collect(SearchQuery(location=location))
+    assert (api.requests[0].url.params.get_list("departements") or None) == sent
+
+
+def test_rate_limit_419_is_a_quota_to_retry():
+    result = lba(FakeLba(status=419)).collect(SearchQuery())
+    assert isinstance(result.error, QuotaExceeded) and result.error.retryable
+
+
+@pytest.mark.parametrize("token", [" jeton-fictif\n", "jeton fictif", "jéton"])
+def test_token_is_cleaned_or_refused_without_any_call(token):
+    api = FakeLba()
+    result = lba(api, token=token).collect(SearchQuery())
+    if token.strip() == "jeton-fictif":
+        assert api.requests[0].headers["authorization"] == "Bearer jeton-fictif"
+    else:
+        assert isinstance(result.error, CollectorError) and api.requests == []
+        assert token not in str(result.error)
