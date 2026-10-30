@@ -7,7 +7,7 @@ et n'est jamais suivi.
 
 import os
 from collections.abc import Iterator, Mapping
-from typing import Any
+from typing import Any, Self
 
 from app.collectors.api_client import ApiClient
 from app.collectors.base import (
@@ -38,6 +38,12 @@ class AdzunaCollector(Collector):
         self.app_key = os.environ.get("ADZUNA_APP_KEY", "") if app_key is None else app_key
         self.client = client or ApiClient(self.source, API_HOST)
 
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.client.close()
+
     def fetch(self, query: SearchQuery) -> Iterator[Mapping[str, Any]]:
         if not (self.app_id and self.app_key):
             raise CollectorError(self.source, "clés ADZUNA_APP_ID / ADZUNA_APP_KEY absentes")
@@ -47,11 +53,13 @@ class AdzunaCollector(Collector):
             "results_per_page": per_page, "content-type": "application/json",
         }
         if query.keywords:
-            params["what"] = " ".join(query.keywords)
+            params["what"] = " ".join(query.keywords)  # tous les mots (ET) : moins de quota
         if query.location:
             params["where"] = query.location
         if query.contract_types == {ContractType.PERMANENT}:
-            params["permanent"] = 1  # seul filtre de contrat documenté
+            params["permanent"] = 1
+        elif query.contract_types == {ContractType.FIXED_TERM}:
+            params["contract"] = 1
         for page in range(1, MAX_PAGES + 1):
             payload = self.client.get_json(SEARCH_PATH.format(page=page), params)
             results = payload.get("results") if isinstance(payload, Mapping) else None
@@ -68,14 +76,20 @@ class AdzunaCollector(Collector):
         title = _inline(raw.get("title"))
         company = raw.get("company")
         company = company.get("display_name") if isinstance(company, Mapping) else None
-        # Les mots de l'intitulé (alternance, stage) priment sur le contrat déclaré.
+        description = _inline(raw.get("description"))
+        # Intitulé d'abord, puis l'extrait (alternance et stage seulement : « contract » couvre
+        # aussi les missions en freelance), puis le contrat déclaré.
         kind = contract_type(title)
         if kind is ContractType.OTHER:
-            kind = CONTRACTS.get(str(raw.get("contract_type")), ContractType.OTHER)
+            from_text = contract_type(description)
+            if from_text in (ContractType.APPRENTICESHIP, ContractType.INTERNSHIP):
+                kind = from_text
+            else:
+                kind = CONTRACTS.get(str(raw.get("contract_type")), ContractType.OTHER)
         return NormalizedOffer(
             source=self.source, external_id=str(raw_id), url=raw.get("redirect_url", ""),
-            title=title, company=company or "", location=_city(raw.get("location")),
-            contract_type=kind, description_text=_inline(raw.get("description")),
+            title=title, company=company or "Entreprise non communiquée", location=_city(raw.get("location")),
+            contract_type=kind, description_text=description,
             published_at=parse_date(raw.get("created")),
         )
 
