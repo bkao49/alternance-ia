@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import type { Application, Status } from "../api/types";
+import { formatScore } from "../format";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -13,6 +14,27 @@ export function StatusBadge({ status }: { status: Status }) {
     <span className="badge">
       <span className="dot" style={{ background: safeColor(status.color) }} aria-hidden="true" />
       {status.name}
+    </span>
+  );
+}
+
+/** Note sur 5 avec une petite jauge ; sans score (offre non analysée ou saisie à la main), un tiret lu « pas de score ». */
+export function Score({ value }: { value: number | undefined }) {
+  if (value === undefined) {
+    return (
+      <span className="score muted">
+        <span aria-hidden="true">–</span>
+        <span className="visually-hidden">pas de score</span>
+      </span>
+    );
+  }
+  return (
+    <span className="score num">
+      {formatScore(value)}
+      <span className="visually-hidden"> sur 5</span>
+      <span className="score-track" aria-hidden="true">
+        <i style={{ width: `${(value / 5) * 100}%` }} />
+      </span>
     </span>
   );
 }

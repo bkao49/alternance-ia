@@ -8,9 +8,10 @@ import { ApplicationDialog } from "./ApplicationDialog";
 import { ApplicationsTable } from "./ApplicationsTable";
 import { BotPanel, type BotActivity } from "./BotPanel";
 import { Greeting, RelevantOffers } from "./Hero";
+import { HomeApplications } from "./HomeApplications";
 import { KanbanBoard } from "./KanbanBoard";
 import { NewApplicationDialog, type NewApplication } from "./NewApplicationDialog";
-import { Sidebar } from "./Sidebar";
+import { Sidebar, type Page } from "./Sidebar";
 
 type View = "table" | "kanban";
 
@@ -19,6 +20,7 @@ type Props = { user: Me; onLogout: () => Promise<void>; botActivity?: BotActivit
 export function Dashboard({ user, onLogout, botActivity }: Props) {
   const api = useApi();
   const { state, reload } = useDashboardData();
+  const [page, setPage] = useState<Page>("home");
   const [view, setView] = useState<View>("table");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -92,10 +94,19 @@ export function Dashboard({ user, onLogout, botActivity }: Props) {
 
   return (
     <div className="shell">
-      <Sidebar user={user} onSignOut={() => void signOut()} />
+      <Sidebar user={user} page={page} onNavigate={setPage} onSignOut={() => void signOut()} />
 
-      <main id="accueil" className="page">
-        <Greeting user={user} stats={state.phase === "ready" ? state.stats : undefined} onCreate={() => setCreating(true)} />
+      <main className="page">
+        {page === "home" ? (
+          <Greeting user={user} stats={state.phase === "ready" ? state.stats : undefined} onCreate={() => setCreating(true)} />
+        ) : (
+          <header className="hello">
+            <h1 id="applications-title">Candidatures</h1>
+            <button type="button" className="primary" onClick={() => setCreating(true)}>
+              Nouvelle candidature
+            </button>
+          </header>
+        )}
 
         {state.phase === "loading" && <p role="status">Chargement…</p>}
         {state.phase === "error" && (
@@ -109,14 +120,24 @@ export function Dashboard({ user, onLogout, botActivity }: Props) {
 
         {state.phase === "ready" && (
           <>
-            <div className="stage">
-              <RelevantOffers count={state.stats.counts.relevant} />
-              <BotPanel activity={botActivity} />
-            </div>
+            {page === "home" && (
+              <>
+                <div className="stage">
+                  <RelevantOffers count={state.stats.counts.relevant} />
+                  <BotPanel activity={botActivity} />
+                </div>
+                <HomeApplications
+                  applications={applications}
+                  scores={state.scores}
+                  onOpen={(a) => setSelectedId(a.id)}
+                  onSeeAll={() => setPage("applications")}
+                />
+              </>
+            )}
 
-            <section id="candidatures" aria-labelledby="applications-title" className="applications">
+            {page === "applications" && (
+            <section aria-labelledby="applications-title" className="applications">
               <div className="toolbar">
-                <h2 id="applications-title">Candidatures</h2>
                 <div className="filters">
                   <input
                     type="search"
@@ -167,6 +188,7 @@ export function Dashboard({ user, onLogout, botActivity }: Props) {
                 />
               )}
             </section>
+            )}
           </>
         )}
       </main>

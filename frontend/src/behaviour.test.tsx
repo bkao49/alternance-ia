@@ -2,11 +2,11 @@ import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { safeColor } from "./components/common";
-import { failure, renderApp, requests, signedInApp, signIn, validateMove } from "./test/helpers";
+import { failure, renderApp, requests, signedInApplications, signIn, validateMove } from "./test/helpers";
 
 describe("choix d'un statut au clavier", () => {
   it("ne déplace rien tant qu'on n'a pas validé", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     const select = screen.getByLabelText("Déplacer Cyberdyne Vision vers…");
     const row = select.closest("tr") as HTMLElement;
     await user.selectOptions(select, "Analysée");
@@ -18,14 +18,14 @@ describe("choix d'un statut au clavier", () => {
   });
 
   it("garde le bouton de validation inactif sans choix", async () => {
-    await signedInApp();
+    await signedInApplications();
     expect(validateMove("Soylent Foods")).toBeDisabled();
   });
 });
 
 describe("texte non fiable", () => {
   it("affiche du HTML venant d'une annonce comme du simple texte", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     await user.click(screen.getByRole("button", { name: "Nouvelle candidature" }));
     const form = screen.getByRole("dialog", { name: "Nouvelle candidature" });
     const hostile = `<img src=x onerror="alert(1)">`;
@@ -50,7 +50,7 @@ describe("texte non fiable", () => {
 describe("session et erreurs", () => {
   it("ramène à la connexion quand la session expire en cours d'usage", async () => {
     let expired = false;
-    const user = await signedInApp(() => (expired ? failure(401, "unauthorized", "Non connecté") : undefined));
+    const user = await signedInApplications(() => (expired ? failure(401, "unauthorized", "Non connecté") : undefined));
     expired = true;
     await user.selectOptions(screen.getByLabelText("Déplacer Cyberdyne Vision vers…"), "Analysée");
     await user.click(validateMove("Cyberdyne Vision"));
@@ -58,7 +58,7 @@ describe("session et erreurs", () => {
   });
 
   it("garde la fenêtre ouverte et la saisie quand la création échoue", async () => {
-    const user = await signedInApp((request) =>
+    const user = await signedInApplications((request) =>
       request.method === "POST" && request.url.endsWith("/applications")
         ? failure(422, "validation_error", "Données invalides")
         : undefined,
@@ -74,7 +74,7 @@ describe("session et erreurs", () => {
   });
 
   it("n'annonce pas une déconnexion qui a échoué", async () => {
-    const user = await signedInApp((request) =>
+    const user = await signedInApplications((request) =>
       request.url.endsWith("/auth/logout") ? failure(403, "csrf_invalid", "Jeton CSRF invalide") : undefined,
     );
     await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
@@ -93,7 +93,7 @@ describe("session et erreurs", () => {
 
 describe("confirmation d'envoi", () => {
   it("n'appelle jamais confirm-sent sans la case cochée, et une seule fois sinon", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     await user.click(screen.getByRole("button", { name: "Initech Data" }));
     const dialog = await screen.findByRole("dialog", { name: "Initech Data" });
     await user.click(within(dialog).getByRole("button", { name: "J'ai envoyé cette candidature" }));

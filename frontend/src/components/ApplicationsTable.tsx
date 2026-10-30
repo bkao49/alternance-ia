@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 
 import type { Application, Status } from "../api/types";
 import type { ScoresByOffer } from "../hooks";
-import { formatDate, formatScore } from "../format";
-import { MoveSelect, StatusBadge } from "./common";
+import { formatDate } from "../format";
+import { MoveSelect, Score, StatusBadge } from "./common";
 
 type SortKey = "company" | "title" | "status" | "score" | "created_at";
 type Sort = { key: SortKey; direction: "ascending" | "descending" };
@@ -25,27 +25,6 @@ function compare(a: Application, b: Application, key: SortKey, scores: ScoresByO
 }
 
 const scoreOf = (a: Application, scores: ScoresByOffer) => (a.offer_id ? (scores[a.offer_id] ?? -1) : -1);
-
-/** Note sur 5 avec une petite jauge ; sans score (offre non analysée ou saisie à la main), un tiret lu « pas de score ». */
-function Score({ value }: { value: number | undefined }) {
-  if (value === undefined) {
-    return (
-      <span className="score muted">
-        <span aria-hidden="true">–</span>
-        <span className="visually-hidden">pas de score</span>
-      </span>
-    );
-  }
-  return (
-    <span className="score num">
-      {formatScore(value)}
-      <span className="visually-hidden"> sur 5</span>
-      <span className="score-track" aria-hidden="true">
-        <i style={{ width: `${(value / 5) * 100}%` }} />
-      </span>
-    </span>
-  );
-}
 
 type Props = {
   applications: Application[];

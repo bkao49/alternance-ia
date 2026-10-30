@@ -46,6 +46,14 @@ export async function signedInApp(intercept?: Intercept): Promise<User> {
   return user;
 }
 
+/** Connecté, puis sur la vue complète des candidatures (tableau, filtres, Kanban). */
+export async function signedInApplications(intercept?: Intercept): Promise<User> {
+  const user = await signedInApp(intercept);
+  await user.click(within(screen.getByRole("navigation", { name: "Navigation principale" })).getByRole("button", { name: "Candidatures" }));
+  await screen.findByRole("table");
+  return user;
+}
+
 export const bodyRows = () => within(screen.getByRole("table")).getAllByRole("row").slice(1);
 export const firstCompany = () => within(bodyRows()[0] as HTMLElement).getAllByRole("rowheader")[0]?.textContent;
 
