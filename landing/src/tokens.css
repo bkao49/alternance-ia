@@ -1,0 +1,44 @@
+/* Jetons de la direction I, repris de frontend/src/theme/tokens.css (rôles : docs/design/DESIGN.md).
+   La landing garde le thème sombre seul : c'est l'identité de la maquette retenue. */
+
+/* Polices hébergées avec la page (sous-ensemble latin) : aucun appel à Google Fonts. */
+@import "@fontsource/instrument-serif/latin-400.css";
+@import "@fontsource/instrument-serif/latin-400-italic.css";
+@import "@fontsource/geist/latin-400.css";
+@import "@fontsource/geist/latin-500.css";
+@import "@fontsource/jetbrains-mono/latin-400.css";
+
+:root {
+  --bg: #0d0d0f;
+  --surface: #141416;
+  --hover: #1a1a1d;
+  --text: #f4f4f4;
+  --muted: #a6a6ae;
+  --line: #2a2a2f;
+  --control: #6b6b74;
+  --accent: #d6231e;
+  --accent-text: #ff5a52;
+  --on-accent: #ffffff;
+
+  --serif: "Instrument Serif", "Times New Roman", serif;
+  --sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --radius-pill: 999px;
+
+  --dur-fast: 150ms;
+  --dur: 250ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  color-scheme: dark;
+}
