@@ -1,6 +1,6 @@
 # Rapport d'évaluation du score
 
-Jeu de référence : 30 offres et un profil entièrement fictifs (`backend/tests/fixtures/reference/offres.json`). Notes « attendues » écrites à la main. Exécutions : 3, sans aléa (résultat identique à chaque fois). Régénérer : `cd backend && python -m app.ai.matching.evaluation`.
+Jeu de référence : 30 offres et un profil entièrement fictifs (`backend/tests/fixtures/reference/offres.json`). Notes « attendues » écrites à la main. Exécutions : 3, offres mélangées avec une graine fixe (le score ne doit pas dépendre de l'ordre). Régénérer : `cd backend && python -m app.ai.matching.evaluation`.
 
 « À postuler » = score ≥ 3.5.
 

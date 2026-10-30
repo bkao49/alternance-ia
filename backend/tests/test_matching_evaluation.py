@@ -48,3 +48,4 @@ def test_spearman_basics():
     assert spearman([1, 2, 3], [10, 20, 30]) == 1
     assert spearman([1, 2, 3], [30, 20, 10]) == -1
     assert spearman([1, 1, 1], [1, 2, 3]) == 0
+    assert round(spearman([1, 1, 2], [1, 2, 3]), 3) == 0.866  # ex æquo : rang moyen

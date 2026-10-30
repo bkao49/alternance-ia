@@ -1,12 +1,14 @@
 """Évaluation du score sur un jeu de référence (offres et profil fictifs, notes humaines).
 
 Une commande produit le rapport : `python -m app.ai.matching.evaluation`. Tout est déterministe (aucun
-tirage, aucun appel réseau, extractions déjà écrites dans le jeu) : trois exécutions donnent des écarts
+tirage hors du mélange à graine fixe, aucun appel réseau, extractions déjà écrites dans le jeu) : trois exécutions donnent des écarts
 types nuls et le rapport est identique à chaque fois. Les variantes « embeddings » et « LLM » de l'ablation
 n'existent pas encore : elles sont listées comme non disponibles.
 """
 
+import datetime as dt
 import json
+import random
 import statistics
 import sys
 from pathlib import Path
@@ -21,6 +23,8 @@ REPORT = ROOT / "docs" / "evaluation" / "rapport.md"
 APPLY_THRESHOLD = 3.5  # « à postuler » (identique à RELEVANT_SCORE du tableau de bord)
 SATURATION_SHARE = 0.4  # alerte si plus de 40 % des offres dépassent 4/5
 RUNS = 3
+SEED = 20261030  # graine : l'ordre des offres change à chaque exécution, le score ne doit pas en dépendre
+EVAL_DATE = dt.date(2026, 10, 30)  # date fixe : le rapport ne dépend pas du jour d'exécution
 VARIANTS = {
     "règles seules": {"skills": 0, "experience": 0},
     "compétences seules": {"title": 0, "location_remote": 0, "contract": 0, "salary": 0, "degree": 0},
@@ -33,7 +37,7 @@ def load(path: Path = DATASET) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def score_all(data: dict, weights: dict[str, float]) -> dict[str, float]:
+def score_all(data: dict, weights: dict[str, float], seed: int | None = None) -> dict[str, float]:
     c = data["criteria"]
     criteria = Criteria(
         locations=tuple((loc["label"], loc["radius_km"]) for loc in c["locations"]),
@@ -41,11 +45,14 @@ def score_all(data: dict, weights: dict[str, float]) -> dict[str, float]:
         education_level=c["education_level"], min_salary_eur=c["min_salary_eur"],
         excluded_keywords=tuple(c["excluded_keywords"]))
     scores = {}
-    for offer in data["offers"]:
+    offers = list(data["offers"])
+    if seed is not None:
+        random.Random(seed).shuffle(offers)
+    for offer in offers:
         extraction = Extraction.model_validate(offer["extraction"], strict=False)
         view = to_offer_view({"title": offer["title"], "description_text": offer["description"],
                               "location": offer["location"], "expired": offer["expired"]}, extraction)
-        outcome = apply_filters(view, criteria, today=None)
+        outcome = apply_filters(view, criteria, today=EVAL_DATE)
         if outcome.discarded:
             scores[offer["id"]] = 0.0
             continue
@@ -78,7 +85,7 @@ def spearman(a: list[float], b: list[float]) -> float:
 
 
 def evaluate(data: dict, weights: dict[str, float]) -> dict:
-    runs = [score_all(data, weights) for _ in range(RUNS)]
+    runs = [score_all(data, weights, SEED + n) for n in range(RUNS)]
     ids = [o["id"] for o in data["offers"]]
     expected = [float(o["rating"]) for o in data["offers"]]
     computed = [runs[0][i] for i in ids]
@@ -104,7 +111,7 @@ def report(data: dict) -> str:
         "# Rapport d'évaluation du score", "",
         (f"Jeu de référence : {len(data['offers'])} offres et un profil entièrement fictifs "
          "(`backend/tests/fixtures/reference/offres.json`). Notes « attendues » écrites à la main. "
-         f"Exécutions : {RUNS}, sans aléa (résultat identique à chaque fois). "
+         f"Exécutions : {RUNS}, offres mélangées avec une graine fixe (le score ne doit pas dépendre de l'ordre). "
          "Régénérer : `cd backend && python -m app.ai.matching.evaluation`."), "",
         f"« À postuler » = score ≥ {APPLY_THRESHOLD}.", "",
         "| Variante | Spearman | Erreur absolue moyenne | Précision | Rappel | Écart-type (3 exécutions) |",
