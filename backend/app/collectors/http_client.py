@@ -192,6 +192,9 @@ class PoliteClient:
         return self
 
     def __exit__(self, *_exc: object) -> None:
+        self.close()
+
+    def close(self) -> None:
         self._http.close()
 
     # --- Vérifications ----------------------------------------------------------------------
