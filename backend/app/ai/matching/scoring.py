@@ -87,7 +87,9 @@ def _facts_for(skill: str, facts: Sequence[Mapping], kinds: tuple[str, ...] | No
     for fact in facts:
         if kinds and fact["kind"] not in kinds:
             continue
-        techs = {normalize(t) for t in fact["technologies"]}
+        if not wanted:
+            continue
+        techs = {normalize(t) for t in fact["technologies"]} - {""}
         if wanted in techs or (wanted and wanted in _words(fact["text"])) or (
                 " " in wanted and wanted in normalize(fact["text"])):
             found.append(str(fact["id"]))
@@ -131,7 +133,10 @@ def build_components(title: str, extraction: Extraction | None, criteria: Criter
 
 
 def check_fact_ids(components: Sequence[Component], known_ids: set[str]) -> None:
-    """Refuse tout fait cité qui n'existe pas dans le profil de l'utilisateur."""
+    """Garde de sécurité : refuse tout fait cité absent de la liste donnée (les faits de l'utilisateur,
+    lus sous RLS). Les composantes ne citent que des faits reçus ; ce contrôle protège une future
+    évolution (explication par IA) contre un fait inventé. Les notes de critères reprennent des
+    compétences d'annonce (texte non fiable) : le front les affiche en texte brut."""
     for component in components:
         if not set(component.fact_ids) <= known_ids:
             raise ScoringError("fait inexistant cité dans un critère")
@@ -139,12 +144,14 @@ def check_fact_ids(components: Sequence[Component], known_ids: set[str]) -> None
 
 def aggregate(components: Sequence[Component], weights: Mapping[str, float], violated: Sequence[str] = (),
               reasons: Sequence[str] = (), *, cap: float = MANDATORY_CAP) -> ScoreResult:
+    weights = {**DEFAULT_WEIGHTS, **weights}
     total = sum(weights[c.key] for c in components)
     known = [c for c in components if c.score is not None and weights[c.key] > 0]
     noted = sum(weights[c.key] for c in known)
     coverage = noted / total if total else 0.0
     raw = 5 * sum(weights[c.key] * c.score for c in known) / noted if noted else MEAN_SCORE
     value = raw if coverage >= MIN_COVERAGE else MEAN_SCORE + (raw - MEAN_SCORE) * coverage / MIN_COVERAGE
+    capped = bool(violated) and value > cap  # le plafond n'est annoncé que s'il a changé le score
     if violated:
         value = min(value, cap)
     value = round(max(0.0, min(5.0, value)), 2)
@@ -153,7 +160,7 @@ def aggregate(components: Sequence[Component], weights: Mapping[str, float], vio
                  "explanation": c.note, "known": c.score is not None, "fact_ids": list(c.fact_ids)}
                 for c in components]
     return ScoreResult(value, confidence, round(coverage, 2), criteria, list(reasons),
-                       explain(components, weights, value, confidence, bool(violated)))
+                       explain(components, weights, value, confidence, capped))
 
 
 def explain(components: Sequence[Component], weights: Mapping[str, float], value: float, confidence: str,
@@ -162,7 +169,7 @@ def explain(components: Sequence[Component], weights: Mapping[str, float], value
                    key=lambda c: (-c.score * weights[c.key], c.key))
     strong = [LABELS[c.key].lower() for c in known if c.score >= 0.7][:3]
     weak = [LABELS[c.key].lower() for c in known if c.score < 0.4][:2]
-    first = f"Score {value:.1f}/5 : " + (f"points forts : {', '.join(strong)}" if strong else "peu de points forts établis")
+    first = f"Score {value:.2f}/5 : " + (f"points forts : {', '.join(strong)}" if strong else "peu de points forts établis")
     first += f" ; points faibles : {', '.join(weak)}." if weak else "."
     cited = len({i for c in components for i in c.fact_ids})
     second = f"Appuyé sur {cited} fait(s) de votre profil. " if cited else ""
@@ -191,7 +198,7 @@ def score_offer(conn: Connection, user_id: str, posting_id: str, *, weights: Map
         try:
             body = {k: v for k, v in analysis["extraction"].items() if k != "content_hash"}
             extraction = Extraction.model_validate(body, strict=False)
-        except ValueError:
+        except (ValueError, AttributeError, TypeError):
             extraction = None  # analyse ancienne ou de démonstration : traitée comme absente
     outcome = apply_filters(to_offer_view(dict(posting), extraction), criteria, policy, today=today)
     if outcome.discarded:

@@ -96,7 +96,7 @@ def test_unknown_fact_id_is_rejected():
 def test_weights_from_env(monkeypatch):
     monkeypatch.setenv("MATCH_WEIGHTS", '{"title": 40, "salary": 0}')
     assert weights_from_env()["title"] == 40 and weights_from_env()["skills"] == 20
-    for bad in ('{"titre": 1}', '{"title": -1}', "[1]", "pas du json", '{"title": true}'):
+    for bad in ('{"titre": 1}', '{"title": -1}', "[1]", "pas du json", '{"title": true}', '{"title": NaN}'):
         monkeypatch.setenv("MATCH_WEIGHTS", bad)
         with pytest.raises(RuntimeError):
             weights_from_env()
@@ -171,6 +171,71 @@ def test_offer_without_analysis_is_scored_prudently(user):
         setup_user(conn, user)
         result = score_offer(conn, user, add_posting(conn, user, extraction=None))
     assert result.confidence == "low" and result.coverage == 0.4 and result.value < 5  # titre et lieu seuls : tirée vers 2,5
+
+
+def test_explanation_announces_the_cap_only_when_it_changed_the_score():
+    low = aggregate(all_known(0.2), W, ["location"])
+    assert "plafonné" not in low.explanation and aggregate(all_known(1.0), W, ["location"]).value == 2.0
+
+
+def test_partial_weights_fall_back_to_defaults():
+    assert aggregate(all_known(1.0), {"title": 50}).value == 5.0
+
+
+def test_missing_profile_match_is_a_zero_not_unknown(user):
+    with db.user_scope(user) as conn:
+        setup_user(conn, user)
+        extra = {**EXTRACTION, "skills": ["Cobol"]}
+        result = score_offer(conn, user, add_posting(conn, user, extraction=extra))
+    skills = next(c for c in result.criteria if c["key"] == "skills")
+    assert skills["known"] and skills["score"] == 0 and skills["fact_ids"] == []
+
+
+def test_education_above_candidate_level_caps_end_to_end(user):
+    with db.user_scope(user) as conn:
+        setup_user(conn, user)
+        extra = {**EXTRACTION, "education_level": "doctorate"}
+        result = score_offer(conn, user, add_posting(conn, user, extraction=extra))
+    assert result.value <= 2.0 and result.blocking_reasons
+
+
+def test_salary_below_minimum_scores_zero_on_that_component(user):
+    with db.user_scope(user) as conn:
+        setup_user(conn, user)
+        conn.execute(text("UPDATE search_preferences SET min_salary_eur = 30000"))
+        extra = {**EXTRACTION, "salary_eur_year": 15000}
+        result = score_offer(conn, user, add_posting(conn, user, extraction=extra))
+    salary = next(c for c in result.criteria if c["key"] == "salary")
+    assert salary["known"] and salary["score"] == 0
+
+
+def test_expired_offer_is_written_as_discarded(user):
+    with db.user_scope(user) as conn:
+        setup_user(conn, user)
+        posting = add_posting(conn, user)
+        conn.execute(text("UPDATE job_postings SET expired = true"))
+        assert score_offer(conn, user, posting).blocking_reasons == ["L'offre est expirée."]
+
+
+def test_scoring_twice_keeps_the_latest_score_first(user):
+    with db.user_scope(user) as conn:
+        setup_user(conn, user)
+        posting = add_posting(conn, user)
+        score_offer(conn, user, posting)
+        conn.execute(text("UPDATE search_preferences SET excluded_keywords = ARRAY['alternance']"))
+        score_offer(conn, user, posting)
+        latest = conn.execute(text(
+            "SELECT value FROM scores ORDER BY created_at DESC, id LIMIT 1")).scalar_one()
+    assert float(latest) == 0
+
+
+def test_other_users_posting_and_facts_are_invisible(user):
+    other = create_user("bob@example.test", "mot-de-passe-de-test-123")
+    with db.user_scope(user) as conn:
+        setup_user(conn, user)
+        posting = add_posting(conn, user)
+    with db.user_scope(other) as conn:
+        assert score_offer(conn, other, posting) is None
 
 
 def test_no_criteria_means_no_score(user):

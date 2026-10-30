@@ -7,7 +7,7 @@ Statut : proposé (2026-10-30)
 - Couverture = poids des composantes connues / poids total. Sous 0,5, le score est ramené vers 2,5 de façon linéaire. Confiance : élevée dès 0,8, moyenne dès 0,5, sinon faible.
 - Un critère obligatoire violé (lieu, niveau d'études ; voir ADR 0005) plafonne le score à 2,0.
 - Notes de composantes par code (recoupement de mots, pas d'IA). Compétences = tout fait du profil ; expérience = faits de type expérience ou projet seulement.
-- L'explication vient d'un gabarit appliqué aux critères calculés et ne cite que des `fact_ids` du profil ; `check_fact_ids` rejette un fait inexistant.
+- L'explication vient d'un gabarit appliqué aux critères calculés et ne cite que des `fact_ids` du profil ; `check_fact_ids` rejette un fait absent de la liste de l'utilisateur (garde défensive ; l'isolation vient de la RLS, testée avec un second utilisateur). Les notes de critères reprennent des compétences d'annonce : le front les affiche en texte brut.
 - Écriture dans `scores` (`criteria` jsonb, `blocking_reasons`) ; `GET /offers`, `GET /offers/{id}` et le tableau de bord lisent déjà ces colonnes.
 
 ## Écart avec le contrat
