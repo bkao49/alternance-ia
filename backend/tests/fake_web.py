@@ -1,5 +1,6 @@
 """Faux site web pour les tests des collecteurs : aucun appel réseau."""
 
+import json
 import socket
 
 import httpx
@@ -65,3 +66,11 @@ def make_client(
 
 
 HTML = {"content-type": "text/html; charset=utf-8"}
+
+
+def raw_response(status, headers=None, *, json_body=None, text="", content=None) -> httpx.Response:
+    """Réponse en flux brut, comme un vrai serveur : les clients la lisent avec iter_raw()."""
+    if content is None:
+        content = (json.dumps(json_body) if json_body is not None else text).encode()
+    headers = {"content-type": "application/json", **(headers or {})}
+    return httpx.Response(status, headers=headers, stream=httpx.ByteStream(content))

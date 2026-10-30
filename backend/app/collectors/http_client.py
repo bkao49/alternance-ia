@@ -275,34 +275,12 @@ class PoliteClient:
         try:
             with self._http.stream("GET", url, headers=headers) as response:
                 found = {k.lower(): v for k, v in response.headers.items()}
-                length = found.get("content-length", "")
-                if length.isdigit() and int(length) > MAX_BYTES:
-                    raise PageTooLarge(self.source, "page trop volumineuse")
-                body = self._read_body(response, found.get("content-encoding", ""), deadline)
+                body = read_body(self.source, response, deadline)
                 return RawResponse(response.status_code, found, body)
         except httpx.HTTPError as exc:
             raise NetworkError(self.source, f"échec réseau ({type(exc).__name__})") from exc
         finally:
             self.throttle.done(key)
-
-    def _read_body(self, response: httpx.Response, encoding: str, deadline: float) -> bytes:
-        """Corps décompressé par tranches bornées : une « bombe » gzip ne dépasse pas MAX_BYTES."""
-        encoding = encoding.strip().lower()
-        if encoding not in ("", "identity", "gzip", "x-gzip", "deflate"):
-            raise InvalidResponse(self.source, "compression non prise en charge")
-        inflater = zlib.decompressobj(47) if encoding not in ("", "identity") else None
-        body = bytearray()
-        for chunk in response.iter_raw():
-            if time.monotonic() > deadline:
-                raise NetworkError(self.source, "délai total dépassé")
-            try:
-                data = inflater.decompress(chunk, MAX_BYTES + 1 - len(body)) if inflater else chunk
-            except zlib.error as exc:
-                raise InvalidResponse(self.source, "compression illisible") from exc
-            body.extend(data)
-            if len(body) > MAX_BYTES or (inflater and inflater.unconsumed_tail):
-                raise PageTooLarge(self.source, "page trop volumineuse")
-        return bytes(body)
 
     def _raise_for_status(self, response: RawResponse) -> None:
         status = response.status
@@ -313,7 +291,7 @@ class PoliteClient:
         if status in BLOCKING:
             raise SourceBlocked(self.source, f"HTTP {status}")
         if status == 429:
-            raise QuotaExceeded(self.source, "HTTP 429", _retry_after(response))
+            raise QuotaExceeded(self.source, "HTTP 429", retry_after(response))
         if status in (404, 410):
             raise PageNotFound(self.source, f"HTTP {status}")
         if status >= 500:
@@ -357,6 +335,32 @@ class PoliteClient:
         return parser
 
 
+def read_body(
+    source: str, response: httpx.Response, deadline: float, max_bytes: int = MAX_BYTES,
+) -> bytes:
+    """Corps décompressé par tranches bornées : une « bombe » gzip ne dépasse pas MAX_BYTES.
+    Partagé par `PoliteClient` et `ApiClient` (ADR 0003). Lève aussi au-delà de `deadline`."""
+    length = response.headers.get("content-length", "")
+    if length.isdigit() and int(length) > max_bytes:
+        raise PageTooLarge(source, "page trop volumineuse")
+    encoding = response.headers.get("content-encoding", "").strip().lower()
+    if encoding not in ("", "identity", "gzip", "x-gzip", "deflate"):
+        raise InvalidResponse(source, "compression non prise en charge")
+    inflater = zlib.decompressobj(47) if encoding not in ("", "identity") else None
+    body = bytearray()
+    for chunk in response.iter_raw():
+        if time.monotonic() > deadline:
+            raise NetworkError(source, "délai total dépassé")
+        try:
+            data = inflater.decompress(chunk, max_bytes + 1 - len(body)) if inflater else chunk
+        except zlib.error as exc:
+            raise InvalidResponse(source, "compression illisible") from exc
+        body.extend(data)
+        if len(body) > max_bytes or (inflater and inflater.unconsumed_tail):
+            raise PageTooLarge(source, "page trop volumineuse")
+    return bytes(body)
+
+
 def _is_ip(value: str) -> bool:
     try:
         ipaddress.ip_address(value.strip("[]"))
@@ -365,7 +369,7 @@ def _is_ip(value: str) -> bool:
     return True
 
 
-def _retry_after(response: RawResponse) -> float | None:
+def retry_after(response: RawResponse | httpx.Response) -> float | None:
     value = response.headers.get("retry-after", "").strip()
     if value.isdigit():
         return float(value)
