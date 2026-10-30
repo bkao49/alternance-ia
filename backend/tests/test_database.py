@@ -7,7 +7,7 @@ from psycopg import errors
 
 EXPECTED_TABLES = {
     "users", "profile_facts", "job_postings", "analyses", "scores", "applications",
-    "status_definitions", "events", "tasks", "llm_calls",
+    "status_definitions", "events", "tasks", "llm_calls", "search_preferences",
 }
 
 # Une insertion par table, dans l'ordre des dépendances. %(uid)s est le propriétaire de la ligne ;
@@ -34,6 +34,8 @@ SEED = [
               "VALUES (%(uid)s, %(applications)s, 'r') RETURNING id")),
     ("llm_calls", ("INSERT INTO llm_calls (user_id, provider, model, purpose, input_hash) "
                   "VALUES (%(uid)s, 'p', 'm', 'extraction', 'h') RETURNING id")),
+    ("search_preferences", ("INSERT INTO search_preferences (user_id, keywords) "
+                           "VALUES (%(uid)s, '{data}') RETURNING user_id")),
 ]
 
 
