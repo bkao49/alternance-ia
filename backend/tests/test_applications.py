@@ -14,7 +14,7 @@ from app.main import create_app
 
 PASSWORD = "mot-de-passe-de-test-123"  # fictif, uniquement pour les tests
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "contracts" / "openapi.yaml"
-IMPLEMENTED_PREFIXES = {"auth", "applications", "statuses", "offers", "dashboard"}
+IMPLEMENTED_PREFIXES = {"auth", "applications", "statuses", "offers", "dashboard", "preferences"}
 
 
 class Api:
@@ -39,6 +39,9 @@ class Api:
 
     def patch(self, path, json=None):
         return self.write("PATCH", path, json)
+
+    def put(self, path, json=None):
+        return self.write("PUT", path, json)
 
 
 @pytest.fixture
