@@ -16,8 +16,10 @@ MAX_NAME = 120
 MAX_ZIP_ENTRIES = 200
 MAX_UNZIPPED_BYTES = 20 * 1024 * 1024
 MAX_ZIP_RATIO = 100
+MAX_DOCUMENT_XML = 5 * 1024 * 1024
 # Marqueurs de PDF « actifs » (script, lancement, fichier embarqué) : refusés sans rien exécuter.
-PDF_ACTIVE = re.compile(rb"/(?:JavaScript|JS|Launch|EmbeddedFile|RichMedia|OpenAction|AA|Encrypt)\b")
+PDF_ACTIVE = re.compile(rb"/(?:JavaScript|JS|Launch|EmbeddedFile|RichMedia|OpenAction|AA|Encrypt)\b"
+                        rb"|/[A-Za-z]*#[0-9A-Fa-f]{2}")  # noms écrits en hexadécimal : camouflage
 MACRO_PARTS = ("vbaproject.bin", "vbadata.xml", "activex/", "embeddings/")
 MIME = {"pdf": "application/pdf",
         "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
@@ -70,6 +72,8 @@ def _check_docx(data: bytes) -> None:
                 raise Rejected("type")
             total = sum(i.file_size for i in infos)
             if total > MAX_UNZIPPED_BYTES or total > MAX_ZIP_RATIO * len(data):
+                raise Rejected("zip_bomb")
+            if any(i.filename.lower() == "word/document.xml" and i.file_size > MAX_DOCUMENT_XML for i in infos):
                 raise Rejected("zip_bomb")
             for name in names:
                 if name.startswith("/") or ".." in name.split("/") or "\\" in name:

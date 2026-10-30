@@ -35,6 +35,7 @@ def _limits() -> None:
     resource.setrlimit(resource.RLIMIT_AS, (768 * 1024 * 1024,) * 2)
     resource.setrlimit(resource.RLIMIT_CPU, (15, 15))
     resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))  # aucune écriture de fichier
+    resource.setrlimit(resource.RLIMIT_NOFILE, (16, 16))
 
 
 def fail(code: str) -> None:
@@ -69,6 +70,8 @@ def docx_text(data: bytes) -> str:
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             xml = archive.read("word/document.xml")
+        if xml[:2] in (b"\xff\xfe", b"\xfe\xff") or b"\x00" in xml[:8]:  # UTF-16 : contrôles suivants aveugles
+            fail("unreadable")
         if b"<!DOCTYPE" in xml.upper() or b"<!ENTITY" in xml.upper():  # pas d'entités : bombes XML
             fail("unreadable")
         root = ElementTree.fromstring(xml)

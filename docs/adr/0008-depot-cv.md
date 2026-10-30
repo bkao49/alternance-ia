@@ -16,7 +16,13 @@ Statut : proposé (#41, menace T15).
   doit correspondre. Nom de fichier de réponse fixe, `nosniff`, `no-store`.
 - **Quota** : 5 dépôts par heure et par utilisateur (journal `cv_uploads`, non remis à zéro par une suppression).
 
-## Limite connue
+## Autres limites connues
+- Le filtre des PDF lit les octets bruts : un PDF qui cache son code dans un flux compressé n'est pas reconnu. Le
+  serveur ne l'exécute jamais ; le risque touche seulement celui qui retélécharge son propre fichier.
+- Les fichiers refusés ne comptent pas dans le quota (limite par IP à prévoir au niveau du proxy).
+- Au plus 2 extractions simultanées (les autres attendent) pour borner la mémoire.
+
+## Limite principale
 La coupure du réseau est faite dans le processus (Python), pas par le système. Pour une vraie isolation
 système, il faudra lancer l'extraction dans un conteneur sans réseau (`network_mode: none`) : à décider avec le
 déploiement (#27).

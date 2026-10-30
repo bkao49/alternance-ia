@@ -9,11 +9,14 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 WORKER = Path(__file__).with_name("extract_worker.py")
 TIMEOUT_SECONDS = 20
 MAX_OUTPUT = 400_000  # octets de texte acceptés en retour
+# Au plus 2 extractions à la fois (chacune peut prendre 768 Mo) : les autres attendent leur tour.
+_SLOTS = threading.BoundedSemaphore(2)
 ERRORS = {"encrypted", "too_many_pages", "no_text", "unreadable"}
 
 
@@ -25,7 +28,7 @@ class ExtractionFailed(Exception):
 
 def extract_text(data: bytes, file_type: str) -> str:
     env = {k: v for k, v in os.environ.items() if k == "SYSTEMROOT"}  # Windows l'exige, rien d'autre
-    with tempfile.TemporaryDirectory() as workdir:
+    with _SLOTS, tempfile.TemporaryDirectory() as workdir:
         try:
             done = subprocess.run(
                 [sys.executable, "-I", str(WORKER), file_type],

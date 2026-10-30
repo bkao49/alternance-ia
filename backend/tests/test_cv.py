@@ -48,7 +48,7 @@ def test_pdf_and_docx_are_accepted_and_extracted(alice, contract):  # noqa: F811
 
 @pytest.mark.parametrize("data", [
     b"MZ\x90\x00 fichier executable", b"just text", b"<html>", b"PK\x03\x04 faux zip",
-    make_pdf(extra=b"/JavaScript (app.alert(1))"), make_pdf(extra=b"/Launch"), make_pdf(extra=b"/Encrypt 9 0 R"),
+    make_pdf(extra=b"/JavaScript (app.alert(1))"), make_pdf(extra=b"/Launch"), make_pdf(extra=b"/Encrypt 9 0 R"), make_pdf(extra=b"/#4AavaScript (x)"),
 ])
 def test_wrong_or_fake_types_are_refused_whatever_the_name(alice, data):  # noqa: F811
     assert upload(alice, data, "cv.pdf").status_code == 415
