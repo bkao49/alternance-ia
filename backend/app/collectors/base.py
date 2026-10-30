@@ -74,6 +74,15 @@ class InvalidResponse(CollectorError):
     """Réponse ou enregistrement illisible (format inattendu, champ obligatoire manquant)."""
 
 
+class OfferExpired(CollectorError):
+    """L'annonce a expiré (date limite passée, page « offre pourvue ») : non collectée, mais
+    son identifiant est remonté pour marquer l'offre déjà enregistrée (#14)."""
+
+    def __init__(self, source: str, external_id: str):
+        super().__init__(source, "annonce expirée")
+        self.external_id = external_id
+
+
 class NetworkError(CollectorError):
     """Délai dépassé, connexion refusée, erreur 5xx."""
 
@@ -217,6 +226,7 @@ class CollectResult:
     offers: list[NormalizedOffer] = field(default_factory=list)
     rejected: int = 0  # enregistrements illisibles, ignorés un par un
     duplicates: int = 0  # même dedup_key renvoyée deux fois par la source
+    expired: list[str] = field(default_factory=list)  # external_id des annonces expirées
     error: CollectorError | None = None  # erreur qui a arrêté la source
 
 
@@ -235,7 +245,13 @@ class Collector(ABC):
 
     @abstractmethod
     def normalize(self, raw: Mapping[str, Any]) -> NormalizedOffer:
-        """Convertit un enregistrement brut. Lève `InvalidResponse` s'il est inexploitable."""
+        """Convertit un enregistrement brut. Lève `InvalidResponse` s'il est inexploitable,
+        `OfferExpired` si l'annonce a expiré."""
+
+    def check_expired(self, url: str) -> bool | None:
+        """L'offre enregistrée à cette URL a-t-elle expiré ? None = la source ne sait pas le
+        dire (aucun marquage). Lève `SourceBlocked` comme `fetch`."""
+        return None
 
     def collect(self, query: SearchQuery) -> CollectResult:
         """Récupère, normalise et dédoublonne. Un enregistrement illisible n'arrête pas la
@@ -250,6 +266,10 @@ class Collector(ABC):
             for raw in self.fetch(query):
                 try:
                     offer = self.normalize(raw)
+                except OfferExpired as exc:
+                    if exc.external_id not in result.expired:
+                        result.expired.append(exc.external_id)
+                    continue
                 except CollectorError as exc:
                     if not isinstance(exc, InvalidResponse):
                         raise

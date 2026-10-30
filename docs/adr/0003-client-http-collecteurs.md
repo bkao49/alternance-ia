@@ -27,3 +27,8 @@ Le PO a ouvert la collecte à tout site web (#60), à condition de respecter le 
 - Sur chaque page : JSON-LD `schema.org/JobPosting` d'abord (y compris `@graph` et `ItemList`), sélecteurs CSS ensuite. Seuls titre, entreprise, ville, contrat, texte, lien et date sont lus : `applicationContact`, `contactPoint` et le reste sont ignorés.
 - Le lien déclaré dans le JSON-LD n'est gardé que s'il reste dans la liste blanche ; il n'est jamais suivi automatiquement.
 - Dépendances : `beautifulsoup4` et `soupsieve` (analyseur `html.parser` de la bibliothèque standard).
+
+## Blocage et expiration (#14)
+- `PoliteClient` reconnaît aussi un blocage servi en 200 : page de défi (marqueurs propres aux pages de défi, pas les scripts présents sur toutes les pages), CAPTCHA sur une page courte sans offre structurée (un CAPTCHA sur le formulaire « Postuler » d'une vraie offre ne compte pas), redirection vers une page de connexion. Cause fixe dans `SourceBlocked.message`.
+- `handle_blocks` désactive la source (ensemble `disabled`) et notifie une seule fois (`Notifier`, journal par défaut). **La désactivation n'est pas encore persistée** : il faut une table (voir la PR de #14).
+- Annonce expirée (`validThrough` passé, mention « offre n'est plus disponible ») : `normalize` lève `OfferExpired`, `collect` range son identifiant dans `CollectResult.expired`. `Collector.check_expired(url)` revérifie une offre enregistrée (404/410 = expirée) ; `expiry.refresh_expired` marque `job_postings.expired` sous RLS.

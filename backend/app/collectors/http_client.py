@@ -33,6 +33,7 @@ from app.collectors.base import (
     SourceBlocked,
     canonical_url,
 )
+from app.collectors.detection import block_cause
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ MAX_SECONDS = 30.0  # durée totale d'une requête
 MAX_REDIRECTS = 5
 MAX_CACHE = 5000
 REDIRECTS = {301, 302, 303, 307, 308}
+HTML_TYPES = {"text/html", "application/xhtml+xml"}
 BLOCKING = {401, 403, 407}
 KEPT_HEADERS = {"content-type", "etag", "last-modified", "retry-after", "server", "cf-mitigated"}
 # Préfixes IPv6 qui transportent une adresse IPv4 (NAT64, 6to4, Teredo) : refusés en bloc.
@@ -232,6 +234,9 @@ class PoliteClient:
             url=final_url, status=response.status, text=response.text, headers=headers,
             content_type=headers.get("content-type", "").split(";")[0].strip().lower(),
         )
+        # Défi anti-bot, CAPTCHA ou page de connexion servis en 200 (#14) : on s'arrête.
+        if page.content_type in HTML_TYPES and (cause := block_cause(page.text, final_url, url)):
+            raise SourceBlocked(self.source, cause)
         self.cache[url] = CachedPage(page, headers.get("etag"), headers.get("last-modified"))
         while len(self.cache) > MAX_CACHE:  # les plus anciennes entrées partent d'abord
             del self.cache[next(iter(self.cache))]

@@ -29,10 +29,12 @@ from app.collectors.base import (
     ContractType,
     InvalidResponse,
     NormalizedOffer,
+    OfferExpired,
     SearchQuery,
     canonical_url,
 )
-from app.collectors.http_client import Page, PageSkipped, PoliteClient
+from app.collectors.detection import page_says_expired, posting_expired
+from app.collectors.http_client import Page, PageNotFound, PageSkipped, PoliteClient
 
 log = logging.getLogger(__name__)
 
@@ -265,7 +267,24 @@ class WebCollector(Collector):
                 separator = "\n" if name == "description" else " "
                 fields[name] = element.get_text(separator, strip=True) if element else None
             if fields.get("title"):
-                yield {"kind": "css", "page_url": page.url, "fields": fields}
+                yield {"kind": "css", "page_url": page.url, "fields": fields,
+                       "expired": page_says_expired(page.text)}
+
+    def check_expired(self, url: str) -> bool | None:
+        """Relit la page d'une offre enregistrée : 404/410, date limite passée ou mention
+        « offre pourvue » → expirée. Page illisible ou interdite → None (on ne sait pas)."""
+        try:
+            page = self.client.get(url)
+        except PageNotFound:
+            return True
+        except PageSkipped:
+            return None
+        if page.content_type not in HTML_TYPES:
+            return None
+        postings = job_postings(BeautifulSoup(page.text, "html.parser"))
+        if postings:
+            return all(posting_expired(p) for p in postings)
+        return page_says_expired(page.text)
 
     def normalize(self, raw: Mapping[str, Any]) -> NormalizedOffer:
         page_url = raw.get("page_url")
@@ -273,6 +292,8 @@ class WebCollector(Collector):
             raise InvalidResponse(self.source, "enregistrement sans page d'origine")
         if raw.get("kind") == "css":
             fields = raw["fields"]
+            if raw.get("expired"):
+                raise OfferExpired(self.source, _short_hash(canonical_url(page_url)))
             return NormalizedOffer(
                 source=self.source, external_id=_short_hash(canonical_url(page_url)),
                 url=page_url, title=fields["title"],
@@ -298,6 +319,8 @@ class WebCollector(Collector):
             str(identifier) if isinstance(identifier, str | int) and not isinstance(identifier, bool)
             and str(identifier).strip() else _short_hash(canonical_url(url), data["title"], company)
         )
+        if posting_expired(data):
+            raise OfferExpired(self.source, external_id[:200])
         return NormalizedOffer(
             source=self.source, external_id=external_id[:200], url=url, title=data["title"],
             company=company, location=city,
