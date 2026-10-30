@@ -8,7 +8,10 @@ from psycopg import errors
 EXPECTED_TABLES = {
     "users", "profile_facts", "job_postings", "analyses", "scores", "applications",
     "status_definitions", "events", "tasks", "llm_calls", "search_preferences",
+    "llm_cache",
 }
+# Journal du plafond de coût : l'application ne peut pas en supprimer de lignes (migration 0005).
+APPEND_ONLY = {"llm_calls"}
 
 # Une insertion par table, dans l'ordre des dépendances. %(uid)s est le propriétaire de la ligne ;
 # les identifiants des tables déjà insérées sont passés par nom de table (ex. %(job_postings)s).
@@ -36,6 +39,8 @@ SEED = [
                   "VALUES (%(uid)s, 'p', 'm', 'extraction', 'h') RETURNING id")),
     ("search_preferences", ("INSERT INTO search_preferences (user_id, keywords) "
                            "VALUES (%(uid)s, '{data}') RETURNING user_id")),
+    ("llm_cache", ("INSERT INTO llm_cache (user_id, input_hash, response_text) "
+                  "VALUES (%(uid)s, 'h', 'r') RETURNING user_id")),
 ]
 
 
@@ -131,7 +136,11 @@ def test_user_sees_and_deletes_only_own_rows(two_users, table):
     key = "id" if table == "users" else "user_id"
     as_app(conn, alice)
     assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 1
-    assert conn.execute(f"DELETE FROM {table} WHERE {key} = %s", (bob,)).rowcount == 0
+    if table in APPEND_ONLY:
+        with pytest.raises(errors.InsufficientPrivilege):
+            conn.execute(f"DELETE FROM {table} WHERE {key} = %s", (bob,))
+    else:
+        assert conn.execute(f"DELETE FROM {table} WHERE {key} = %s", (bob,)).rowcount == 0
     conn.rollback()
     as_app(conn, bob)
     assert conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0] == 1
