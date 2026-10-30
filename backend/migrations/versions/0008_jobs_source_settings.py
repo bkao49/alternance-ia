@@ -58,13 +58,21 @@ FUNCTIONS = [
         BEGIN
           IF p_stale_seconds < 60 THEN RAISE EXCEPTION 'délai trop court'; END IF;
           -- Worker disparu (plantage) : l'essai compte ; trop d'essais, la tâche est « morte ».
-          UPDATE public.jobs SET
-              state = CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'queued' END,
-              run_at = now(), locked_by = NULL, locked_at = NULL, heartbeat_at = NULL,
-              finished_at = CASE WHEN attempts >= max_attempts THEN now() END,
-              last_error = 'worker disparu'
-           WHERE state = 'running' AND heartbeat_at < now() - make_interval(secs => p_stale_seconds);
-          GET DIAGNOSTICS n = ROW_COUNT;
+          -- Tâche devenue « morte » : la source garde son intervalle (sinon un worker qui plante en
+          -- boucle serait relancé à chaque minute).
+          WITH r AS (
+            UPDATE public.jobs SET
+                state = CASE WHEN attempts >= max_attempts THEN 'dead' ELSE 'queued' END,
+                run_at = now(), locked_by = NULL, locked_at = NULL, heartbeat_at = NULL,
+                finished_at = CASE WHEN attempts >= max_attempts THEN now() END,
+                last_error = 'worker disparu'
+             WHERE state = 'running' AND heartbeat_at < now() - make_interval(secs => p_stale_seconds)
+            RETURNING user_id, source, state),
+          t AS (
+            UPDATE public.source_settings s SET last_run_at = now() FROM r
+             WHERE r.state = 'dead' AND s.user_id = r.user_id AND s.source = r.source
+            RETURNING 1)
+          SELECT count(*) INTO n FROM r;
           RETURN n;
         END $$"""),
 ]
@@ -94,7 +102,7 @@ def upgrade() -> None:
         run_at timestamptz NOT NULL DEFAULT now(),
         attempts integer NOT NULL DEFAULT 0,
         max_attempts integer NOT NULL DEFAULT 5 CHECK (max_attempts BETWEEN 1 AND 10),
-        locked_by text, locked_at timestamptz, heartbeat_at timestamptz,
+        locked_by text CHECK (length(locked_by) <= 100), locked_at timestamptz, heartbeat_at timestamptz,
         last_error text CHECK (length(last_error) <= 200),  -- message fixe, jamais de contenu
         offers_found integer, offers_new integer, offers_rejected integer,  -- historique du passage
         created_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz,
@@ -128,10 +136,15 @@ def upgrade() -> None:
     op.execute("GRANT job_dispatcher TO CURRENT_USER")
     op.execute("GRANT SELECT, INSERT, UPDATE ON jobs TO job_dispatcher")
     op.execute("GRANT SELECT ON source_settings TO job_dispatcher")
+    op.execute("GRANT UPDATE (last_run_at) ON source_settings TO job_dispatcher")
     op.execute("CREATE POLICY jobs_dispatch ON jobs TO job_dispatcher USING (true) WITH CHECK (true)")
     op.execute(
         "CREATE POLICY source_settings_dispatch_read ON source_settings FOR SELECT TO job_dispatcher "
         "USING (true)"
+    )
+    op.execute(
+        "CREATE POLICY source_settings_dispatch_touch ON source_settings FOR UPDATE TO job_dispatcher "
+        "USING (true) WITH CHECK (true)"
     )
     # ALTER OWNER exige que le nouveau propriétaire puisse créer dans le schéma : droit retiré aussitôt.
     op.execute("GRANT CREATE ON SCHEMA public TO job_dispatcher")

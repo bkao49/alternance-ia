@@ -92,7 +92,7 @@ def test_lost_lease_cannot_overwrite(env):
     sql(url, "UPDATE jobs SET heartbeat_at = '2000-01-01' WHERE id = %s", job.id)
     jobs.reap_stale(600)
     assert jobs.claim_job("w2")
-    assert not jobs.heartbeat(job, "w1") and not jobs.complete(job, "w1", 1, 1, 0)
+    assert not jobs.heartbeat(job, "w1") and not jobs.succeed(job, "w1", 1, 1, 0)
     assert state(url, job.id)[0] == "running"
 
 
@@ -163,3 +163,23 @@ def test_rls_hides_other_users_jobs(env):
         assert conn.execute(text("SELECT count(*) FROM source_settings")).scalar_one() == 0
     with db.user_scope() as conn:
         assert conn.execute(text("SELECT count(*) FROM jobs")).scalar_one() == 0
+
+
+def test_dead_by_reaper_keeps_the_source_interval(env):
+    url, (alice, _) = env
+    enable(url, alice, last_run_at="2000-01-01T00:00:00Z")
+    job = add_job(url, alice, state="running", attempts=5, heartbeat="2000-01-01T00:00:00Z")
+    assert jobs.reap_stale(600) == 1 and state(url, job)[0] == "dead"
+    assert jobs.schedule_due(120) == 0  # pas de relance à la minute suivante
+
+
+def test_source_retry_after_is_bounded(env):
+    url, (alice, _) = env
+    enable(url, alice)
+    for asked, low, high in ((0, 60, 60), (10**12, 21600, 21600), (3600, 3600, 3600)):
+        add_job(url, alice)
+        job = jobs.claim_job("w")
+        jobs.retry_later(job, "w", "quota", after=asked)
+        delay = sql(url, "SELECT extract(epoch FROM run_at - now()) FROM jobs WHERE id = %s", job.id)[0][0]
+        assert low - 5 <= delay <= high
+        sql(url, "DELETE FROM jobs")

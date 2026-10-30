@@ -94,7 +94,7 @@ def _finish(job: Job, worker: str, state: str, error: str | None, run_after: flo
     return done
 
 
-def complete(job: Job, worker: str, found: int, new: int, rejected: int) -> bool:
+def succeed(job: Job, worker: str, found: int, new: int, rejected: int) -> bool:
     return _finish(job, worker, "done", None, counts=(found, new, rejected))
 
 
@@ -103,7 +103,9 @@ def retry_later(job: Job, worker: str, error: str, after: float | None = None,
     """Nouvel essai après un délai croissant ; `dead` quand les essais sont épuisés."""
     if job.attempts >= job.max_attempts:
         return _finish(job, worker, "dead", error, counts=counts)
-    delay = after if after is not None else backoff_seconds(job.attempts)
+    # Retry-After vient de la source : jamais sous 1 minute (0 = boucle serrée), jamais au-delà de 6 h.
+    delay = (min(max(after, BASE_BACKOFF_SECONDS), MAX_BACKOFF_SECONDS) if after is not None
+             else backoff_seconds(job.attempts))
     return _finish(job, worker, "queued", error, delay, counts)
 
 
@@ -114,17 +116,26 @@ def fail(job: Job, worker: str, error: str, counts: tuple[int, int, int] | None 
 
 def block_source(job: Job, worker: str, cause: str,
                  counts: tuple[int, int, int] | None = None) -> None:
-    """Blocage détecté (403, 429 persistant, CAPTCHA) : jamais de nouvel essai. La source passe à
-    « bloquée » et désactivée ; ses autres tâches en attente sont abandonnées. Seul le PO la réactive."""
-    _finish(job, worker, "dead", cause, counts=counts)
+    """Blocage détecté (403, anti-bot, CAPTCHA, quota persistant) : jamais de nouvel essai. La source
+    passe à « bloquée » et désactivée ; ses autres tâches en attente sont abandonnées. Seul le PO la
+    réactive. Une seule transaction : un plantage ne peut pas laisser la source activée. Le blocage
+    est un fait même si la tâche a été relâchée entre-temps (garde `locked_by` sur la tâche seule)."""
+    found, new, rejected = counts or (None, None, None)
     with user_scope(job.user_id) as conn:
         conn.execute(
-            text("UPDATE source_settings SET enabled = false, blocked_at = now(), blocked_cause = left(:c, 200) "
-                 "WHERE source = :source"),
+            text("UPDATE source_settings SET enabled = false, blocked_at = now(), "
+                 "blocked_cause = left(:c, 200), last_run_at = now() WHERE source = :source"),
             {"c": cause, "source": job.source},
         )
         conn.execute(
             text("UPDATE jobs SET state = 'dead', last_error = 'source bloquée', finished_at = now() "
                  "WHERE source = :source AND state = 'queued'"),
             {"source": job.source},
+        )
+        conn.execute(
+            text("UPDATE jobs SET state = 'dead', last_error = left(:c, 200), locked_by = NULL, "
+                 "locked_at = NULL, heartbeat_at = NULL, finished_at = now(), "
+                 "offers_found = :found, offers_new = :new, offers_rejected = :rejected "
+                 "WHERE id = :id AND locked_by = :w AND state = 'running'"),
+            {"c": cause, "found": found, "new": new, "rejected": rejected, "id": job.id, "w": worker},
         )
