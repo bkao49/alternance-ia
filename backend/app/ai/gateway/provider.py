@@ -23,8 +23,10 @@ PERSONAL_KINDS = frozenset({DataKind.PROFILE})
 
 @dataclass(frozen=True)
 class ProviderRequest:
-    instructions: str  # consignes écrites par notre code : seule partie traitée comme instruction
-    data: str  # données délimitées (annonce, profil pseudonymisé) : jamais des instructions
+    # Consignes écrites par notre code : seule partie traitée comme instruction (rôle « système »).
+    instructions: str
+    # Données délimitées (annonce, profil pseudonymisé), à placer dans le rôle « utilisateur ».
+    data: str
     max_output_tokens: int
 
 
@@ -48,7 +50,7 @@ class LLMProvider(ABC):
 
     @abstractmethod
     def complete(self, request: ProviderRequest) -> ProviderResponse:
-        """Seule méthode qui touche au réseau."""
+        """Seule méthode qui touche au réseau ; ne s'appelle que depuis `LLMGateway` (test dédié)."""
 
     def cost_eur(self, input_tokens: int, output_tokens: int) -> float:
         return (input_tokens * self.eur_per_mtok_input + output_tokens * self.eur_per_mtok_output) / 1_000_000
@@ -60,8 +62,8 @@ class LLMProvider(ABC):
 
 
 def estimate_tokens(text: str) -> int:
-    """Estimation prudente (environ 4 caractères par jeton, arrondi au-dessus)."""
-    return len(text) // 4 + 1
+    """Estimation prudente : 3 caractères par jeton (JSON, chiffres et code sont denses)."""
+    return len(text) // 3 + 1
 
 
 @dataclass
