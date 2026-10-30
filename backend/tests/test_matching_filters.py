@@ -163,5 +163,18 @@ def test_load_criteria_and_record_discard(user):
     assert row["blocking_reasons"] == ["Mot exclu présent dans l'offre : senior."]
 
 
+@pytest.mark.parametrize("value", ["alternance", ""])
+def test_unknown_contract_value_is_unknown_not_failure(value):
+    outcome = run(OfferView(title="Data analyst", contract_type=value))
+    assert status(outcome, "contract") is Status.UNKNOWN and not outcome.discarded
+
+
+def test_symbols_and_non_latin_words_are_kept_in_excluded_keywords():
+    criteria = Criteria(excluded_keywords=("C#", "データ"))
+    assert apply_filters(OfferView(title="Dev C# confirmé"), criteria, today=TODAY).discarded
+    assert apply_filters(OfferView(title="Poste データ"), criteria, today=TODAY).discarded
+    assert not apply_filters(OfferView(title="Dev C et Python"), criteria, today=TODAY).discarded
+
+
 def test_normalize():
     assert normalize("  Île-de-France / Été ") == "ile de france ete"

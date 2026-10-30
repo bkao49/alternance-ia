@@ -3,6 +3,8 @@
 Une information absente de l'offre donne « inconnu » : elle n'écarte jamais l'offre. Selon la
 politique (`MatchPolicy`), un échec écarte l'offre (HARD), plafonne son score plus tard (MANDATORY,
 issue #18) ou ne fait que baisser une note (DESIRED). Les raisons sont des phrases lisibles.
+Mots exclus : cherchés dans le titre ET la description, mot entier (« senior » n'attrape pas « seniority »
+ni le pluriel) ; un mot exclu cité dans une phrase écarte l'offre : choix à valider par le PO (ADR 0005).
 """
 
 import datetime as dt
@@ -17,6 +19,7 @@ from enum import StrEnum
 from sqlalchemy import Connection, text
 
 EDUCATION_RANK = {"bac": 0, "bac_plus_2": 1, "bac_plus_3": 2, "bac_plus_4": 3, "bac_plus_5": 4, "doctorate": 5}
+CONTRACT_TYPES = ("internship", "apprenticeship", "fixed_term", "permanent", "other")
 START_TOLERANCE = dt.timedelta(days=30)  # une offre qui commence un peu avant la date voulue passe
 
 
@@ -96,20 +99,21 @@ class FilterOutcome:
 
 
 def normalize(value: str) -> str:
-    """Minuscules sans accents ni ponctuation : « Île-de-France » == « ile de france »."""
+    """Minuscules sans accents ni ponctuation : « Île-de-France » == « ile de france ».
+    Les lettres non latines et les symboles « + » et « # » sont gardés (« C# », « C++ »)."""
     decomposed = unicodedata.normalize("NFKD", value.casefold())
     letters = "".join(c for c in decomposed if not unicodedata.combining(c))
-    return re.sub(r"[^a-z0-9]+", " ", letters).strip()
+    return re.sub(r"[^\w+#]+", " ", letters).strip()
 
 
 def _contains_word(haystack: str, needle: str) -> bool:
-    return bool(needle) and re.search(rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])", haystack) is not None
+    return bool(needle) and re.search(rf"(?<![\w+#]){re.escape(needle)}(?![\w+#])", haystack) is not None
 
 
 def _haversine_km(a: tuple[float, float], b: tuple[float, float]) -> float:
     lat1, lon1, lat2, lon2 = map(math.radians, (*a, *b))
     h = math.sin((lat2 - lat1) / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2
-    return 12742 * math.asin(math.sqrt(h))
+    return 12742 * math.asin(math.sqrt(min(1.0, h)))
 
 
 Geocoder = Callable[[str], tuple[float, float] | None]
@@ -132,7 +136,7 @@ def check_excluded_keywords(offer: OfferView, criteria: Criteria) -> Check:
 def check_contract(offer: OfferView, criteria: Criteria) -> Check:
     if not criteria.contract_types:
         return Check("contract", Status.OK)
-    if offer.contract_type is None:
+    if offer.contract_type not in CONTRACT_TYPES:  # absent ou valeur hors liste (mal extraite) : inconnu
         return Check("contract", Status.UNKNOWN)
     if offer.contract_type in criteria.contract_types:
         return Check("contract", Status.OK)
@@ -225,7 +229,7 @@ def record_discard(conn: Connection, user_id: str, posting_id: str, outcome: Fil
     """Enregistre l'écart : un score à 0 dont `blocking_reasons` porte les raisons (visible dans
     GET /offers/{id}). Un score écrit plus tard remplace celui-ci (le plus récent gagne)."""
     conn.execute(text(
-        "INSERT INTO scores (user_id, job_posting_id, value, confidence, explanation, blocking_reasons) "
-        "VALUES (:uid, :posting, 0, 'high', :explanation, CAST(:reasons AS jsonb))"),
+        "INSERT INTO scores (user_id, job_posting_id, value, confidence, explanation, blocking_reasons, "
+        "created_at) VALUES (:uid, :posting, 0, 'high', :explanation, CAST(:reasons AS jsonb), clock_timestamp())"),
         {"uid": user_id, "posting": posting_id, "explanation": "Offre écartée par un filtre dur.",
          "reasons": json.dumps(list(outcome.reasons), ensure_ascii=False)})
