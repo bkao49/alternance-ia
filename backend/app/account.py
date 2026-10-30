@@ -38,6 +38,8 @@ def delete_account(body: AccountDeletion, request: Request, response: Response,
 
     with user_scope(session.user_id) as conn:
         stored = conn.execute(text("SELECT password_hash FROM users")).scalar()
+        if stored is None:  # compte déjà supprimé alors que le cookie est encore valide
+            raise ApiError(401, "unauthorized", "Non connecté")
         if not security.verify_password(stored, body.password):
             limiter.record_failure(key)
             raise ApiError(403, "invalid_password", "Mot de passe incorrect")
