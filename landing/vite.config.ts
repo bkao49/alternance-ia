@@ -1,12 +1,12 @@
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
-import { APP_NAME, REPO_URL } from "./src/brand.ts";
+import { APP_NAME, APP_URL, REPO_URL } from "./src/brand.ts";
 
-// Le nom provisoire et l'adresse du dépôt vivent dans src/brand.ts : on les reporte dans le HTML au build.
+// Le nom provisoire et l'adresse de l'application et du dépôt vivent dans src/brand.ts : on les reporte dans le HTML au build.
 function brand(): Plugin {
   return {
     name: "brand",
-    transformIndexHtml: (html) => html.replaceAll("__APP_NAME__", APP_NAME).replaceAll("__REPO_URL__", REPO_URL),
+    transformIndexHtml: (html) => html.replaceAll("__APP_NAME__", APP_NAME).replaceAll("__REPO_URL__", REPO_URL).replaceAll("__APP_URL__", APP_URL),
   };
 }
 

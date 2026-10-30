@@ -11,13 +11,13 @@ describe("chiffres fictifs", () => {
   it("le total affiché correspond aux données du graphique", () => {
     expect(total(COLLECTED)).toBe(1204);
     expect(COLLECTED).toHaveLength(30);
-    expect(html).toContain("1&nbsp;204</span> offres lues en 30 jours");
+    expect(html).toContain("1&nbsp;204</span> offres collectées en 30 jours");
   });
 
   it("le nombre d'offres au-dessus de 4 correspond aux tranches", () => {
     const high = SCORE_BINS.filter((_, i) => SCORE_FROM + i * SCORE_STEP >= 4);
     expect(total(high)).toBe(14);
-    expect(html).toContain("14</span> au-dessus de 4 sur 5");
+    expect(html).toContain("14</span> offres au-dessus de 4 sur 5");
   });
 });
 
