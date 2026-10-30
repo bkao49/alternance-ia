@@ -10,13 +10,14 @@ contact d'un recruteur (`contactPoint`, `applicationContact`… ne sont pas lus)
 
 import datetime as dt
 import hashlib
+import html
 import json
 import logging
 import re
 import tomllib
 from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Self
 from urllib.parse import urljoin, urlsplit
 
 import soupsieve
@@ -37,11 +38,15 @@ from app.collectors.http_client import Page, PageSkipped, PoliteClient
 log = logging.getLogger(__name__)
 
 MAX_POSTINGS_PER_PAGE = 200
+MAX_JSONLD = 500_000  # caractères par bloc JSON-LD
+MAX_TAGS = 50_000  # au-delà, la page n'est pas analysée
 HTML_TYPES = {"text/html", "application/xhtml+xml"}
+HOST_NAME = re.compile(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+")
+BROAD_SECOND_LEVEL = {"co", "com", "org", "net", "gouv", "gov", "ac", "edu", "asso"}
 # Mots qui disent le type de contrat, cherchés dans l'intitulé et le champ contrat.
 CONTRACT_WORDS = [
     (ContractType.APPRENTICESHIP, r"\baltern(ance|ant|ante)s?\b|apprenti|professionnalisation"),
-    (ContractType.INTERNSHIP, r"\bstages?\b|stagiaire|\bintern(e|s|ship)?\b"),
+    (ContractType.INTERNSHIP, r"\bstages?\b|stagiaire|\binterns?\b|\binternship\b"),
     (ContractType.FIXED_TERM, r"\bcdd\b|\btemporary\b"),
     (ContractType.PERMANENT, r"\bcdi\b|\bpermanent\b"),
 ]
@@ -92,6 +97,19 @@ class SiteConfig(BaseModel):
     def _valid_css(cls, value: str | None) -> str | None:
         return _css(value)
 
+    @field_validator("allowed_domains")
+    @classmethod
+    def _valid_domains(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        domains = tuple(d.strip().strip(".").lower() for d in value)
+        for domain in domains:
+            if not HOST_NAME.fullmatch(domain) or domain.rsplit(".", 1)[-1].isdigit():
+                raise ValueError("domaine invalide (nom attendu, ni IP ni joker)")
+            # « example.com » oui ; « com », « co.uk » ou « gouv.fr » ouvriraient trop large.
+            labels = domain.split(".")
+            if len(labels) == 2 and labels[0] in BROAD_SECOND_LEVEL:
+                raise ValueError("domaine trop large")
+        return domains
+
     @model_validator(mode="after")
     def _start_urls_in_allowlist(self) -> "SiteConfig":
         for url in self.start_urls:
@@ -110,6 +128,13 @@ def load_sites(path: Path) -> list[SiteConfig]:
     return sites
 
 
+def _url_key(url: str) -> str | None:
+    try:
+        return canonical_url(url)
+    except ValueError:
+        return None
+
+
 def in_allowlist(url: str, domains: Iterable[str]) -> bool:
     try:
         host = urlsplit(canonical_url(url)).hostname or ""
@@ -125,10 +150,13 @@ def job_postings(soup: BeautifulSoup) -> list[dict[str, Any]]:
     """Objets JobPosting des blocs JSON-LD (y compris dans `@graph` ou une `ItemList`)."""
     found: list[dict[str, Any]] = []
     for script in soup.find_all("script", attrs={"type": re.compile(r"ld\+json", re.IGNORECASE)}):
+        block = script.get_text()
+        if len(block) > MAX_JSONLD:
+            continue
         try:
-            data = json.loads(script.get_text())
-        except ValueError:
-            continue  # bloc mal formé : ignoré, les autres sont lus
+            data = json.loads(block)
+        except (ValueError, RecursionError):
+            continue  # bloc mal formé ou piégé (imbrication extrême) : ignoré seul
         _walk(data, found, depth=0)
     return found[:MAX_POSTINGS_PER_PAGE]
 
@@ -150,17 +178,23 @@ def _walk(node: Any, found: list[dict[str, Any]], depth: int) -> None:
 
 
 def html_to_text(value: Any) -> str:
+    """Texte brut ; une seconde passe pour une description doublement échappée (`&lt;p&gt;`)."""
     if not isinstance(value, str):
         return ""
-    return BeautifulSoup(value, "html.parser").get_text("\n", strip=True)
+    text = BeautifulSoup(value, "html.parser").get_text("\n", strip=True)
+    if "<" in text:
+        text = BeautifulSoup(text, "html.parser").get_text("\n", strip=True)
+    return text
+
+
+def _plain(value: Any) -> str | None:
+    return html.unescape(value) if isinstance(value, str) else None
 
 
 def _name(value: Any) -> str | None:
-    if isinstance(value, str):
-        return value
-    if isinstance(value, Mapping) and isinstance(value.get("name"), str):
-        return value["name"]
-    return None
+    if isinstance(value, Mapping):
+        value = value.get("name")
+    return _plain(value)
 
 
 def _city(location: Any) -> str | None:
@@ -193,6 +227,8 @@ def parse_date(value: Any) -> dt.datetime | None:
         parsed = dt.datetime.fromisoformat(value.strip())
     except ValueError:
         return None
+    if not 2000 <= parsed.year <= dt.datetime.now(dt.UTC).year + 1:
+        return None  # date absurde (« 0001-01-01 ») : ignorée
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.UTC)
 
 
@@ -209,35 +245,58 @@ class WebCollector(Collector):
         self.source = site.source
         self.client = client or PoliteClient(site.source, site.allowed_domains)
 
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.client.close()
+
     def fetch(self, query: SearchQuery) -> Iterator[Mapping[str, Any]]:
         """Pages de départ, puis pages d'offre trouvées par `offer_links`. Les filtres de
-        `query` sont appliqués après coup par `collect` : un site n'a pas d'API de recherche."""
-        budget, seen = self.site.max_pages, set()
+        `query` sont appliqués après coup par `collect` : un site n'a pas d'API de recherche.
+
+        Avec `offer_links`, les offres résumées sur les pages de liste ne sortent qu'après les
+        pages d'offre : à identifiant égal, `collect` garde la version complète."""
+        budget = self.site.max_pages
+        seen = {_url_key(u) for u in self.site.start_urls}
+        listed: list[Mapping[str, Any]] = []
         for start in self.site.start_urls:
             if budget <= 0:
-                return
+                break
             budget -= 1
-            page = self._page(start)
-            if page is None:
+            page, soup = self._parsed(start)
+            if page is None or soup is None:
                 continue
-            soup = BeautifulSoup(page.text, "html.parser")
-            yield from self._records(page, soup, detail=self.site.offer_links is None)
+            records = self._records(page, soup, detail=self.site.offer_links is None)
             if not self.site.offer_links:
+                yield from records
                 continue
+            listed.extend(records)
             for link in soup.select(self.site.offer_links):
                 href = link.get("href")
-                if not isinstance(href, str):
-                    continue
-                url = urljoin(page.url, href)
-                if url in seen or not in_allowlist(url, self.site.allowed_domains):
+                url = urljoin(page.url, href) if isinstance(href, str) else ""
+                key = _url_key(url)  # « #postuler » ou « ?utm_… » : même page
+                if key is None or key in seen or not in_allowlist(url, self.site.allowed_domains):
                     continue
                 if budget <= 0:
-                    return
-                seen.add(url)
+                    break
+                seen.add(key)
                 budget -= 1
-                detail = self._page(url)
-                if detail is not None:
-                    yield from self._records(detail, BeautifulSoup(detail.text, "html.parser"))
+                detail, detail_soup = self._parsed(url)
+                if detail is not None and detail_soup is not None:
+                    yield from self._records(detail, detail_soup)
+        yield from listed
+
+    def _parsed(self, url: str) -> tuple[Page | None, BeautifulSoup | None]:
+        """Page et arbre HTML ; une page aux balises innombrables est ignorée avant l'analyse,
+        dont le coût croît avec leur nombre."""
+        page = self._page(url)
+        if page is None:
+            return None, None
+        if page.text.count("<") > MAX_TAGS:
+            log.warning("collector=%s page ignorée (trop de balises)", self.source)
+            return page, None
+        return page, BeautifulSoup(page.text, "html.parser")
 
     def _page(self, url: str) -> Page | None:
         """Page HTML, ou None si elle est ignorée seule (`PageSkipped` : hors liste, robots.txt,
@@ -248,7 +307,7 @@ class WebCollector(Collector):
             log.warning("collector=%s page ignorée (%s)", self.source, type(exc).__name__)
             return None
         if page.content_type not in HTML_TYPES:
-            log.warning("collector=%s page ignorée (type %s)", self.source, page.content_type)
+            log.warning("collector=%s page ignorée (type non HTML)", self.source)
             return None
         return page
 
@@ -282,7 +341,8 @@ class WebCollector(Collector):
                 description_text=fields.get("description") or "",
             )
         data = raw.get("data")
-        if not isinstance(data, Mapping) or not isinstance(data.get("title"), str):
+        title = _plain(data.get("title")) if isinstance(data, Mapping) else None
+        if not isinstance(data, Mapping) or not title:
             raise InvalidResponse(self.source, "JobPosting sans intitulé")
         # Le lien déclaré n'est gardé que s'il reste sur le site ; sinon, la page lue.
         declared = urljoin(page_url, data["url"]) if isinstance(data.get("url"), str) else None
@@ -296,12 +356,20 @@ class WebCollector(Collector):
         company = _name(data.get("hiringOrganization")) or self.site.company or ""
         external_id = (
             str(identifier) if isinstance(identifier, str | int) and not isinstance(identifier, bool)
-            and str(identifier).strip() else _short_hash(canonical_url(url), data["title"], company)
+            and str(identifier).strip() else self._fallback_id(url, page_url, title, company)
         )
         return NormalizedOffer(
-            source=self.source, external_id=external_id[:200], url=url, title=data["title"],
+            source=self.source, external_id=external_id[:200], url=url, title=title,
             company=company, location=city,
-            contract_type=contract_type(data["title"], data.get("employmentType")),
+            contract_type=contract_type(title, data.get("employmentType")),
             description_text=html_to_text(data.get("description")),
             published_at=parse_date(data.get("datePosted")),
         )
+
+    @staticmethod
+    def _fallback_id(url: str, page_url: str, title: str, company: str) -> str:
+        """Sans `identifier` : l'URL propre de l'offre suffit (un intitulé corrigé reste la même
+        offre) ; plusieurs offres sur une même page se distinguent par titre et entreprise."""
+        if canonical_url(url) != canonical_url(page_url):
+            return _short_hash(canonical_url(url))
+        return _short_hash(canonical_url(url), title, company)

@@ -35,7 +35,7 @@ def careers_site(**routes) -> FakeSite:
 def test_crawls_listing_then_offer_pages_with_jsonld_first_then_css():
     site = careers_site()
     result = collector(site).collect(SearchQuery())
-    assert result.error is None and result.rejected == 0
+    assert result.error is None and result.rejected == 0 and result.duplicates == 0
     jsonld, css = result.offers
     assert (jsonld.external_id, jsonld.title, jsonld.company, jsonld.location) == (
         "GX-42", "Stagiaire Data Scientist", "Globex SAS", "Lyon")
@@ -104,7 +104,11 @@ def test_page_budget_is_respected():
     ("overrides", "message"),
     [({"start_urls": ["https://evil.test/"]}, "hors des domaines"),
      ({"offer_links": "a[["}, "sélecteur"),
-     ({"source": "Web Globex"}, "pattern")],
+     ({"source": "Web Globex"}, "pattern"),
+     ({"allowed_domains": ["com"]}, "domaine invalide"),
+     ({"allowed_domains": ["co.uk"]}, "trop large"),
+     ({"allowed_domains": ["*.example.com"]}, "domaine invalide"),
+     ({"allowed_domains": ["10.0.0.1"]}, "domaine invalide")],
 )
 def test_invalid_site_config_is_refused(overrides, message):
     base = load_sites(PAGES / "sites.toml")[0].model_dump()
@@ -125,7 +129,49 @@ def test_duplicate_sources_are_refused(tmp_path):
      (("Data Analyst", "INTERN"), ContractType.INTERNSHIP),
      (("Alternance Data Analyst",), ContractType.APPRENTICESHIP),
      (("ML Engineer", ["FULL_TIME"]), ContractType.OTHER),
-     (("ML Engineer - CDD 12 mois",), ContractType.FIXED_TERM)],
+     (("ML Engineer - CDD 12 mois",), ContractType.FIXED_TERM),
+     (("Data Engineer, recrutement interne",), ContractType.OTHER)],
 )
 def test_contract_type_from_words(texts, expected):
     assert contract_type(*texts) is expected
+
+
+def jsonld_page(*blocks: str) -> tuple:
+    scripts = "".join(f'<script type="application/ld+json">{b}</script>' for b in blocks)
+    return 200, HTML, f"<html><head>{scripts}</head><body></body></html>"
+
+
+def test_hostile_jsonld_is_ignored_without_stopping_the_source():
+    nested = "[" * 100_000 + "]" * 100_000
+    good = '{"@type": "JobPosting", "title": "Data &amp; IA", "identifier": "ok", ' \
+           '"hiringOrganization": {"name": "Globex &amp; Fils"}, "datePosted": "0001-01-01T00:00:00+05:00", ' \
+           '"description": "&lt;p&gt;Texte&lt;/p&gt;"}'
+    site = FakeSite({"/offres": jsonld_page(nested, good)})
+    result = collector(site, offer_links=None).collect(SearchQuery())
+    assert result.error is None
+    (offer,) = result.offers
+    assert (offer.title, offer.company, offer.description_text) == ("Data & IA", "Globex & Fils", "Texte")
+    assert offer.published_at is None  # date absurde ignorée
+
+
+def test_page_with_too_many_tags_is_skipped_before_parsing():
+    site = FakeSite({"/offres": (200, HTML, "<div>" * 60_000)})
+    result = collector(site, offer_links=None).collect(SearchQuery())
+    assert result.error is None and result.offers == []
+
+
+def test_full_offer_page_wins_over_listing_summary():
+    summary = '{"@type": "JobPosting", "title": "Stagiaire Data Scientist", "identifier": "GX-42", ' \
+              '"description": "Résumé"}'
+    site = careers_site(**{"/offres": (200, HTML, page("liste.html")[2].replace(
+        "</head>", f'<script type="application/ld+json">{summary}</script></head>'))})
+    result = collector(site).collect(SearchQuery())
+    first = result.offers[0]
+    assert first.external_id == "GX-42" and "modèles de prévision" in first.description_text
+    assert result.duplicates == 1
+
+
+def test_collector_closes_its_client():
+    with collector(careers_site()) as web:
+        web.collect(SearchQuery())
+    assert web.client._http.is_closed
