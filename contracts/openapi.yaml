@@ -18,6 +18,7 @@ tags:
   - name: statuses
   - name: tasks
   - name: dashboard
+  - name: preferences
 
 paths:
   /auth/login:
@@ -363,6 +364,41 @@ paths:
               schema: { $ref: "#/components/schemas/DashboardStats" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /preferences:
+    get:
+      tags: [preferences]
+      operationId: getPreferences
+      summary: Lire mes critères de recherche
+      description: |
+        Une seule fiche par utilisateur. Tant qu'elle n'a jamais été enregistrée, la réponse contient
+        des valeurs vides et `updated_at` vaut null. Rien n'est codé en dur pour un utilisateur.
+      responses:
+        "200":
+          description: Critères de recherche
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchPreferences" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [preferences]
+      operationId: updatePreferences
+      summary: Remplacer mes critères de recherche
+      description: "Remplacement complet : chaque champ doit être fourni (liste vide ou null pour « aucun »)."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SearchPreferencesInput" }
+      responses:
+        "200":
+          description: Critères enregistrés
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchPreferences" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
 components:
   securitySchemes:
     sessionCookie:
@@ -659,3 +695,81 @@ components:
             sent_to_reply: { type: [number, "null"], minimum: 0, maximum: 1 }
             sent_to_interview: { type: [number, "null"], minimum: 0, maximum: 1 }
             sent_to_offer: { type: [number, "null"], minimum: 0, maximum: 1 }
+
+    SearchLocation:
+      type: object
+      additionalProperties: false
+      required: [label, radius_km]
+      properties:
+        label: { type: string, minLength: 1, maxLength: 120, examples: [Lyon] }
+        radius_km: { type: integer, minimum: 0, maximum: 200, examples: [30] }
+    SearchPreferencesFields:
+      type: object
+      description: |
+        Une liste vide signifie « pas de filtre » sur ce critère. Les textes sont rognés côté serveur ;
+        une chaîne faite seulement d'espaces est refusée (422). Données personnelles : jamais journalisées.
+      required:
+        [keywords, locations, remote_accepted, contract_types, start_date, duration_months,
+         alternance_rhythm, education_level, min_salary_eur, excluded_keywords]
+      properties:
+        keywords:
+          type: array
+          description: Métiers ou mots-clés recherchés
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 80 }
+          examples: [[data analyst, machine learning]]
+        locations:
+          type: array
+          maxItems: 10
+          uniqueItems: true
+          items: { $ref: "#/components/schemas/SearchLocation" }
+        remote_accepted:
+          type: boolean
+          description: |
+            true : les offres en télétravail complet sont acceptées même hors des lieux indiqués.
+            false : seules les offres situées dans les lieux indiqués comptent.
+        contract_types:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: [internship, apprenticeship, fixed_term, permanent, other] }
+          description: Stage, alternance, CDD, CDI, autre
+        start_date:
+          type: [string, "null"]
+          format: date
+          description: Date de début souhaitée (une date passée est acceptée, à la charge de l'utilisateur)
+        duration_months: { type: [integer, "null"], minimum: 1, maximum: 60 }
+        alternance_rhythm:
+          type: [string, "null"]
+          maxLength: 80
+          description: Rythme d'alternance en texte libre, purement informatif (non utilisé par les filtres)
+          examples: [3 semaines en entreprise, 1 semaine à l'école]
+        education_level:
+          type: [string, "null"]
+          enum: [bac, bac_plus_2, bac_plus_3, bac_plus_4, bac_plus_5, doctorate, other, null]
+          description: Niveau d'études visé ou en cours (bac_plus_2 = bac+2, doctorate = bac+8)
+        min_salary_eur:
+          type: [integer, "null"]
+          minimum: 0
+          maximum: 1000000
+          description: Salaire minimal facultatif, en euros bruts par an
+        excluded_keywords:
+          type: array
+          description: Mots qui écartent une offre
+          maxItems: 50
+          uniqueItems: true
+          items: { type: string, minLength: 1, maxLength: 80 }
+    SearchPreferencesInput:
+      allOf:
+        - { $ref: "#/components/schemas/SearchPreferencesFields" }
+      unevaluatedProperties: false
+    SearchPreferences:
+      allOf:
+        - { $ref: "#/components/schemas/SearchPreferencesFields" }
+        - type: object
+          required: [updated_at]
+          properties:
+            updated_at:
+              type: [string, "null"]
+              format: date-time
+              description: null tant que les critères n'ont jamais été enregistrés
