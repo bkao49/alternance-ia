@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from fake_web import FakeClock, no_network  # noqa: F401
+from fake_web import FakeClock, no_network, raw_response  # noqa: F401
 
 from app.collectors.api_client import ApiClient
 from app.collectors.base import (
@@ -29,7 +29,7 @@ RESULTS = json.loads((FIXTURES / "france_travail" / "recherche.json").read_text(
 
 class FakeFranceTravail:
     def __init__(self, search=None, token_status=200):
-        self.search = search or (lambda _request: httpx.Response(206, json=RESULTS))
+        self.search = search or (lambda _request: raw_response(206, json_body=RESULTS))
         self.token_status = token_status
         self.requests: list[httpx.Request] = []
 
@@ -37,9 +37,9 @@ class FakeFranceTravail:
         self.requests.append(request)
         if request.url.host == "entreprise.francetravail.fr":
             if self.token_status != 200:
-                return httpx.Response(self.token_status, json={"error": "invalid_client"})
-            return httpx.Response(200, json={"access_token": "jeton-fictif", "expires_in": 1499,
-                                             "token_type": "Bearer"})
+                return raw_response(self.token_status, json_body={"error": "invalid_client"})
+            return raw_response(200, json_body={"access_token": "jeton-fictif",
+                                                "expires_in": 1499, "token_type": "Bearer"})
         return self.search(request)
 
     def searches(self) -> list[httpx.Request]:
@@ -81,8 +81,8 @@ def test_recruiter_contact_is_never_kept():
 
 
 def test_paging_reuses_the_token_and_stops_on_204():
-    pages = iter([httpx.Response(206, json={"resultats": [{"id": f"P{i}"} for i in range(150)]}),
-                  httpx.Response(204)])
+    pages = iter([raw_response(206, json_body={"resultats": [{"id": f"P{i}"} for i in range(150)]}),
+                  raw_response(204)])
     api = FakeFranceTravail(search=lambda _r: next(pages))
     records = list(france_travail(api).fetch(SearchQuery(max_results=1000)))
     assert len(records) == 150
@@ -91,8 +91,8 @@ def test_paging_reuses_the_token_and_stops_on_204():
 
 
 def test_range_never_goes_beyond_the_api_limit():
-    full = httpx.Response(206, json={"resultats": [{"id": "X"}] * 150})
-    api = FakeFranceTravail(search=lambda _r: full)
+    api = FakeFranceTravail(
+        search=lambda _r: raw_response(206, json_body={"resultats": [{"id": "X"}] * 150}))
     list(france_travail(api).fetch(SearchQuery(max_results=1000)))
     starts = [int(r.url.params["range"].split("-")[0]) for r in api.searches()]
     assert starts[-1] <= 3000 and len(starts) == 7  # 1000 résultats au plus : 7 plages
@@ -119,10 +119,11 @@ def test_refused_credentials_block_the_source_without_leaking_the_secret(caplog)
     result = france_travail(FakeFranceTravail(token_status=401)).collect(SearchQuery())
     assert isinstance(result.error, SourceBlocked)
     assert SECRET not in str(result.error) and SECRET not in caplog.text
+    assert result.error.__context__ is None
 
 
 def test_france_travail_outage_does_not_stop_other_sources():
-    api = FakeFranceTravail(search=lambda _r: httpx.Response(503))
+    api = FakeFranceTravail(search=lambda _r: raw_response(503))
     other = FixtureCollector(FIXTURES / "collectors" / "source_a.json", source="fixture_a")
     down, ok = collect_all([france_travail(api), other], SearchQuery())
     assert isinstance(down.error, NetworkError) and down.offers == []

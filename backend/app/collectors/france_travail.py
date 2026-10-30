@@ -9,7 +9,7 @@ import os
 import re
 import time
 from collections.abc import Callable, Iterator, Mapping
-from typing import Any
+from typing import Any, Self
 
 from app.collectors.api_client import ApiClient
 from app.collectors.base import (
@@ -49,6 +49,12 @@ class FranceTravailCollector(Collector):
         self.client = client or ApiClient(self.source, API_HOST)
         self.clock = clock
         self._token: tuple[str, float] | None = None  # (jeton, échéance)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.client.close()
 
     def _access_token(self) -> str:
         if self._token and self.clock() < self._token[1]:
