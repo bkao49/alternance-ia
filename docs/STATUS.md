@@ -1,9 +1,9 @@
 # STATUS
 
-Dernière mise à jour : 2026-10-29
+Dernière mise à jour : 2026-10-30
 
 ## Phase en cours
-Phase 2 — Collecte des offres (démarrage par #10, interface des collecteurs)
+Phase 2 — Collecte des offres (collecteurs faits, planificateur en cours), puis Phase 3 (analyse et score)
 
 ## Fait
 - **Phase 0 (cadrage)** : dépôt public, 31 issues, CI (gitleaks, backend avec vrai PostgreSQL, frontend, contrat OpenAPI, CodeQL), règles de `main` (approbation du PO, dernier envoi relu par quelqu'un d'autre, squash seul), compte bot `prome-theus35`.
@@ -14,15 +14,20 @@ Phase 2 — Collecte des offres (démarrage par #10, interface des collecteurs)
   - Lecture des offres et statistiques du tableau de bord (#52)
   - Front : tableau de bord, vue tableau et Kanban, mode démonstration (#53)
   - Stack locale complète avec données de démo (#55)
+- **Phase 2 (collecte)** : interface Collector (#58), client HTTP poli (#69), robot web générique JSON-LD (#73), détection de blocage (#74), collecteurs Adzuna et La Bonne Alternance (#88).
+- **Profil et IA** : critères de recherche saisis par l'utilisateur, passerelle LLM (pseudonymisation, cache, plafond), RGPD (tout supprimer, conservation), profil en faits, pages « Mes critères » et « Mon profil » (#87).
+- **Front** : refonte noir et rouge direction I (#64, #65) et landing page avec scène 3D (#67, #68).
 - **Design** : neuf maquettes dans `docs/design/maquettes/`. Direction retenue : **I** (noir et rouge, blocs arrondis).
 
 ## En cours
-- Phase 2 : interface commune des collecteurs et fixtures fictives (#10)
+- Planificateur et file de tâches (#13), session en cours
+- Cours « créer sa petite IA » (hors dépôt, pour le PO)
 
 ## Bloqué / décisions attendues du PO
 1. **Nom et logo du projet** : quatre pistes dans la maquette I (Piste, Boussole, Cap, Jalon), choix ouvert.
-2. Clés API La Bonne Alternance et France Travail (à fournir avant #11 et #12, jamais dans git)
+2. Clés API : Adzuna (developer.adzuna.com) et API « Recherche d'opportunités d'emploi en alternance » + ROME 4.0 chez France Travail (francetravail.io). À mettre dans `.env`, jamais dans git
 3. Licence (MIT recommandée)
+6. Sources fermées (Indeed, LinkedIn, Glassdoor, APEC…) : pas de contournement ; passer par les alertes e-mail (#90). HelloWork à étudier (#91)
 4. Critères de recherche : zone, dates, types de contrat visés
 5. Prénom affiché dans « Bonjour … » (champ à ajouter au profil)
 
