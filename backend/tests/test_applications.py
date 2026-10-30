@@ -153,7 +153,8 @@ def test_routes_match_the_contract(contract):
     declared = {
         (method.upper(), normalise(path)): operation["operationId"]
         for path, item in contract["paths"].items() if path.split("/")[1] in IMPLEMENTED_PREFIXES
-        for method, operation in item.items() if method in {"get", "post", "patch", "put", "delete"}
+        for method, operation in item.items()
+        if method in {"get", "post", "patch", "put", "delete"} and not operation.get("x-planned")
     }
     generated = create_app().openapi()["paths"]
     implemented = {
