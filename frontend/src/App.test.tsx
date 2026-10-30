@@ -7,6 +7,7 @@ import {
   firstCompany,
   renderApp,
   signedInApp,
+  signedInApplications,
   signIn,
   validateMove,
   type User,
@@ -49,15 +50,41 @@ describe("accueil", () => {
   it("garde l'écran des offres annoncé mais inactif tant qu'il n'existe pas", async () => {
     await signedInApp();
     const nav = screen.getByRole("navigation", { name: "Navigation principale" });
-    expect(within(nav).getByRole("link", { name: "Candidatures" })).toHaveAttribute("href", "#candidatures");
-    expect(within(nav).queryByRole("link", { name: /Offres/ })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: /Offres/ })).not.toBeInTheDocument();
     expect(within(nav).getByText("bientôt")).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: "Accueil" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("montre les cinq meilleures candidatures avec leur score, sans filtres ni actions", async () => {
+    await signedInApp();
+    const list = screen.getByRole("list", { name: "Candidatures les mieux notées" });
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toHaveTextContent("Globex IA");
+    expect(rows[0]).toHaveTextContent("4,6 sur 5");
+    expect(rows[4]).toHaveTextContent("Hooli Labs");
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Rechercher une candidature")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Déplacer .* vers…$/)).not.toBeInTheDocument();
+  });
+
+  it("ouvre la fiche depuis une ligne, et la vue complète depuis « Tout voir »", async () => {
+    const user = await signedInApp();
+    await user.click(screen.getByRole("button", { name: /Globex IA/ }));
+    expect(await screen.findByRole("dialog", { name: "Globex IA" })).toBeInTheDocument();
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Fermer" }));
+
+    await user.click(screen.getByRole("button", { name: "Tout voir" }));
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Candidatures" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Accueil" }));
+    expect(screen.getByRole("heading", { level: 1, name: /Bonjour/ })).toBeInTheDocument();
   });
 });
 
 describe("vue tableau", () => {
   it("liste toutes les candidatures et se trie par colonne", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     expect(bodyRows()).toHaveLength(12);
 
     await user.click(screen.getByRole("button", { name: /Entreprise/ }));
@@ -70,7 +97,7 @@ describe("vue tableau", () => {
   });
 
   it("filtre par recherche et par statut", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     await user.type(screen.getByLabelText("Rechercher une candidature"), "data engineer");
     expect(bodyRows()).toHaveLength(2);
 
@@ -88,20 +115,20 @@ describe("scores", () => {
   const rowOf = (company: string) => screen.getByRole("button", { name: company }).closest("tr") as HTMLElement;
 
   it("affiche le score de l'offre liée, ou « pas de score » pour une saisie manuelle", async () => {
-    await signedInApp();
+    await signedInApplications();
     expect(rowOf("Globex IA")).toHaveTextContent("4,6 sur 5");
     expect(rowOf("Cyberdyne Vision")).toHaveTextContent("pas de score");
   });
 
   it("trie par score, les candidatures sans score en dernier", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     await user.click(screen.getByRole("button", { name: /Score/ }));
     await user.click(screen.getByRole("button", { name: /Score/ }));
     expect(firstCompany()).toBe("Globex IA");
   });
 
   it("garde le tableau utilisable quand les offres ne se chargent pas", async () => {
-    await signedInApp((request) =>
+    await signedInApplications((request) =>
       request.url.includes("/offers") ? failure(500, "error", "Erreur serveur") : undefined,
     );
     expect(bodyRows()).toHaveLength(12);
@@ -117,14 +144,14 @@ describe("vue Kanban", () => {
   const column = (board: HTMLElement, name: string | RegExp) => within(board).getByRole("listitem", { name });
 
   it("range les candidatures dans une colonne par statut", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     const board = await openKanban(user);
     expect(board.querySelectorAll(":scope > li")).toHaveLength(10);
     expect(within(column(board, /Détectée/)).getAllByRole("button", { name: /^(Cyberdyne Vision|Soylent Foods)$/ })).toHaveLength(2);
   });
 
   it("déplace une carte d'une colonne à l'autre, au clavier comme à la souris", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     const board = await openKanban(user);
     await user.selectOptions(within(board).getByLabelText("Déplacer Cyberdyne Vision vers…"), "Analysée");
     await user.click(validateMove("Cyberdyne Vision"));
@@ -136,7 +163,7 @@ describe("vue Kanban", () => {
 
 describe("parcours : créer une candidature puis changer son statut", () => {
   it("ajoute une candidature, la déplace, et garde l'historique", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     await user.click(screen.getByRole("button", { name: "Nouvelle candidature" }));
     const form = screen.getByRole("dialog", { name: "Nouvelle candidature" });
     expect(within(form).getByRole("button", { name: "Ajouter" })).toBeDisabled();
@@ -162,14 +189,14 @@ describe("parcours : créer une candidature puis changer son statut", () => {
 
 describe("règle : « Envoyée » seulement par confirmation humaine", () => {
   it("ne propose jamais « Envoyée » dans les menus de déplacement", async () => {
-    await signedInApp();
+    await signedInApplications();
     for (const select of screen.getAllByLabelText(/^Déplacer .* vers…$/)) {
       expect(within(select).queryByRole("option", { name: "Envoyée" })).not.toBeInTheDocument();
     }
   });
 
   it("exige de cocher la confirmation avant de marquer une candidature comme envoyée", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     await user.click(screen.getByRole("button", { name: "Initech Data" }));
     const dialog = await screen.findByRole("dialog", { name: "Initech Data" });
 
@@ -189,7 +216,7 @@ describe("règle : « Envoyée » seulement par confirmation humaine", () => {
 
 describe("clavier", () => {
   it("ouvre la fiche d'une candidature avec la touche Entrée", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     const link = screen.getByRole("button", { name: "Acme Analytics" });
     link.focus();
     await user.keyboard("{Enter}");
@@ -197,7 +224,7 @@ describe("clavier", () => {
   });
 
   it("atteint le changement de vue par la touche Tab", async () => {
-    const user = await signedInApp();
+    const user = await signedInApplications();
     const onKanban = () => document.activeElement?.tagName === "BUTTON" && document.activeElement.textContent === "Kanban";
     for (let i = 0; i < 12 && !onKanban(); i += 1) await user.tab();
     expect(onKanban()).toBe(true);

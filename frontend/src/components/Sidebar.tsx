@@ -2,7 +2,11 @@ import type { Me } from "../api/types";
 import { APP_NAME } from "../brand";
 import { Logo } from "./Logo";
 
-export function Sidebar({ user, onSignOut }: { user: Me; onSignOut: () => void }) {
+export type Page = "home" | "applications";
+
+type Props = { user: Me; page: Page; onNavigate: (page: Page) => void; onSignOut: () => void };
+
+export function Sidebar({ user, page, onNavigate, onSignOut }: Props) {
   return (
     <aside className="side">
       <p className="brand">
@@ -10,14 +14,20 @@ export function Sidebar({ user, onSignOut }: { user: Me; onSignOut: () => void }
         <span className="brand-name">{APP_NAME}</span>
       </p>
       <nav aria-label="Navigation principale" className="side-nav">
-        <a href="#accueil" aria-current="page">
+        <button type="button" aria-current={page === "home" ? "page" : undefined} onClick={() => onNavigate("home")}>
           Accueil
-        </a>
+        </button>
         {/* Pas encore d'écran des offres : l'entrée reste visible, inactive, et le dit. */}
         <span className="side-soon" aria-disabled="true">
           Offres <span className="chip">bientôt</span>
         </span>
-        <a href="#candidatures">Candidatures</a>
+        <button
+          type="button"
+          aria-current={page === "applications" ? "page" : undefined}
+          onClick={() => onNavigate("applications")}
+        >
+          Candidatures
+        </button>
       </nav>
       <div className="side-me">
         <span className="side-email">{user.email}</span>

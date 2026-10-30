@@ -224,19 +224,24 @@ label input, label select, label textarea {
   gap: 0.1rem;
 }
 
-.side-nav a, .side-soon {
+.side-nav button, .side-soon {
   padding: 0.55rem 0;
   width: fit-content;
   color: var(--muted);
-  text-decoration: none;
+  border: 0;
   border-bottom: 1.5px solid transparent;
+  border-radius: 0;
+  background: none;
+  min-height: 0;
+  text-align: left;
 }
 
-.side-nav a:hover, .side-nav a[aria-current="page"] {
+.side-nav button:hover:not(:disabled), .side-nav button[aria-current="page"] {
   color: var(--text);
+  background: none;
 }
 
-.side-nav a[aria-current="page"] {
+.side-nav button[aria-current="page"] {
   border-bottom-color: var(--accent-text);
 }
 
@@ -458,9 +463,80 @@ h2.offers-label {
   }
 }
 
-/* Candidatures : la cible du lien de la barre latérale garde un peu d'air au-dessus */
-.applications {
-  scroll-margin-top: var(--space-5);
+/* Liste courte de l'accueil : filets fins, la ligne se teinte au survol */
+.list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+button.accent-link {
+  color: var(--accent-text);
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.rows {
+  list-style: none;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  border-top: 1px solid var(--text);
+}
+
+.rows li {
+  border-bottom: 1px solid var(--line);
+}
+
+button.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 11rem 6.5rem;
+  gap: 1.4rem;
+  align-items: center;
+  width: 100%;
+  min-height: 0;
+  padding: 1.2rem 0;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  white-space: normal;
+}
+
+button.row:hover:not(:disabled) {
+  background: var(--hover);
+  padding-inline: var(--space-4);
+}
+
+button.row b {
+  display: block;
+  font-weight: 500;
+  font-size: 1.05rem;
+}
+
+.row-sub {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.rows .score {
+  justify-content: flex-end;
+}
+
+@media (max-width: 40rem) {
+  button.row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2) var(--space-4);
+  }
+
+  button.row .badge {
+    grid-column: 1;
+  }
+
+  button.row .score {
+    grid-row: 1;
+    grid-column: 2;
+  }
 }
 
 /* Candidatures : barre d'outils */
@@ -822,7 +898,7 @@ li.column {
 
 /* Écran tactile : cibles d'au moins 44 px, même pour les liens et les noms cliquables */
 @media (pointer: coarse) {
-  .side-nav a, .side-soon, .side-me button.link, tbody th button.link, button.card-title {
+  .side-nav button, .side-soon, .side-me button.link, tbody th button.link, button.card-title {
     min-height: 2.75rem;
     display: inline-flex;
     align-items: center;
@@ -839,8 +915,12 @@ li.column {
 
 /* Mouvement : seulement si l'utilisateur ne l'a pas réduit */
 @media (prefers-reduced-motion: no-preference) {
-  button, .side-nav a, input, select {
+  button, input, select {
     transition: background-color var(--dur-fast), color var(--dur-fast), filter var(--dur-fast);
+  }
+
+  button.row {
+    transition: background-color var(--dur-fast), padding var(--dur) var(--ease-out);
   }
 
   tbody tr > * {
