@@ -895,7 +895,8 @@ components:
       required: [kind, text, start_date, end_date, technologies, source]
       description: |
         Remplacement complet. Données personnelles : jamais journalisées, envoyées à une IA seulement
-        par la passerelle (pseudonymisées). Textes rognés ; une chaîne faite seulement d'espaces est refusée.
+        par la passerelle (pseudonymisées). Textes rognés avant validation (unicité des technologies
+        comprise) ; une chaîne faite seulement d'espaces est refusée.
       properties:
         kind: { $ref: "#/components/schemas/ProfileFactKind" }
         text:
@@ -917,6 +918,7 @@ components:
           examples: [[Python, SQL]]
         source:
           type: [string, "null"]
+          minLength: 1
           maxLength: 120
           description: D'où vient le fait (« CV 2026 », « saisie manuelle »…)
     ProfileFactInput:
