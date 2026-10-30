@@ -338,7 +338,7 @@ class WebCollector(Collector):
             return True
         except PageSkipped:
             return None
-        if page.content_type not in HTML_TYPES:
+        if page.content_type not in HTML_TYPES or page.text.count("<") > MAX_TAGS:
             return None
         postings = job_postings(BeautifulSoup(page.text, "html.parser"))
         if postings:
