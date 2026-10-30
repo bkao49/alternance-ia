@@ -3,7 +3,16 @@ import json
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    StringConstraints,
+    field_validator,
+)
 from sqlalchemy import text
 
 from app.auth import Session, current_session, require_csrf
@@ -13,7 +22,26 @@ router = APIRouter(tags=["preferences"])
 
 ContractType = Literal["internship", "apprenticeship", "fixed_term", "permanent", "other"]
 EducationLevel = Literal["bac", "bac_plus_2", "bac_plus_3", "bac_plus_4", "bac_plus_5", "doctorate", "other"]
-Keyword = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+
+
+def _storable(value: str) -> str:
+    """PostgreSQL refuse le caractère NUL et les demi-paires UTF-16 : on les rejette en 422 plutôt
+    que de laisser la base lever une erreur 500 dont la trace contiendrait les critères."""
+    if "\x00" in value:
+        raise ValueError("caractère interdit")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ValueError("caractère interdit") from None
+    return value
+
+
+def text_field(max_length: int):
+    return Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=max_length),
+                     AfterValidator(_storable)]
+
+
+Keyword = text_field(80)
 
 COLUMNS = ("keywords, locations, remote_accepted, contract_types, start_date, duration_months, "
            "alternance_rhythm, education_level, min_salary_eur, excluded_keywords, updated_at")
@@ -22,8 +50,8 @@ COLUMNS = ("keywords, locations, remote_accepted, contract_types, start_date, du
 class Location(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    label: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
-    radius_km: int = Field(ge=0, le=200)
+    label: text_field(120)
+    radius_km: StrictInt = Field(ge=0, le=200)
 
 
 class PreferencesIn(BaseModel):
@@ -33,13 +61,13 @@ class PreferencesIn(BaseModel):
 
     keywords: list[Keyword] = Field(max_length=20)
     locations: list[Location] = Field(max_length=10)
-    remote_accepted: bool
+    remote_accepted: StrictBool
     contract_types: list[ContractType]
     start_date: dt.date | None
-    duration_months: Annotated[int, Field(ge=1, le=60)] | None
-    alternance_rhythm: Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)] | None
+    duration_months: Annotated[StrictInt, Field(ge=1, le=60)] | None
+    alternance_rhythm: text_field(80) | None
     education_level: EducationLevel | None
-    min_salary_eur: Annotated[int, Field(ge=0, le=1_000_000)] | None
+    min_salary_eur: Annotated[StrictInt, Field(ge=0, le=1_000_000)] | None
     excluded_keywords: list[Keyword] = Field(max_length=50)
 
     @field_validator("keywords", "contract_types", "excluded_keywords")
@@ -55,11 +83,6 @@ class PreferencesIn(BaseModel):
         if len({(loc.label, loc.radius_km) for loc in value}) != len(value):
             raise ValueError("lieux en double")
         return value
-
-    @field_validator("alternance_rhythm")
-    @classmethod
-    def _blank_is_none(cls, value: str | None) -> str | None:
-        return value or None
 
 
 class PreferencesOut(PreferencesIn):

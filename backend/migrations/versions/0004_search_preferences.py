@@ -19,8 +19,9 @@ def upgrade() -> None:
     op.execute(
         f"""CREATE TABLE search_preferences (
         user_id uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        keywords text[] NOT NULL DEFAULT '{{}}',
-        locations jsonb NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(locations) = 'array'),
+        keywords text[] NOT NULL DEFAULT '{{}}' CHECK (cardinality(keywords) <= 20),
+        locations jsonb NOT NULL DEFAULT '[]' 
+            CHECK (jsonb_typeof(locations) = 'array' AND jsonb_array_length(locations) <= 10),
         remote_accepted boolean NOT NULL DEFAULT false,
         contract_types text[] NOT NULL DEFAULT '{{}}' CHECK (contract_types <@ {CONTRACT_TYPES}),
         start_date date,
@@ -28,7 +29,7 @@ def upgrade() -> None:
         alternance_rhythm text CHECK (length(alternance_rhythm) <= 80),
         education_level text CHECK (education_level IN {EDUCATION_LEVELS}),
         min_salary_eur integer CHECK (min_salary_eur BETWEEN 0 AND 1000000),
-        excluded_keywords text[] NOT NULL DEFAULT '{{}}',
+        excluded_keywords text[] NOT NULL DEFAULT '{{}}' CHECK (cardinality(excluded_keywords) <= 50),
         updated_at timestamptz NOT NULL DEFAULT now())"""
     )
     op.execute("ALTER TABLE search_preferences ENABLE ROW LEVEL SECURITY")

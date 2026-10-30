@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 from test_applications import (  # noqa: F401  (fixtures et helpers partagés)
@@ -44,10 +46,14 @@ def test_put_then_get_round_trip(alice, contract):  # noqa: F811
 def test_put_replaces_everything(alice):  # noqa: F811
     alice.put("/preferences", FULL)
     empty = {**FULL, "keywords": [], "locations": [], "start_date": None, "min_salary_eur": None,
-             "alternance_rhythm": "   "}
+             "alternance_rhythm": None, "contract_types": []}
     data = alice.put("/preferences", empty).json()
-    assert data["keywords"] == [] and data["locations"] == [] and data["start_date"] is None
-    assert data["alternance_rhythm"] is None  # texte vide après rognage : null
+    assert {k: data[k] for k in FULL} == empty
+
+
+def test_saving_again_moves_updated_at(alice):  # noqa: F811
+    first = alice.put("/preferences", FULL).json()["updated_at"]
+    assert alice.put("/preferences", FULL).json()["updated_at"] > first
 
 
 def test_text_is_trimmed(alice):  # noqa: F811
@@ -72,13 +78,28 @@ INVALID = [
     {"min_salary_eur": -1},
     {"start_date": "pas-une-date"},
     {"alternance_rhythm": "x" * 81},
+    {"alternance_rhythm": "   "},
+    {"keywords": ["a\u0000"]},
+    {"keywords": ["\ud800"]},
+    {"locations": [{"label": "\u0000", "radius_km": 1}]},
+    {"alternance_rhythm": "a\u0000"},
+    {"remote_accepted": "yes"},
+    {"remote_accepted": 1},
+    {"duration_months": True},
+    {"min_salary_eur": "10"},
+    {"locations": [{"label": "Lyon", "radius_km": "10"}]},
+    {"keywords": None},
+    {"remote_accepted": None},
+    {"contract_types": "internship"},
     {"inconnu": True},
 ]
 
 
 @pytest.mark.parametrize("change", INVALID)
 def test_invalid_fields_are_refused(alice, change):  # noqa: F811
-    response = alice.put("/preferences", {**FULL, **change})
+    # json.dumps échappe les demi-paires UTF-16 (« \ud800 ») que httpx refuserait d'encoder.
+    response = alice.client.put("/preferences", content=json.dumps({**FULL, **change}), headers={
+        "Content-Type": "application/json", "X-CSRF-Token": alice.client.cookies["csrf_token"]})
     assert response.status_code == 422, change
     assert alice.get("/preferences").json()["updated_at"] is None  # rien n'a été enregistré
 
@@ -94,6 +115,7 @@ def test_preferences_require_a_session_and_csrf(alice, application):  # noqa: F8
     assert anonymous.get("/preferences").status_code == 401
     assert anonymous.put("/preferences", json=FULL).status_code == 401
     assert alice.client.put("/preferences", json=FULL).status_code == 403
+    assert anonymous.put("/preferences", json={"inconnu": 1}).status_code == 401  # session avant validation
     assert alice.client.put("/preferences", json=FULL, headers={"X-CSRF-Token": "faux"}).status_code == 403
 
 
