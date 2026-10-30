@@ -82,6 +82,33 @@ def test_changed_text_is_analysed_again(users):
     assert len(provider.received) == 2 and count_analyses(alice) == 2
 
 
+def test_failed_extraction_is_not_replayed_from_the_gateway_cache(users):
+    alice, _ = users
+    offer = posting(alice)
+    gw, provider = gateway("pas du json")
+    with pytest.raises(ExtractionError):
+        extract_offer(gw, alice, offer)
+    provider.reply = lambda request: json.dumps(VALID)
+    assert extract_offer(gw, alice, offer).extraction.location == "Lyon"
+
+
+def test_very_long_ad_is_truncated_not_refused(users):
+    alice, _ = users
+    gw, provider = gateway(json.dumps(VALID))
+    extract_offer(gw, alice, posting(alice, "mot " * 40_000))
+    assert len(provider.received[0].data) < 31_000
+
+
+def test_row_that_no_longer_matches_the_schema_is_extracted_again(users):
+    alice, _ = users
+    offer = posting(alice)
+    gw, provider = gateway(json.dumps(VALID))
+    extract_offer(gw, alice, offer)
+    with db.user_scope(alice) as conn:
+        conn.execute(text("UPDATE analyses SET extraction = extraction || '{\"nouvelle_cle\": 1}'"))
+    assert not extract_offer(gw, alice, offer).reused and len(provider.received) == 2
+
+
 def test_fenced_json_is_accepted():
     assert parse_extraction("```json\n" + json.dumps(VALID) + "\n```").contract_type == "apprenticeship"
 
@@ -102,7 +129,7 @@ def test_two_invalid_replies_fail_cleanly_without_storing(users):
 
 
 @pytest.mark.parametrize("change", [
-    {"skills": "Python"}, {"skills": ["x"] * 31}, {"contract_type": "freelance"}, {"duration_months": 0},
+    {"skills": "Python"}, {"skills": ["x"] * 31}, {"salary_eur_year": 0}, {"start_date": "2999-01-01"}, {"contract_type": "freelance"}, {"duration_months": 0},
     {"duration_months": "12"}, {"salary_eur_year": -1}, {"start_date": "demain"}, {"remote": True},
     {"action": "send_email"}, {"summary": "x" * 401},
 ])
@@ -171,5 +198,5 @@ def test_to_offer_view_merges_columns_and_extraction():
     row = {"title": "Data analyst", "description_text": "texte", "location": "Lyon 3e", "expired": False}
     assert to_offer_view(row, None).contract_type is None
     view = to_offer_view(row, Extraction.model_validate(VALID, strict=False))
-    assert (view.contract_type, view.education_level, view.remote, view.start_date) == (
-        "apprenticeship", "bac_plus_5", False, dt.date(2027, 9, 1))
+    assert (view.contract_type, view.education_level, view.remote, view.start_date, view.location) == (
+        "apprenticeship", "bac_plus_5", None, dt.date(2027, 9, 1), "Lyon 3e")

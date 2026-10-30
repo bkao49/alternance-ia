@@ -76,7 +76,7 @@ class LLMGateway:
         self.daily_cap_eur = daily_cap_from_env() if daily_cap_eur is None else daily_cap_eur
 
     def call(self, user_id: str, *, purpose: str, kind: DataKind, instructions: str, data: str,
-             known_names: Iterable[str] = (), max_output_tokens: int = 1000) -> GatewayResult:
+             known_names: Iterable[str] = (), max_output_tokens: int = 1000, use_cache: bool = True) -> GatewayResult:
         if not PURPOSE.match(purpose):
             raise ValueError("usage invalide")
         if not 1 <= max_output_tokens <= MAX_OUTPUT_TOKENS:
@@ -105,7 +105,7 @@ class LLMGateway:
             # Un seul appel à la fois par utilisateur : deux appels simultanés ne dépassent pas le plafond.
             conn.execute(text("SELECT pg_advisory_xact_lock(hashtext('llm:' || :uid))"), row)
             cached = conn.execute(text("SELECT response_text FROM llm_cache WHERE input_hash = :hash"),
-                                  row).scalar()
+                                  row).scalar() if use_cache else None  # use_cache=False : l'appelant a son propre cache
             if cached is not None:
                 conn.execute(text(
                     "INSERT INTO llm_calls (user_id, provider, model, purpose, cache_hit, input_hash) "
@@ -142,8 +142,9 @@ class LLMGateway:
                 "WHERE id = :id"),
                 {"id": call_id, "tin": response.input_tokens, "tout": response.output_tokens, "cost": cost})
             # Réponse stockée pseudonymisée, comme elle a été reçue.
-            conn.execute(text(
-                "INSERT INTO llm_cache (user_id, input_hash, response_text) VALUES (:uid, :hash, :response) "
-                "ON CONFLICT DO NOTHING"), {**row, "response": response.text})
+            if use_cache:
+                conn.execute(text(
+                    "INSERT INTO llm_cache (user_id, input_hash, response_text) VALUES (:uid, :hash, :response) "
+                    "ON CONFLICT DO NOTHING"), {**row, "response": response.text})
         log.info("appel LLM %s/%s (%s)", provider.name, provider.model, purpose)
         return GatewayResult(pseudo.restore(response.text), cache_hit=False, cost_eur=cost)

@@ -21,6 +21,7 @@ from app.db import user_scope
 
 PROMPT_VERSION = "extraction-v1"  # à changer avec le schéma ou les consignes : les anciennes analyses sont refaites
 MAX_ATTEMPTS = 2  # une première réponse, puis une nouvelle tentative si elle est invalide
+MAX_AD_CHARS = 30_000  # une annonce plus longue est tronquée (la passerelle refuse plus de 50 000)
 Short = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
 
 INSTRUCTIONS = f"""Tu extrais les exigences d'une annonce d'emploi. Réponds par UN SEUL objet JSON, sans texte
@@ -51,8 +52,8 @@ class Extraction(BaseModel):
     contract_type: Literal["internship", "apprenticeship", "fixed_term", "permanent", "other"] | None
     location: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)] | None
     remote: Literal["none", "partial", "full"] | None
-    salary_eur_year: Annotated[int, Field(ge=0, le=1_000_000)] | None
-    start_date: dt.date | None
+    salary_eur_year: Annotated[int, Field(ge=1, le=1_000_000)] | None
+    start_date: Annotated[dt.date, Field(ge=dt.date(2000, 1, 1), le=dt.date(2100, 1, 1))] | None
     summary: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=400)] | None
 
 
@@ -85,10 +86,10 @@ def to_offer_view(posting: dict, extraction: Extraction | None) -> OfferView:
     if extraction is None:
         return view
     return OfferView(
-        title=view.title, description=view.description, location=extraction.location or view.location,
+        title=view.title, description=view.description, location=view.location or extraction.location,  # la colonne prime : le modèle lit un texte non fiable
         expired=view.expired, contract_type=extraction.contract_type, start_date=extraction.start_date,
         education_level=extraction.education_level,
-        remote=None if extraction.remote is None else extraction.remote == "full",
+        remote={"full": True, "none": False}.get(extraction.remote or ""),  # partiel = inconnu
         salary_eur=extraction.salary_eur_year)
 
 
@@ -99,9 +100,13 @@ def _find(conn, posting_id: str, digest: str):
         {"id": posting_id, "v": PROMPT_VERSION, "h": digest}).mappings().first()
 
 
-def _stored(row) -> Extraction:
+def _stored(row) -> Extraction | None:
+    """None si la ligne ne respecte plus le schéma (écrite par un autre code) : on refait l'extraction."""
     stored = {k: v for k, v in row["extraction"].items() if k != "content_hash"}
-    return Extraction.model_validate(stored, strict=False)  # déjà validée : la date revient en texte
+    try:
+        return Extraction.model_validate(stored, strict=False)  # déjà validée : la date revient en texte
+    except ValidationError:
+        return None
 
 
 def extract_offer(gateway: LLMGateway, user_id: str, posting_id: str) -> ExtractionResult:
@@ -113,16 +118,18 @@ def extract_offer(gateway: LLMGateway, user_id: str, posting_id: str) -> Extract
             raise ExtractionError("offre introuvable")
         digest = fingerprint(posting["title"], posting["location"], posting["description_text"])
         known = _find(conn, posting_id, digest)
-    if known is not None:
-        return ExtractionResult(_stored(known), str(known["id"]), reused=True)
+    if known is not None and (earlier := _stored(known)) is not None:
+        return ExtractionResult(earlier, str(known["id"]), reused=True)
 
-    data = f"Titre : {posting['title']}\nLieu : {posting['location'] or 'non précisé'}\n\n{posting['description_text']}"
+    ad = posting["description_text"][:MAX_AD_CHARS]
+    data = f"Titre : {posting['title']}\nLieu : {posting['location'] or 'non précisé'}\n\n{ad}"
     extraction = None
     for attempt in range(MAX_ATTEMPTS):
         try:
             reply = gateway.call(user_id, purpose="extract_offer", kind=DataKind.JOB_POSTING,
                                  instructions=INSTRUCTIONS + (RETRY_NOTE * attempt), data=data,
-                                 max_output_tokens=800)
+                                 max_output_tokens=800,
+                                 use_cache=False)  # une réponse invalide ne doit jamais être rejouée
         except GatewayError as error:
             raise ExtractionError(error.code) from None  # budget, fournisseur refusé ou en échec
         try:
@@ -137,8 +144,8 @@ def extract_offer(gateway: LLMGateway, user_id: str, posting_id: str) -> Extract
     with user_scope(user_id) as conn:
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtext('extract:' || :id))"), {"id": posting_id})
         known = _find(conn, posting_id, digest)  # une extraction concurrente a pu finir entre-temps
-        if known is not None:
-            return ExtractionResult(_stored(known), str(known["id"]), reused=True)
+        if known is not None and (earlier := _stored(known)) is not None:
+            return ExtractionResult(earlier, str(known["id"]), reused=True)
         analysis_id = conn.execute(text(
             "INSERT INTO analyses (user_id, job_posting_id, extraction, prompt_version) "
             "VALUES (:uid, :id, CAST(:extraction AS jsonb), :v) RETURNING id"),
