@@ -19,6 +19,7 @@ tags:
   - name: tasks
   - name: dashboard
   - name: preferences
+  - name: account
 
 paths:
   /auth/login:
@@ -399,6 +400,32 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /account/delete:
+    post:
+      tags: [account]
+      operationId: deleteAccount
+      summary: Tout supprimer (compte et données)
+      description: |
+        Droit à l'effacement (RGPD) : supprime définitivement le compte et toutes les données de
+        l'utilisateur (profil, critères, offres, candidatures, historique, tâches, journal et cache IA).
+        Irréversible. Exige le mot de passe et `confirm: true`. En cas de succès, les cookies de session
+        sont effacés. Au-delà de 5 mots de passe faux en 15 minutes : 429.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AccountDeletion" }
+      responses:
+        "204": { description: Compte et données supprimés ; cookies effacés }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Jeton CSRF invalide (`csrf_invalid`) ou mot de passe incorrect (`invalid_password`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
 components:
   securitySchemes:
     sessionCookie:
@@ -773,3 +800,13 @@ components:
               type: [string, "null"]
               format: date-time
               description: null tant que les critères n'ont jamais été enregistrés
+    AccountDeletion:
+      type: object
+      additionalProperties: false
+      required: [password, confirm]
+      properties:
+        password: { type: string, format: password, minLength: 1, maxLength: 1024 }
+        confirm:
+          type: boolean
+          const: true
+          description: Doit valoir true, l'utilisateur confirme une suppression définitive.
