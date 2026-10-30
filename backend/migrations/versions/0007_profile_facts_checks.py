@@ -20,7 +20,20 @@ CHECKS = {
 }
 
 
+# Remise en conformité des lignes existantes, sans rien perdre d'essentiel : sinon une seule ligne
+# hors règle bloquerait toute la migration au déploiement.
+CLEANUP = [
+    f"UPDATE profile_facts SET kind = 'other' WHERE kind NOT IN {KINDS}",
+    "UPDATE profile_facts SET text = left(text, 1000) WHERE length(text) > 1000",
+    "UPDATE profile_facts SET end_date = NULL WHERE end_date < start_date",
+    "UPDATE profile_facts SET technologies = technologies[1:30] WHERE cardinality(technologies) > 30",
+    "UPDATE profile_facts SET source = left(source, 120) WHERE length(source) > 120",
+]
+
+
 def upgrade() -> None:
+    for statement in CLEANUP:
+        op.execute(statement)
     for name, condition in CHECKS.items():
         op.execute(f"ALTER TABLE profile_facts ADD CONSTRAINT {name} CHECK ({condition})")
     op.execute("CREATE INDEX profile_facts_user ON profile_facts (user_id)")

@@ -70,7 +70,7 @@ def list_facts(kind: FactKind | None = None, session: Session = Depends(current_
 def create_fact(body: FactIn, session: Session = Depends(require_csrf)):
     with user_scope(session.user_id) as conn:
         # Verrou par utilisateur : deux ajouts simultanés ne dépassent pas la limite.
-        conn.execute(text("SELECT pg_advisory_xact_lock(hashtext('facts:' || :uid))"), {"uid": session.user_id})
+        conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('facts:' || :uid, 0))"), {"uid": session.user_id})
         if conn.execute(text("SELECT count(*) FROM profile_facts")).scalar() >= MAX_FACTS:
             raise ApiError(409, "too_many_facts", f"{MAX_FACTS} faits au plus")
         row = conn.execute(

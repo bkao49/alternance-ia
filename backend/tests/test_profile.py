@@ -1,5 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor
+
 import psycopg
 import pytest
+from alembic import command
 from fastapi.testclient import TestClient
 from test_applications import (  # noqa: F401  (fixtures et helpers partagés)
     alice,
@@ -94,3 +97,59 @@ def test_fact_limit(alice, monkeypatch):  # noqa: F811
 def test_database_refuses_an_unknown_kind_even_without_the_api(alice, migrated_db):  # noqa: F811
     with psycopg.connect(migrated_db) as conn, pytest.raises(psycopg.errors.CheckViolation):
         conn.execute("INSERT INTO profile_facts (user_id, kind, text) VALUES (%s, 'hobby', 't')", (alice.user_id,))
+
+
+def test_invalid_kind_filter_and_extra_id_are_refused(alice):  # noqa: F811
+    assert alice.get("/profile/facts", params={"kind": "hobby"}).status_code == 422
+    fact_id = alice.post("/profile/facts", FACT).json()["id"]
+    assert alice.put(f"/profile/facts/{fact_id}", {**FACT, "id": fact_id}).status_code == 422
+
+
+def test_limit_is_per_user(alice, bob, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(profile, "MAX_FACTS", 1)
+    assert alice.post("/profile/facts", FACT).status_code == 201
+    assert alice.post("/profile/facts", FACT).status_code == 409
+    assert bob.post("/profile/facts", FACT).status_code == 201
+
+
+def test_two_simultaneous_additions_respect_the_limit(alice, application, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(profile, "MAX_FACTS", 1)
+    clients = []
+    for _ in range(2):
+        other = TestClient(application, base_url="https://testserver")
+        other.cookies.update(alice.client.cookies)
+        clients.append(other)
+
+    def add(client):
+        return client.post("/profile/facts", json=FACT,
+                           headers={"X-CSRF-Token": alice.client.cookies["csrf_token"]}).status_code
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(add, clients)) == [201, 409]
+    assert len(alice.get("/profile/facts").json()) == 1
+
+
+def test_migration_repairs_existing_rows(migrated_db, alembic_config):
+    command.downgrade(alembic_config, "0006")
+    with psycopg.connect(migrated_db, autocommit=True) as conn:
+        uid = conn.execute("INSERT INTO users (email, password_hash) VALUES ('c@example.test', 'x') "
+                           "RETURNING id").fetchone()[0]
+        conn.execute("INSERT INTO profile_facts (user_id, kind, text, start_date, end_date, technologies) "
+                     "VALUES (%s, 'hobby', %s, '2026-06-01', '2026-01-01', %s)",
+                     (uid, "x" * 1500, [f"t{i}" for i in range(40)]))
+    command.upgrade(alembic_config, "head")
+    with psycopg.connect(migrated_db) as conn:
+        kind, length, end, count = conn.execute(
+            "SELECT kind, length(text), end_date, cardinality(technologies) FROM profile_facts").fetchone()
+    assert (kind, length, end, count) == ("other", 1000, None, 30)
+
+
+@pytest.mark.parametrize("values", [
+    "'skill', 't', '2026-06-01', '2026-01-01', '{}', NULL",
+    "'skill', '', NULL, NULL, '{}', NULL",
+    "'skill', 't', NULL, NULL, '{}', repeat('s', 121)",
+])
+def test_database_checks_hold_without_the_api(alice, migrated_db, values):  # noqa: F811
+    with psycopg.connect(migrated_db) as conn, pytest.raises(psycopg.errors.CheckViolation):
+        conn.execute("INSERT INTO profile_facts (user_id, kind, text, start_date, end_date, technologies, source) "
+                     f"VALUES (%s, {values})", (alice.user_id,))
