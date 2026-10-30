@@ -45,18 +45,18 @@
   color-scheme: dark;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f6f5f2;
-    --surface: #ffffff;
-    --hover: #efeee9;
-    --text: #131316;
-    --muted: #5b5b64;
-    --line: #dedcd6;
-    --control: #86868f;
-    --accent: #c41e19;
-    --accent-text: #b3140f;
-    --backdrop: rgb(20 20 24 / 45%);
-    color-scheme: light;
-  }
+/* Thème clair dérivé : réservé à un futur réglage (data-theme="light" sur <html>), jamais appliqué
+   automatiquement. Le produit est noir et rouge, comme la maquette, quel que soit le système. */
+:root[data-theme="light"] {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --hover: #efeee9;
+  --text: #131316;
+  --muted: #5b5b64;
+  --line: #dedcd6;
+  --control: #86868f;
+  --accent: #c41e19;
+  --accent-text: #b3140f;
+  --backdrop: rgb(20 20 24 / 45%);
+  color-scheme: light;
 }

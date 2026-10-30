@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   bodyRows,
-  counter,
+  failure,
   firstCompany,
   renderApp,
   signedInApp,
@@ -55,16 +55,6 @@ describe("accueil", () => {
   });
 });
 
-describe("chiffres clés", () => {
-  it("affiche les compteurs et les taux de conversion", async () => {
-    await signedInApp();
-    expect(counter("Entretiens")).toHaveTextContent("1");
-    expect(counter("Envoyées")).toHaveTextContent("5");
-    expect(counter("Détectées")).toHaveTextContent("42");
-    expect(screen.getByText("Envoyée → entretien").parentElement).toHaveTextContent("20 %");
-  });
-});
-
 describe("vue tableau", () => {
   it("liste toutes les candidatures et se trie par colonne", async () => {
     const user = await signedInApp();
@@ -91,6 +81,31 @@ describe("vue tableau", () => {
 
     await user.type(screen.getByLabelText("Rechercher une candidature"), "introuvable");
     expect(screen.getByText(/Aucune candidature ne correspond/)).toBeInTheDocument();
+  });
+});
+
+describe("scores", () => {
+  const rowOf = (company: string) => screen.getByRole("button", { name: company }).closest("tr") as HTMLElement;
+
+  it("affiche le score de l'offre liée, ou « pas de score » pour une saisie manuelle", async () => {
+    await signedInApp();
+    expect(rowOf("Globex IA")).toHaveTextContent("4,6 sur 5");
+    expect(rowOf("Cyberdyne Vision")).toHaveTextContent("pas de score");
+  });
+
+  it("trie par score, les candidatures sans score en dernier", async () => {
+    const user = await signedInApp();
+    await user.click(screen.getByRole("button", { name: /Score/ }));
+    await user.click(screen.getByRole("button", { name: /Score/ }));
+    expect(firstCompany()).toBe("Globex IA");
+  });
+
+  it("garde le tableau utilisable quand les offres ne se chargent pas", async () => {
+    await signedInApp((request) =>
+      request.url.includes("/offers") ? failure(500, "error", "Erreur serveur") : undefined,
+    );
+    expect(bodyRows()).toHaveLength(12);
+    expect(rowOf("Globex IA")).toHaveTextContent("pas de score");
   });
 });
 
@@ -168,7 +183,7 @@ describe("règle : « Envoyée » seulement par confirmation humaine", () => {
 
     expect(await within(dialog).findByText(/envoyée le/)).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "J'ai envoyé cette candidature" })).not.toBeInTheDocument();
-    expect(counter("Envoyées")).toHaveTextContent("6");
+    expect(within(dialog).getByText("Envoyée")).toBeInTheDocument();
   });
 });
 

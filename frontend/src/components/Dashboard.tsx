@@ -13,7 +13,6 @@ import { NewApplicationDialog, type NewApplication } from "./NewApplicationDialo
 import { CriteriaPage } from "./CriteriaPage";
 import { ProfilePage } from "./ProfilePage";
 import { Sidebar, type Page } from "./Sidebar";
-import { StatsStrip } from "./StatsStrip";
 
 type View = "table" | "kanban";
 
@@ -128,8 +127,6 @@ export function Dashboard({ user, onLogout, botActivity, page = "home" }: Props)
               <BotPanel activity={botActivity} />
             </div>
 
-            <StatsStrip stats={state.stats} />
-
             <section id="candidatures" aria-labelledby="applications-title" className="applications">
               <div className="toolbar">
                 <h2 id="applications-title">Candidatures</h2>
@@ -170,6 +167,7 @@ export function Dashboard({ user, onLogout, botActivity, page = "home" }: Props)
                 <ApplicationsTable
                   applications={visible}
                   statuses={state.statuses}
+                  scores={state.scores}
                   onOpen={(a) => setSelectedId(a.id)}
                   onMove={move}
                 />
