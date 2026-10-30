@@ -549,7 +549,6 @@ paths:
     get:
       tags: [profile]
       operationId: getProfileCv
-      x-planned: true
       summary: Voir mon CV déposé et l'état de l'extraction
       description: Un seul CV par utilisateur. À interroger tant que `status` vaut `processing`.
       responses:
@@ -563,7 +562,6 @@ paths:
     post:
       tags: [profile]
       operationId: uploadProfileCv
-      x-planned: true
       summary: Déposer mon CV (PDF ou DOCX)
       description: |
         Formulaire `multipart/form-data` avec un seul champ `file`. Le type est vérifié sur le contenu
@@ -606,7 +604,6 @@ paths:
     delete:
       tags: [profile]
       operationId: deleteProfileCv
-      x-planned: true
       summary: Supprimer mon CV et les faits qui en viennent
       description: |
         Supprime le fichier et tous les faits créés à partir de lui (validés ou non). Les faits saisis
@@ -620,7 +617,6 @@ paths:
     post:
       tags: [profile]
       operationId: createProfileCvDownloadLink
-      x-planned: true
       summary: Obtenir un lien de téléchargement de mon CV
       description: Lien signé, valable 60 secondes, lié à l'utilisateur connecté.
       responses:
@@ -638,7 +634,6 @@ paths:
     get:
       tags: [profile]
       operationId: downloadProfileCv
-      x-planned: true
       summary: Télécharger mon CV par lien signé
       description: |
         Refusé (404) si le lien est expiré, falsifié, délivré à un autre utilisateur, ou si le CV a

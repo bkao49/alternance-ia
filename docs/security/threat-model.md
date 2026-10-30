@@ -63,7 +63,7 @@ Sources d'offres ──(1)──► Collecteur ──► Base PostgreSQL ◄─�
 | T12 | **Envoi automatique d'une candidature** (Falsification) | L'API refuse « Envoyée » sans confirmation humaine ; aucune fonction d'envoi n'existe | 🔧 | #8, #24 |
 | T13 | **CV ou lettre avec un fait inventé** (Falsification) | `fact_ids` obligatoires, contrôle déterministe nombres / technologies / employeurs / dates, passe vérificateur, validation humaine | 🔧 | #21, #22 |
 | T14 | **XSS** : le texte d'annonce rendu comme HTML dans le front (Élévation) | Texte toujours échappé, jamais rendu en HTML ; test dédié | 🔧 | #9 |
-| T15 | **Fichiers déposés** (CV importé) piégés ou trop gros (Déni, Élévation) | Type et taille contrôlés, extraction isolée, jamais exécutés ; téléchargement par URL signée et courte | 🔧 | #41 |
+| T15 | **Fichiers déposés** (CV importé) piégés ou trop gros (Déni, Élévation) | Type et taille contrôlés, extraction isolée, jamais exécutés ; téléchargement par URL signée et courte | ✅ | #41 |
 | T16 | **Facture IA qui explose** (Déni de service financier) | Plafond de coût mensuel, cache par hash, table `llm_calls`, plafond fixé aussi chez le fournisseur | 🔧 | #15, #29 |
 | T17 | **VPS compromis ou base perdue** (Fuite, Déni) | Docker non root, images épinglées, ports locaux seulement (déjà fait pour l'API), Caddy en HTTPS, sauvegardes chiffrées avec test de restauration | 🔧 | #27, #28 |
 | T18 | **Données gardées trop longtemps** (RGPD) | Durée de conservation définie et fonction « tout supprimer » | 🔧 | #42 |
