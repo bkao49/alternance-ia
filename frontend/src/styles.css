@@ -924,6 +924,8 @@ fieldset {
 .check {
   min-height: 2.75rem;
   align-items: center;
+}
+
 .facts {
   list-style: none;
   padding: 0;

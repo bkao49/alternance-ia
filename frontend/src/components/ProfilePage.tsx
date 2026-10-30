@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { unwrap } from "../api/client";
 import { useApi } from "../api/context";
@@ -16,6 +16,8 @@ const KINDS: [Kind, string][] = [
   ["language", "Langue"],
   ["other", "Autre"],
 ];
+/** Nom accessible court : un fait peut faire 1 000 caractères. */
+const short = (text: string) => (text.length > 60 ? `${text.slice(0, 57)}…` : text);
 const kindLabel = (kind: Kind) => KINDS.find(([value]) => value === kind)?.[1] ?? kind;
 
 /** Une technologie par ligne ou séparée par des virgules ; doublons et vides retirés. */
@@ -39,6 +41,8 @@ function FactDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const datesInverted = Boolean(startDate && endDate && endDate < startDate);
+  const techs = toTechnologies(technologies);
+  const techsInvalid = techs.length > 30 || techs.some((t) => t.length > 60);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -49,7 +53,7 @@ function FactDialog({
       text: text.trim(),
       start_date: startDate || null,
       end_date: endDate || null,
-      technologies: toTechnologies(technologies),
+      technologies: techs,
       source: source.trim() || null,
     });
     setBusy(false);
@@ -88,9 +92,14 @@ function FactDialog({
           </p>
         )}
         <label>
-          Technologies (séparées par des virgules)
+          Technologies (séparées par des virgules, 30 au plus, 60 caractères chacune)
           <input value={technologies} onChange={(e) => setTechnologies(e.target.value)} />
         </label>
+        {techsInvalid && (
+          <p role="alert" className="error">
+            Trop de technologies, ou une technologie trop longue.
+          </p>
+        )}
         <label>
           Source (facultatif)
           <input maxLength={120} value={source} onChange={(e) => setSource(e.target.value)} />
@@ -101,7 +110,7 @@ function FactDialog({
           </p>
         )}
         <div className="actions">
-          <button type="submit" className="primary" disabled={busy || datesInverted || !text.trim()}>
+          <button type="submit" className="primary" disabled={busy || datesInverted || techsInvalid || !text.trim()}>
             Enregistrer
           </button>
         </div>
@@ -117,33 +126,50 @@ export function ProfilePage() {
   const [editing, setEditing] = useState<ProfileFact | "new" | null>(null);
   const [announcement, setAnnouncement] = useState("");
 
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+
+  /** Lève l'erreur : l'appelant décide de l'afficher. */
+  const fetchFacts = useCallback(async () => unwrap(await api.GET("/profile/facts")), [api]);
+
   const load = useCallback(async () => {
     try {
-      setFacts(unwrap(await api.GET("/profile/facts")));
+      setFacts(await fetchFacts());
+      setLoadFailed(false);
+      setProblem(null);
     } catch (failure) {
+      setLoadFailed(true);
       setProblem(failure instanceof Error ? failure.message : "Chargement impossible");
     }
-  }, [api]);
+  }, [fetchFacts]);
 
   useEffect(() => {
     let active = true;
-    api
-      .GET("/profile/facts")
-      .then(unwrap)
+    fetchFacts()
       .then((items) => active && setFacts(items))
-      .catch((e: unknown) => active && setProblem(e instanceof Error ? e.message : "Chargement impossible"));
+      .catch((e: unknown) => {
+        if (!active) return;
+        setLoadFailed(true);
+        setProblem(e instanceof Error ? e.message : "Chargement impossible");
+      });
     return () => {
       active = false;
     };
-  }, [api]);
+  }, [fetchFacts]);
 
   /** Renvoie `null` si l'action a réussi, sinon le message d'erreur. */
   async function run(action: () => Promise<unknown>, message: string): Promise<string | null> {
     try {
       await action();
-      await load();
+      try {
+        setFacts(await fetchFacts());
+      } catch {
+        return "Enregistré, mais la liste n'a pas pu être rechargée. Rechargez la page.";
+      }
       setProblem(null);
-      setAnnouncement(message);
+      setAnnouncement(""); // vider puis réécrire : deux actions identiques sont relues
+      setTimeout(() => setAnnouncement(message), 50);
       return null;
     } catch (failure) {
       return failure instanceof Error ? failure.message : "Action impossible";
@@ -156,18 +182,25 @@ export function ProfilePage() {
       : run(async () => unwrap(await api.POST("/profile/facts", { body })), "Fait ajouté");
 
   async function remove(fact: ProfileFact) {
+    if (busyId) return;
+    setBusyId(fact.id);
     const failure = await run(async () => {
       const result = await api.DELETE("/profile/facts/{factId}", { params: { path: { factId: fact.id } } });
-      if (result.error !== undefined) unwrap(result);
+      // 404 : déjà supprimé (double clic, autre onglet) ; la liste rechargée le montre.
+      if (result.error !== undefined && result.response.status !== 404) unwrap(result);
     }, "Fait supprimé");
+    setBusyId(null);
     if (failure) setProblem(failure);
+    else heading.current?.focus(); // le bouton cliqué n'existe plus : le focus ne doit pas tomber sur <body>
   }
 
   return (
     <section id="profil" aria-labelledby="profile-title">
       <div className="toolbar">
-        <h1 id="profile-title">Mon profil</h1>
-        <button type="button" className="primary" onClick={() => setEditing("new")}>
+        <h1 id="profile-title" ref={heading} tabIndex={-1}>
+          Mon profil
+        </h1>
+        <button type="button" className="primary" disabled={facts === null} onClick={() => setEditing("new")}>
           Ajouter un fait
         </button>
       </div>
@@ -176,7 +209,12 @@ export function ProfilePage() {
       </p>
       {problem && (
         <p role="alert" className="error">
-          {problem}
+          {problem}{" "}
+          {loadFailed && (
+            <button type="button" onClick={() => void load()}>
+              Réessayer
+            </button>
+          )}
         </p>
       )}
       {facts === null && !problem && <p role="status">Chargement…</p>}
@@ -187,14 +225,14 @@ export function ProfilePage() {
             <li key={fact.id}>
               <span className="chip">{kindLabel(fact.kind)}</span> <span>{fact.text}</span>
               <span className="muted">
-                {fact.start_date && ` · ${fact.start_date}${fact.end_date ? ` → ${fact.end_date}` : ""}`}
+                {(fact.start_date || fact.end_date) && ` · ${fact.start_date ?? "?"}${fact.end_date ? ` → ${fact.end_date}` : ""}`}
                 {fact.technologies.length > 0 && ` · ${fact.technologies.join(", ")}`}
               </span>
               <span className="actions">
-                <button type="button" onClick={() => setEditing(fact)} aria-label={`Modifier : ${fact.text}`}>
+                <button type="button" disabled={busyId !== null} onClick={() => setEditing(fact)} aria-label={`Modifier : ${short(fact.text)}`}>
                   Modifier
                 </button>
-                <button type="button" onClick={() => void remove(fact)} aria-label={`Supprimer : ${fact.text}`}>
+                <button type="button" disabled={busyId !== null} onClick={() => void remove(fact)} aria-label={`Supprimer : ${short(fact.text)}`}>
                   Supprimer
                 </button>
               </span>
