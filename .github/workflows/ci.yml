@@ -87,6 +87,27 @@ jobs:
             echo "frontend/ pas encore initialisé"
           fi
 
+  landing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Install, lint, types, test, build, poids (si le dossier existe)
+        run: |
+          if [ -f landing/package.json ]; then
+            cd landing
+            npm ci
+            npm run lint
+            npm test -- --run
+            npm audit --audit-level=high
+            npm run build
+            npm run size
+          else
+            echo "landing/ pas encore initialisé"
+          fi
+
   contract:
     runs-on: ubuntu-latest
     steps:
