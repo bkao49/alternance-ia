@@ -1,6 +1,6 @@
 # ADR 0004 : planificateur et file de tâches PostgreSQL (#13)
 
-Statut : **proposé, en attente d'une migration** (2026-10-30)
+Statut : **accepté, migration 0008** (2026-10-30)
 
 ## Contexte
 Les collectes (#59, #12, Adzuna…) et la revérification des offres expirées (#14) doivent tourner seules, à une fréquence choisie par source, sans Redis (ADR 0001). L'issue #13 demande `SKIP LOCKED`, des reprises avec backoff, la détection des tâches mortes et une fréquence par source.
@@ -71,3 +71,9 @@ Chaque minute : pour chaque source `enabled`, non bloquée, dont `last_run_at + 
 - Une seule collecte à la fois par source, ce qui garde valable le délai de 3 s par domaine tenu en mémoire (ADR 0003).
 - Réactiver une source bloquée reste un geste du PO (`enabled = true`, `blocked_at = NULL`).
 - Le code (`app/worker.py`) et le test de concurrence demandé par #13 (deux workers, une tâche) seront écrits dès que la migration existera.
+
+## Mise en œuvre (migration 0008, PR #13)
+- Écarts avec la proposition : `kind` n'accepte que `collect` pour l'instant (la revérification quotidienne `refresh_expired` s'ajoutera avec sa planification) ; `interval_minutes` peut être NULL (intervalle par défaut du worker, `COLLECT_INTERVAL_MINUTES`, 120 min) ; `source_settings.last_success_at` et les compteurs d'offres de `jobs` servent d'historique des passages.
+- Trois fonctions SQL étroites : `claim_job`, `schedule_due_jobs`, `reap_stale_jobs`. Une tâche `dead` par la relève fait avancer `last_run_at`, pour qu'un worker qui plante en boucle ne soit pas relancé chaque minute.
+- Un `Retry-After` de la source est borné entre 1 minute et 6 h ; un quota encore refusé après `max_attempts` essais bloque la source.
+- **Limites connues** : le blocage est par utilisateur et par source (le projet est mono-PO) ; si plusieurs utilisateurs partageaient une source, il faudrait un blocage global, et le délai de 3 s par domaine (en mémoire) ne couvrirait pas deux workers sur le même domaine. Les fonctions sont exécutables par le rôle de l'API (même modèle que `auth_lookup_user`) ; un rôle distinct pour le worker pourra les réserver plus tard.
