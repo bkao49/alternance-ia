@@ -10,14 +10,15 @@ import { BotPanel, type BotActivity } from "./BotPanel";
 import { Greeting, RelevantOffers } from "./Hero";
 import { KanbanBoard } from "./KanbanBoard";
 import { NewApplicationDialog, type NewApplication } from "./NewApplicationDialog";
-import { Sidebar } from "./Sidebar";
+import { CriteriaPage } from "./CriteriaPage";
+import { Sidebar, type Page } from "./Sidebar";
 import { StatsStrip } from "./StatsStrip";
 
 type View = "table" | "kanban";
 
-type Props = { user: Me; onLogout: () => Promise<void>; botActivity?: BotActivity };
+type Props = { user: Me; onLogout: () => Promise<void>; botActivity?: BotActivity; page?: Page };
 
-export function Dashboard({ user, onLogout, botActivity }: Props) {
+export function Dashboard({ user, onLogout, botActivity, page = "home" }: Props) {
   const api = useApi();
   const { state, reload } = useDashboardData();
   const [view, setView] = useState<View>("table");
@@ -93,8 +94,14 @@ export function Dashboard({ user, onLogout, botActivity }: Props) {
 
   return (
     <div className="shell">
-      <Sidebar user={user} onSignOut={() => void signOut()} />
+      <Sidebar user={user} page={page} onSignOut={() => void signOut()} />
 
+      {page === "criteria" && (
+        <main className="page">
+          <CriteriaPage />
+        </main>
+      )}
+      {page === "home" && (
       <main id="accueil" className="page">
         <Greeting user={user} stats={state.phase === "ready" ? state.stats : undefined} onCreate={() => setCreating(true)} />
 
@@ -172,6 +179,7 @@ export function Dashboard({ user, onLogout, botActivity }: Props) {
           </>
         )}
       </main>
+      )}
 
       <p className="visually-hidden" role="status" aria-live="polite">
         {announcement}
