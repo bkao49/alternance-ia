@@ -653,7 +653,7 @@ components:
         expired: { type: boolean }
         contract_type: { $ref: "#/components/schemas/ContractType" }
         score: { type: number, minimum: 0, maximum: 5 }
-        explanation: { type: string, description: "Explication courte du dernier score" }
+        explanation: { type: string, maxLength: 500, description: "Explication courte du dernier score. Texte généré à partir d'une annonce non fiable, à afficher en texte brut." }
     ContractType:
       type: string
       enum: [internship, apprenticeship, fixed_term, permanent, other]
@@ -681,22 +681,26 @@ components:
           type: string
           enum: [ok, error, blocked, disabled, pending]
           description: |
-            ok : dernière collecte réussie. error : dernière collecte en échec (nouvel essai possible).
-            blocked : arrêtée par la détection de blocage, seul le PO la réactive. disabled : non activée.
-            pending : activée, pas encore de collecte.
-        cause: { type: string, description: "Texte fixe expliquant blocked, disabled ou error" }
+            Priorité : blocked, puis disabled, puis le résultat de la dernière tâche. blocked : arrêtée par
+            la détection de blocage, seul le PO la réactive. disabled : non activée. pending : activée, aucune
+            collecte terminée pour l'instant (première tâche éventuellement en file). ok : dernière collecte
+            réussie. error : dernière collecte en échec (tâche failed, dead ou remise en file).
+        cause: { type: string, maxLength: 200, description: "Texte fixe expliquant blocked, disabled ou error" }
         last_run_at: { type: string, format: date-time }
-        offers_found: { type: integer, minimum: 0, description: "Offres lues lors de la dernière collecte" }
+        offers_found: { type: integer, minimum: 0, description: "Offres lues par la dernière tâche terminée ou remise en file ; absent si elle n'a rien compté" }
         offers_new: { type: integer, minimum: 0 }
-        next_run_at: { type: string, format: date-time }
+        next_run_at: { type: string, format: date-time, description: "Absent pour une source blocked ou disabled. Sinon prochaine tâche en file, ou dernière fin de passage plus l'intervalle (celui de la source, sinon COLLECT_INTERVAL_MINUTES)." }
     BotActivity:
       type: object
       required: [at, source, outcome, message]
       properties:
         at: { type: string, format: date-time }
         source: { type: string }
-        outcome: { type: string, enum: [done, error, blocked] }
-        message: { type: string, description: "Texte fixe, sans contenu d annonce" }
+        outcome:
+          type: string
+          enum: [done, error, blocked]
+          description: done pour une tâche réussie, blocked pour une tâche arrêtée par un blocage, error pour les autres échecs (failed, dead).
+        message: { type: string, maxLength: 200, description: "Texte fixe, sans contenu d'annonce" }
     OfferDetail:
       allOf:
         - { $ref: "#/components/schemas/Offer" }
