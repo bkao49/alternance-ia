@@ -51,7 +51,7 @@ def _offer(row: Any) -> dict:
         id=row["id"], title=row["title"], company=row["company"], location=row["location"],
         source=row["source"], url=row["url"], detected_at=row["detected_at"], expired=row["expired"],
         contract_type=row["contract_type"], score=float(row["score"]) if row["score"] is not None else None,
-        explanation=row.get("explanation"),
+        explanation=(row.get("explanation") or None) and row["explanation"][:500],
     ).model_dump(mode="json")
     return {key: value for key, value in data.items() if value is not None}
 
