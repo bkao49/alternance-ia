@@ -1,5 +1,6 @@
 import psycopg
 import pytest
+from sqlalchemy.exc import DBAPIError
 from test_applications import (  # noqa: F401  (fixtures et helpers partagés)
     PASSWORD,
     alice,
@@ -22,8 +23,13 @@ def tables_with_owner(conn):
 
 
 def count_rows(db_url, user_id):
-    """Compte les lignes de l'utilisateur dans chaque table (connexion d'administration, hors RLS)."""
+    """Compte les lignes de l'utilisateur dans chaque table. La connexion de test est superutilisateur,
+    donc hors RLS ; si elle ne l'était plus, tout vaudrait 0 et la garde « before » échouerait."""
     with psycopg.connect(db_url) as conn:
+        every_table = {r[0] for r in conn.execute(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' "
+            "AND table_name <> 'alembic_version'")}
+        assert set(tables_with_owner(conn)) == every_table, "table sans user_id : à couvrir par ce test"
         return {table: conn.execute(f"SELECT count(*) FROM {table} WHERE {key} = %s", (user_id,)).fetchone()[0]
                 for table, key in tables_with_owner(conn).items()}
 
@@ -121,7 +127,29 @@ def test_retention_comes_from_the_environment(monkeypatch):
     monkeypatch.setenv("RETENTION_OFFERS_DAYS", "30")
     monkeypatch.delenv("RETENTION_LLM_DAYS", raising=False)
     assert retention_from_env() == Retention(offers_days=30, llm_days=90)
-    for bad in ("0", "abc", "100000"):
+    for bad in ("0", "29", "abc", "100000"):
         monkeypatch.setenv("RETENTION_LLM_DAYS", bad)
         with pytest.raises(RuntimeError):
             retention_from_env()
+
+
+def test_application_role_cannot_trigger_a_purge(alice, bob, migrated_db):  # noqa: F811
+    offer(migrated_db, bob.user_id, "ancienne", 400)
+    with psycopg.connect(migrated_db) as conn:
+        as_app(conn, alice.user_id)
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("SELECT * FROM purge_expired_data(30, 30)")
+    assert count_rows(migrated_db, bob.user_id)["job_postings"] == 1
+
+
+def test_purge_refuses_too_short_durations(migrated_db):
+    with pytest.raises(DBAPIError, match="trop courte"):
+        purge_expired(Retention(offers_days=1, llm_days=1))
+
+
+def test_purger_reads_no_content(migrated_db):
+    with psycopg.connect(migrated_db) as conn:
+        for table, column in (("llm_cache", "response_text"), ("job_postings", "description_text"),
+                              ("users", "email"), ("profile_facts", "text")):
+            assert not conn.execute("SELECT has_column_privilege('retention_purger', %s, %s, 'SELECT')",
+                                    (table, column)).fetchone()[0], (table, column)
