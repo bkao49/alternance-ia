@@ -1,0 +1,14 @@
+# Exemple fictif : un site présent ici est un site activé (fiche docs/sources/<source>.md requise).
+[[site]]
+source = "web_globex"
+company = "Globex"
+allowed_domains = ["example.com"]
+start_urls = ["https://carrieres.example.com/offres"]
+offer_links = "a.offre"
+max_pages = 20
+
+[site.selectors]
+title = "h1.poste"
+location = ".lieu"
+contract = ".contrat"
+description = ".texte"

@@ -21,3 +21,9 @@ Le PO a ouvert la collecte à tout site web (#60), à condition de respecter le 
 - Rebinding DNS : l'adresse est vérifiée, puis `httpx` résout à nouveau. Correction prévue dans #71 (connexion à l'IP vérifiée), à faire avant d'activer un vrai site.
 - Le délai par domaine est en mémoire : deux processus worker ne le partagent pas. Le planificateur (#13) ne lance qu'une collecte à la fois par source.
 - La détection d'un CAPTCHA ou d'une page de connexion servis en 200 relève de #14.
+
+## Collecteur `web` (#59, partie 2)
+- Un site = une entrée TOML (`[[site]]` : `source`, `allowed_domains`, `start_urls`, `offer_links`, `max_pages`, `selectors`), validée au chargement (URL de départ dans la liste blanche, sélecteurs CSS valides). Pas de code par site.
+- Sur chaque page : JSON-LD `schema.org/JobPosting` d'abord (y compris `@graph` et `ItemList`), sélecteurs CSS ensuite. Seuls titre, entreprise, ville, contrat, texte, lien et date sont lus : `applicationContact`, `contactPoint` et le reste sont ignorés.
+- Le lien déclaré dans le JSON-LD n'est gardé que s'il reste dans la liste blanche ; il n'est jamais suivi automatiquement.
+- Dépendances : `beautifulsoup4` et `soupsieve` (analyseur `html.parser` de la bibliothèque standard).
