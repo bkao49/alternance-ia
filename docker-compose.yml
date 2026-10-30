@@ -1,5 +1,5 @@
 # Stack locale : base PostgreSQL + pgvector, migrations, API.
-# Le worker arrive avec P2-4, Caddy avec P6-1. Les variables viennent du fichier .env (voir .env.example).
+# Caddy arrive avec P6-1. Les variables viennent du fichier .env (voir .env.example).
 services:
   db:
     # Propriétaire (POSTGRES_USER) : sert UNIQUEMENT aux migrations. L'API utilise le rôle « app »
@@ -41,6 +41,27 @@ services:
       ALLOW_DEMO_DATA: ${ALLOW_DEMO_DATA:-false}
     ports:
       - "127.0.0.1:${API_PORT:-8100}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    # Collecte planifiée (ADR 0004) : prend les tâches de la file PostgreSQL, sans port ouvert.
+    # Clés des sources facultatives : sans clé, la source s'arrête avec une erreur claire.
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    healthcheck:
+      disable: true
+    environment:
+      DATABASE_URL: "postgresql://app:${APP_DB_PASSWORD:?APP_DB_PASSWORD est vide : copiez .env.example en .env puis renseignez-le}@db:5432/app"
+      SECRET_KEY: "${SECRET_KEY:?SECRET_KEY est vide : générez-la (32 caractères minimum) et mettez-la dans .env}"
+      COLLECT_INTERVAL_MINUTES: ${COLLECT_INTERVAL_MINUTES:-120}
+      LBA_API_TOKEN: ${LBA_API_TOKEN:-}
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
     depends_on:
       db:
         condition: service_healthy
