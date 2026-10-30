@@ -62,7 +62,7 @@ def test_each_state_and_next_run(alice, migrated_db, contract):  # noqa: F811
     assert sources["site_z"]["state"] == "pending"
     for name in ("site_x", "site_y", "site_z"):
         assert "next_run_at" not in sources[name]
-    assert status["next_run_at"] == sources["adzuna"]["next_run_at"] or status["next_run_at"] == sources["lba"]["next_run_at"]
+    assert status["next_run_at"] == sources["lba"]["next_run_at"]  # la plus proche : dernière fin + 120 min
 
 
 def test_queued_job_gives_the_next_run(alice, migrated_db):  # noqa: F811
@@ -87,7 +87,7 @@ def test_activity_is_recent_first_capped_and_fixed_text(alice, migrated_db, cont
     assert len(activity) == 10
     assert [a["outcome"] for a in activity[:3]] == ["blocked", "error", "done"]
     assert activity[0]["message"] == "blocage détecté (403)" and activity[1]["message"] == "worker disparu"
-    assert activity[2]["message"] == "11 offres lues, 1 nouvelles"
+    assert activity[2]["message"] == "11 offres lues, 1 nouvelle"
     assert_conforms(contract, "BotActivity", activity[0])
 
 
@@ -120,3 +120,29 @@ def test_contract_type_filter_and_new_fields(alice, bob, migrated_db, contract):
     assert alice.get("/offers?contract_type=permanent&min_score=3.5").json()["total"] == 1
     assert alice.get("/offers").json()["total"] == 4  # sans filtre, l'ancienne offre reste visible
     assert alice.get("/offers?contract_type=cdi").status_code == 422
+
+
+def test_requeued_after_failure_is_an_error_with_the_queue_time(alice, migrated_db):  # noqa: F811
+    soon = NOW + dt.timedelta(minutes=9)
+    add_source(migrated_db, alice.user_id, "adzuna", last_run=NOW)
+    add_job(migrated_db, alice.user_id, "adzuna", "queued", error="source indisponible", attempts=2, run_at=soon)
+    source = by_source(alice.get("/bot/status").json())["adzuna"]
+    assert source["state"] == "error" and source["cause"] == "source indisponible"
+    assert dt.datetime.fromisoformat(source["next_run_at"]) == soon
+
+
+def test_blocked_queue_leftovers_do_not_clutter_the_feed(alice, migrated_db):  # noqa: F811
+    add_source(migrated_db, alice.user_id, "site_x", enabled=False, blocked_cause="blocage détecté (403)")
+    add_job(migrated_db, alice.user_id, "site_x", "dead", error="blocage détecté (403)", finished=NOW)
+    for _ in range(2):  # tâches en attente abandonnées par block_source
+        add_job(migrated_db, alice.user_id, "site_x", "dead", error="source bloquée", finished=NOW, attempts=0)
+    assert [a["outcome"] for a in alice.get("/bot/status").json()["activity"]] == ["blocked"]
+
+
+def test_default_interval_comes_from_the_environment(alice, migrated_db, monkeypatch):  # noqa: F811
+    monkeypatch.setenv("COLLECT_INTERVAL_MINUTES", "240")
+    last = NOW - dt.timedelta(minutes=10)
+    add_source(migrated_db, alice.user_id, "adzuna", last_run=last)
+    add_job(migrated_db, alice.user_id, "adzuna", "done", found=1, new=0, finished=last)
+    source = by_source(alice.get("/bot/status").json())["adzuna"]
+    assert dt.datetime.fromisoformat(source["next_run_at"]) == last + dt.timedelta(minutes=240)
