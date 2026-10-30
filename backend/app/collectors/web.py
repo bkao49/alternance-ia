@@ -32,13 +32,7 @@ from app.collectors.base import (
     SearchQuery,
     canonical_url,
 )
-from app.collectors.http_client import (
-    Page,
-    PageNotFound,
-    PoliteClient,
-    RobotsDisallowed,
-    UnsafeUrl,
-)
+from app.collectors.http_client import Page, PageSkipped, PoliteClient
 
 log = logging.getLogger(__name__)
 
@@ -56,6 +50,15 @@ CONTRACT_WORDS = [
 # --- Configuration --------------------------------------------------------------------------
 
 
+def _css(value: str | None) -> str | None:
+    if value is not None:
+        try:
+            soupsieve.compile(value)
+        except soupsieve.SelectorSyntaxError as exc:
+            raise ValueError("sélecteur CSS invalide") from exc
+    return value
+
+
 class Selectors(BaseModel):
     """Sélecteurs CSS de repli, appliqués aux pages d'offre sans JSON-LD."""
 
@@ -70,9 +73,7 @@ class Selectors(BaseModel):
     @field_validator("*")
     @classmethod
     def _valid_css(cls, value: str | None) -> str | None:
-        if value is not None:
-            soupsieve.compile(value)  # lève une erreur si le sélecteur est invalide
-        return value
+        return _css(value)
 
 
 class SiteConfig(BaseModel):
@@ -89,9 +90,7 @@ class SiteConfig(BaseModel):
     @field_validator("offer_links")
     @classmethod
     def _valid_css(cls, value: str | None) -> str | None:
-        if value is not None:
-            soupsieve.compile(value)
-        return value
+        return _css(value)
 
     @model_validator(mode="after")
     def _start_urls_in_allowlist(self) -> "SiteConfig":
@@ -241,11 +240,11 @@ class WebCollector(Collector):
                     yield from self._records(detail, BeautifulSoup(detail.text, "html.parser"))
 
     def _page(self, url: str) -> Page | None:
-        """Page HTML, ou None si elle est ignorée seule. Un blocage (`SourceBlocked`,
-        `QuotaExceeded`) ou une panne remonte et arrête la source."""
+        """Page HTML, ou None si elle est ignorée seule (`PageSkipped` : hors liste, robots.txt,
+        404, trop grande). Un blocage, un quota ou une panne remonte et arrête la source."""
         try:
             page = self.client.get(url)
-        except (UnsafeUrl, RobotsDisallowed, PageNotFound, InvalidResponse) as exc:
+        except PageSkipped as exc:
             log.warning("collector=%s page ignorée (%s)", self.source, type(exc).__name__)
             return None
         if page.content_type not in HTML_TYPES:

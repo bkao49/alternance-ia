@@ -103,7 +103,7 @@ def test_page_budget_is_respected():
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [({"start_urls": ["https://evil.test/"]}, "hors des domaines"),
-     ({"offer_links": "a[["}, ""),
+     ({"offer_links": "a[["}, "sélecteur"),
      ({"source": "Web Globex"}, "pattern")],
 )
 def test_invalid_site_config_is_refused(overrides, message):

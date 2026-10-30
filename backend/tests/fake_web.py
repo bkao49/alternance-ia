@@ -5,11 +5,10 @@ import socket
 import httpx
 import pytest
 
-from app.collectors.http_client import PoliteClient
+from app.collectors.http_client import PoliteClient, Throttle
 
 PUBLIC_IP = "93.184.215.14"
 ROBOTS_OK = "User-agent: *\nDisallow: /prive/\n"
-HTML = {"content-type": "text/html; charset=utf-8"}
 
 
 @pytest.fixture(autouse=True)
@@ -34,7 +33,9 @@ class FakeSite:
         status, headers, body = self.routes.get(request.url.path, (404, {}, ""))
         if callable(body):
             status, headers, body = body(request)
-        return httpx.Response(status, headers=headers, text=body)
+        content = body if isinstance(body, bytes) else body.encode()
+        # Flux brut, comme un vrai serveur : le client le lit avec iter_raw().
+        return httpx.Response(status, headers=headers, stream=httpx.ByteStream(content))
 
     def paths(self) -> list[str]:
         return [r.url.path for r in self.requests]
@@ -58,6 +59,9 @@ def make_client(
     clock = clock or FakeClock()
     return PoliteClient(
         source, domains, transport=httpx.MockTransport(site),
-        resolver=resolver or (lambda _host: [PUBLIC_IP]), clock=clock, sleep=clock.sleep,
+        resolver=resolver or (lambda _host: [PUBLIC_IP]), throttle=Throttle(clock, clock.sleep),
         **kwargs,
     )
+
+
+HTML = {"content-type": "text/html; charset=utf-8"}
