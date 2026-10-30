@@ -30,10 +30,13 @@ from app.collectors.base import (
     ContractType,
     InvalidResponse,
     NormalizedOffer,
+    OfferExpired,
     SearchQuery,
+    SourceBlocked,
     canonical_url,
 )
-from app.collectors.http_client import Page, PageSkipped, PoliteClient
+from app.collectors.detection import has_captcha, posting_expired, text_says_expired
+from app.collectors.http_client import Page, PageNotFound, PageSkipped, PoliteClient
 
 log = logging.getLogger(__name__)
 
@@ -267,12 +270,15 @@ class WebCollector(Collector):
             page, soup = self._parsed(start)
             if page is None or soup is None:
                 continue
-            records = self._records(page, soup, detail=self.site.offer_links is None)
+            records = list(self._records(page, soup, detail=self.site.offer_links is None))
+            links = soup.select(self.site.offer_links) if self.site.offer_links else []
+            if not records and not links:
+                self._stop_on_captcha(page)
             if not self.site.offer_links:
                 yield from records
                 continue
             listed.extend(records)
-            for link in soup.select(self.site.offer_links):
+            for link in links:
                 href = link.get("href")
                 url = urljoin(page.url, href) if isinstance(href, str) else ""
                 key = _url_key(url)  # « #postuler » ou « ?utm_… » : même page
@@ -284,8 +290,17 @@ class WebCollector(Collector):
                 budget -= 1
                 detail, detail_soup = self._parsed(url)
                 if detail is not None and detail_soup is not None:
-                    yield from self._records(detail, detail_soup)
+                    found = list(self._records(detail, detail_soup))
+                    if not found:
+                        self._stop_on_captcha(detail)
+                    yield from found
         yield from listed
+
+    def _stop_on_captcha(self, page: Page) -> None:
+        """Un CAPTCHA à la place du contenu attendu (ni offre ni lien) : la source s'arrête.
+        Un CAPTCHA à côté d'une offre lisible (formulaire « Postuler ») ne compte pas."""
+        if has_captcha(page.text):
+            raise SourceBlocked(self.source, "CAPTCHA")
 
     def _parsed(self, url: str) -> tuple[Page | None, BeautifulSoup | None]:
         """Page et arbre HTML ; une page aux balises innombrables est ignorée avant l'analyse,
@@ -315,8 +330,11 @@ class WebCollector(Collector):
         self, page: Page, soup: BeautifulSoup, detail: bool = True,
     ) -> Iterator[Mapping[str, Any]]:
         postings = job_postings(soup)
+        # Bandeau « offre pourvue » : lu une fois par page d'offre (sur une liste, il viserait
+        # une autre offre). get_text ignore scripts et styles.
+        expired = detail and text_says_expired(soup.get_text(" "))
         for posting in postings:
-            yield {"kind": "jsonld", "page_url": page.url, "data": posting}
+            yield {"kind": "jsonld", "page_url": page.url, "data": posting, "expired": expired}
         if not postings and detail and self.site.selectors:
             fields = {}
             for name, selector in self.site.selectors.model_dump().items():
@@ -324,7 +342,23 @@ class WebCollector(Collector):
                 separator = "\n" if name == "description" else " "
                 fields[name] = element.get_text(separator, strip=True) if element else None
             if fields.get("title"):
-                yield {"kind": "css", "page_url": page.url, "fields": fields}
+                yield {"kind": "css", "page_url": page.url, "fields": fields, "expired": expired}
+
+    def check_expired(self, url: str) -> bool | None:
+        """Relit la page d'une offre enregistrée : 404/410, date limite passée ou mention
+        « offre pourvue » → expirée. Page illisible ou interdite → None (on ne sait pas)."""
+        try:
+            page = self.client.get(url)
+        except PageNotFound:
+            return True
+        except PageSkipped:
+            return None
+        if page.content_type not in HTML_TYPES or page.text.count("<") > MAX_TAGS:
+            return None
+        soup = BeautifulSoup(page.text, "html.parser")
+        if any(posting_expired(p) for p in job_postings(soup)):
+            return True
+        return text_says_expired(soup.get_text(" "))
 
     def normalize(self, raw: Mapping[str, Any]) -> NormalizedOffer:
         page_url = raw.get("page_url")
@@ -332,6 +366,8 @@ class WebCollector(Collector):
             raise InvalidResponse(self.source, "enregistrement sans page d'origine")
         if raw.get("kind") == "css":
             fields = raw["fields"]
+            if raw.get("expired"):
+                raise OfferExpired(self.source, _short_hash(canonical_url(page_url)))
             return NormalizedOffer(
                 source=self.source, external_id=_short_hash(canonical_url(page_url)),
                 url=page_url, title=fields["title"],
@@ -358,6 +394,8 @@ class WebCollector(Collector):
             str(identifier) if isinstance(identifier, str | int) and not isinstance(identifier, bool)
             and str(identifier).strip() else self._fallback_id(url, page_url, title, company)
         )
+        if raw.get("expired") or posting_expired(data):
+            raise OfferExpired(self.source, external_id[:200])
         return NormalizedOffer(
             source=self.source, external_id=external_id[:200], url=url, title=title,
             company=company, location=city,
