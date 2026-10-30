@@ -698,13 +698,16 @@ components:
 
     SearchLocation:
       type: object
+      additionalProperties: false
       required: [label, radius_km]
       properties:
         label: { type: string, minLength: 1, maxLength: 120, examples: [Lyon] }
         radius_km: { type: integer, minimum: 0, maximum: 200, examples: [30] }
-    SearchPreferencesInput:
+    SearchPreferencesFields:
       type: object
-      additionalProperties: false
+      description: |
+        Une liste vide signifie « pas de filtre » sur ce critère. Les textes sont rognés côté serveur ;
+        une chaîne faite seulement d'espaces est refusée (422). Données personnelles : jamais journalisées.
       required:
         [keywords, locations, remote_accepted, contract_types, start_date, duration_months,
          alternance_rhythm, education_level, min_salary_eur, excluded_keywords]
@@ -713,29 +716,38 @@ components:
           type: array
           description: Métiers ou mots-clés recherchés
           maxItems: 20
+          uniqueItems: true
           items: { type: string, minLength: 1, maxLength: 80 }
           examples: [[data analyst, machine learning]]
         locations:
           type: array
           maxItems: 10
+          uniqueItems: true
           items: { $ref: "#/components/schemas/SearchLocation" }
-        remote_accepted: { type: boolean, description: Télétravail accepté }
+        remote_accepted:
+          type: boolean
+          description: |
+            true : les offres en télétravail complet sont acceptées même hors des lieux indiqués.
+            false : seules les offres situées dans les lieux indiqués comptent.
         contract_types:
           type: array
           uniqueItems: true
           items: { type: string, enum: [internship, apprenticeship, fixed_term, permanent, other] }
           description: Stage, alternance, CDD, CDI, autre
-        start_date: { type: [string, "null"], format: date, description: Date de début souhaitée }
+        start_date:
+          type: [string, "null"]
+          format: date
+          description: Date de début souhaitée (une date passée est acceptée, à la charge de l'utilisateur)
         duration_months: { type: [integer, "null"], minimum: 1, maximum: 60 }
         alternance_rhythm:
           type: [string, "null"]
           maxLength: 80
-          description: Rythme d'alternance, en texte libre
+          description: Rythme d'alternance en texte libre, purement informatif (non utilisé par les filtres)
           examples: [3 semaines en entreprise, 1 semaine à l'école]
         education_level:
           type: [string, "null"]
-          enum: [bac, bac_2, bac_3, bac_4, bac_5, bac_8, other, null]
-          description: Niveau d'études visé ou en cours
+          enum: [bac, bac_plus_2, bac_plus_3, bac_plus_4, bac_plus_5, doctorate, other, null]
+          description: Niveau d'études visé ou en cours (bac_plus_2 = bac+2, doctorate = bac+8)
         min_salary_eur:
           type: [integer, "null"]
           minimum: 0
@@ -745,10 +757,15 @@ components:
           type: array
           description: Mots qui écartent une offre
           maxItems: 50
+          uniqueItems: true
           items: { type: string, minLength: 1, maxLength: 80 }
+    SearchPreferencesInput:
+      allOf:
+        - { $ref: "#/components/schemas/SearchPreferencesFields" }
+      unevaluatedProperties: false
     SearchPreferences:
       allOf:
-        - { $ref: "#/components/schemas/SearchPreferencesInput" }
+        - { $ref: "#/components/schemas/SearchPreferencesFields" }
         - type: object
           required: [updated_at]
           properties:
