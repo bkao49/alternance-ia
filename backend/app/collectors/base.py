@@ -296,6 +296,8 @@ class Collector(ABC):
         except Exception as exc:  # noqa: BLE001
             result.error = CollectorError(source, f"erreur inattendue ({type(exc).__name__})")
             result.error.__cause__ = exc  # trace d'origine conservée pour le débogage
+        if result.expired:
+            log.info("collector=%s %d annonce(s) expirée(s) écartée(s)", source, len(result.expired))
         if result.error:
             # Type seulement : rien de la réponse ni de l'annonce ne va dans les journaux.
             log.error("collector=%s arrêté (%s)", source, type(result.error).__name__)
