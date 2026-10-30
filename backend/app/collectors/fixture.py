@@ -42,15 +42,16 @@ class FixtureCollector(Collector):
         records = payload.get("resultats") if isinstance(payload, dict) else None
         if not isinstance(records, list):
             raise InvalidResponse(self.source, "clé « resultats » absente ou invalide")
-        return records
+        yield from records  # générateur : `collect` peut s'arrêter avant la fin
 
     def normalize(self, raw: Mapping[str, Any]) -> NormalizedOffer:
-        if not isinstance(raw, Mapping) or "id" not in raw:
+        raw_id = raw.get("id") if isinstance(raw, Mapping) else None
+        if isinstance(raw_id, bool) or not isinstance(raw_id, str | int) or raw_id == "":
             raise InvalidResponse(self.source, "enregistrement sans identifiant")
         published = raw.get("date_publication")
         return NormalizedOffer(
             source=self.source,
-            external_id=str(raw["id"]),
+            external_id=str(raw_id),
             url=raw.get("lien", ""),
             title=raw.get("intitule", ""),
             company=raw.get("entreprise", ""),

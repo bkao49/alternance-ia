@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from app.collectors.base import (
     Collector,
     ContractType,
+    InvalidResponse,
     NetworkError,
     NormalizedOffer,
     QuotaExceeded,
@@ -158,5 +159,95 @@ def test_unreadable_fixture_is_an_invalid_response(tmp_path):
     bad = tmp_path / "bad.json"
     bad.write_text('{"autre": []}', encoding="utf-8")
     result = FixtureCollector(bad).collect(SearchQuery())
-    assert type(result.error).__name__ == "InvalidResponse"
+    assert isinstance(result.error, InvalidResponse)
     assert result.offers == []
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://user:pass@jobs.example.com/a", "https://jobs.example.com/a"),
+        ("https://[::1]:8080/a", "https://[::1]:8080/a"),
+        ("https://jobs.example.com:443/a", "https://jobs.example.com/a"),
+        ("http://jobs.example.com:8080", "http://jobs.example.com:8080/"),
+        ("https://exämple.fr/a", "https://xn--exmple-cua.fr/a"),
+        ("https://jobs.example.com/a?" + "utm_x=1&" * 300 + "id=2", "https://jobs.example.com/a?id=2"),
+    ],
+)
+def test_url_canonical_forms(url, expected):
+    assert offer(url=url).url == expected
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["https://exa mple.com/a", "https://ex<b>.com/a", "https://h.example.com:0/a",
+     "https://h.example.com/p\u202ex", "https://h.example.com/" + "a" * 2000],
+)
+def test_invalid_hosts_ports_and_hidden_characters_are_rejected(url):
+    with pytest.raises(ValidationError):
+        offer(url=url)
+
+
+def test_hidden_characters_are_removed_and_long_descriptions_truncated():
+    o = offer(title="Data\u202e Scientist\u200b\x9b", description_text="x" * 60_000)
+    assert o.title == "Data Scientist"
+    assert len(o.description_text) == 50_000
+
+
+def test_fingerprint_folds_ligatures_and_keeps_non_latin_titles_apart():
+    assert offer(title="Chef de cœur").fingerprint == offer(title="chef de coeur").fingerprint
+    assert offer(title="Chef de cœur").fingerprint != offer(title="Chef de cur").fingerprint
+    chinese_a, chinese_b = offer(title="数据科学家"), offer(external_id="2", title="机器学习")
+    assert chinese_a.fingerprint != chinese_b.fingerprint
+
+
+@pytest.mark.parametrize("max_results", [0, -1, 1001])
+def test_search_query_bounds(max_results):
+    with pytest.raises(ValueError):
+        SearchQuery(max_results=max_results)
+
+
+@pytest.mark.parametrize("raw_id", [None, "", True, 1.5])
+def test_fixture_records_without_usable_id_are_rejected(raw_id):
+    with pytest.raises(InvalidResponse):
+        raw = {"id": raw_id, "intitule": "x", "entreprise": "y", "lien": "https://a.example.com"}
+        SOURCE_A.normalize(raw)
+
+
+class BuggyNormalize(FailingCollector):
+    def normalize(self, raw):
+        if raw["id"] == "0":
+            raise AttributeError("bogue sur un seul enregistrement")
+        return super().normalize(raw)
+
+
+def test_unexpected_error_on_one_record_rejects_only_that_record():
+    result = BuggyNormalize("bogue", NetworkError("bogue", "fin"), before=3).collect(SearchQuery())
+    assert result.rejected == 1
+    assert [o.external_id for o in result.offers] == ["1", "2"]
+
+
+class NoSource(Collector):
+    def fetch(self, query):
+        return []
+
+    def normalize(self, raw):
+        raise AssertionError
+
+
+class BadSource(NoSource):
+    source = "Bad-Source"
+
+
+def test_misconfigured_sources_fail_alone():
+    results = collect_all([NoSource(), BadSource(), SOURCE_B], SearchQuery())
+    assert [r.error is not None for r in results] == [True, True, False]
+    assert len(results[2].offers) == 2
+
+
+def test_error_messages_and_record_content_stay_out_of_logs(caplog):
+    leaky = FailingCollector("fuite", InvalidResponse("fuite", "<html>contenu annonce</html>"))
+    leaky.collect(SearchQuery())
+    SOURCE_A.collect(SearchQuery())  # contient des enregistrements rejetés
+    assert "contenu annonce" not in caplog.text
+    assert "javascript" not in caplog.text and "Initrode" not in caplog.text

@@ -21,4 +21,7 @@ La phase 2 branche plusieurs sources d'offres (La Bonne Alternance, France Trava
 
 ## Conséquences
 - Pas de migration ici : `contract_type`, `published_at` et `fingerprint` seront ajoutés à `job_postings` par le Backend quand le worker enregistrera les offres.
+- `fetch` doit être un générateur paresseux qui respecte `max_results` (quotas) ; la reprise après `QuotaExceeded` (curseur, page) est hors périmètre et sera ajoutée avec les connecteurs réels si l'API la permet.
+- Les lieux diffèrent selon les sources (« 69 - LYON 03 » contre « Lyon ») : chaque connecteur devra fournir un lieu normalisé (ville) pour que l'empreinte serve vraiment.
+- `CollectorError.message` est un texte fixe ; les journaux ne contiennent que le type d'erreur, jamais le contenu d'une réponse ou d'une annonce.
 - Deux offres vraiment différentes avec mêmes titre, entreprise, lieu et contrat auront la même empreinte : cas rare, l'utilisateur tranche.
