@@ -28,6 +28,9 @@ const LEVELS: [Level, string][] = [
 /** Un mot ou une expression par ligne : les lignes vides et les doublons disparaissent. */
 export const toList = (text: string) => [...new Set(text.split("\n").map((line) => line.trim()).filter(Boolean))];
 
+const uniqueLocations = <T extends { label: string; radius_km: number }>(items: T[]) =>
+  items.filter((l, i) => items.findIndex((o) => o.label === l.label && o.radius_km === l.radius_km) === i);
+
 type Draft = {
   keywords: string;
   excluded: string;
@@ -57,16 +60,18 @@ const toDraft = (p: SearchPreferences): Draft => ({
 const toInput = (d: Draft): Input => ({
   keywords: toList(d.keywords),
   excluded_keywords: toList(d.excluded),
-  locations: d.locations
-    .filter((l) => l.label.trim())
-    .map((l) => ({ label: l.label.trim(), radius_km: Number(l.radius) || 0 })),
+  locations: uniqueLocations(
+    d.locations
+      .filter((l) => l.label.trim())
+      .map((l) => ({ label: l.label.trim(), radius_km: l.radius === "" ? 30 : Math.round(Number(l.radius)) })),
+  ),
   remote_accepted: d.remote,
   contract_types: d.contracts,
   start_date: d.startDate || null,
-  duration_months: d.duration ? Number(d.duration) : null,
+  duration_months: d.duration ? Math.round(Number(d.duration)) : null,
   alternance_rhythm: d.rhythm.trim() || null,
   education_level: (d.level || null) as Level | null,
-  min_salary_eur: d.salary ? Number(d.salary) : null,
+  min_salary_eur: d.salary ? Math.round(Number(d.salary)) : null,
 });
 
 export function CriteriaPage() {
@@ -89,7 +94,14 @@ export function CriteriaPage() {
     };
   }, [api]);
 
-  if (loadError) return <p role="alert" className="error">{loadError}</p>;
+  if (loadError) {
+    return (
+      <section aria-labelledby="criteria-title">
+        <h1 id="criteria-title">Mes critères</h1>
+        <p role="alert" className="error">{loadError}</p>
+      </section>
+    );
+  }
   if (!draft) return <p role="status">Chargement…</p>;
 
   const set = (change: Partial<Draft>) => {
@@ -117,10 +129,11 @@ export function CriteriaPage() {
     <section id="criteres" aria-labelledby="criteria-title">
       <h1 id="criteria-title">Mes critères</h1>
       <p className="muted">Ce que vous cherchez. Les collecteurs et le score s'en servent.</p>
-      <form onSubmit={submit} className="form criteria">
+      <form onSubmit={submit} className="form criteria" aria-busy={busy}>
+        <fieldset disabled={busy} className="plain">
         <label>
           Métiers ou mots-clés (un par ligne)
-          <textarea rows={4} value={draft.keywords} onChange={(e) => set({ keywords: e.target.value })} />
+          <textarea rows={4} maxLength={20 * 81} value={draft.keywords} onChange={(e) => set({ keywords: e.target.value })} />
         </label>
 
         <fieldset>
@@ -128,7 +141,7 @@ export function CriteriaPage() {
           {draft.locations.map((location, index) => (
             <div className="actions" key={index}>
               <label>
-                Ville ou région
+                Ville ou région{draft.locations.length > 1 ? ` (lieu ${index + 1})` : ""}
                 <input maxLength={120} value={location.label} onChange={(e) => setLocation(index, { label: e.target.value })} />
               </label>
               <label>
@@ -141,7 +154,11 @@ export function CriteriaPage() {
                   onChange={(e) => setLocation(index, { radius: e.target.value })}
                 />
               </label>
-              <button type="button" onClick={() => set({ locations: draft.locations.filter((_, i) => i !== index) })}>
+              <button
+                type="button"
+                aria-label={`Retirer le lieu ${index + 1}${location.label ? ` : ${location.label}` : ""}`}
+                onClick={() => set({ locations: draft.locations.filter((_, i) => i !== index) })}
+              >
                 Retirer ce lieu
               </button>
             </div>
@@ -182,7 +199,7 @@ export function CriteriaPage() {
         </label>
         <label>
           Durée (mois)
-          <input type="number" min={1} max={60} value={draft.duration} onChange={(e) => set({ duration: e.target.value })} />
+          <input type="number" min={1} max={60} step={1} value={draft.duration} onChange={(e) => set({ duration: e.target.value })} />
         </label>
         <label>
           Rythme d'alternance (facultatif, à titre indicatif)
@@ -201,11 +218,11 @@ export function CriteriaPage() {
         </label>
         <label>
           Salaire minimal, brut par an en euros (facultatif)
-          <input type="number" min={0} max={1000000} value={draft.salary} onChange={(e) => set({ salary: e.target.value })} />
+          <input type="number" min={0} max={1000000} step={1} value={draft.salary} onChange={(e) => set({ salary: e.target.value })} />
         </label>
         <label>
           Mots à exclure (un par ligne)
-          <textarea rows={3} value={draft.excluded} onChange={(e) => set({ excluded: e.target.value })} />
+          <textarea rows={3} maxLength={50 * 81} value={draft.excluded} onChange={(e) => set({ excluded: e.target.value })} />
         </label>
 
         {error && (
@@ -213,12 +230,14 @@ export function CriteriaPage() {
             {error}
           </p>
         )}
-        {saved && <p role="status">Critères enregistrés.</p>}
         <div className="actions">
           <button type="submit" className="primary" disabled={busy}>
             Enregistrer
           </button>
         </div>
+        </fieldset>
+        {/* Région toujours présente : un texte inséré dans une région vivante est annoncé. */}
+        <p role="status" aria-live="polite">{saved ? "Critères enregistrés." : ""}</p>
       </form>
     </section>
   );
