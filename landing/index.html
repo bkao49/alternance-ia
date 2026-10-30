@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__APP_NAME__ · les offres Data et IA, sans rien envoyer à ta place</title>
+<meta name="description" content="__APP_NAME__ trouve les offres de stage, d'alternance, de CDD et de CDI en Data et IA, les note sur 5 et prépare des candidatures sans rien inventer ni rien envoyer sans ton accord.">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<script>document.documentElement.classList.add("js", ...(matchMedia("(prefers-reduced-motion: reduce)").matches ? [] : ["motion"]))</script>
+<script type="module" src="/src/main.ts"></script>
+</head>
+<body>
+<a class="skip" href="#contenu">Aller au contenu</a>
+
+<header class="top">
+  <a class="brand" href="#haut">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><circle class="fill" cx="20" cy="20" r="20"/><path class="stroke" d="M10 27 C16 27 15 15 21 15 S27 13 30 11"/><circle class="ink" cx="30" cy="11" r="2.9"/></svg>
+    <span>__APP_NAME__</span>
+  </a>
+  <nav aria-label="Sections">
+    <a href="#etapes">Comment ça marche</a>
+    <a href="#apercu">Aperçu</a>
+    <a href="#garanties">Garanties</a>
+  </nav>
+  <a class="btn btn-line login" href="__APP_URL__">Se connecter</a>
+  <a class="btn btn-fill" href="__APP_URL__">Créer un compte</a>
+</header>
+
+<main id="contenu">
+  <div class="story">
+    <div class="story-text">
+      <section class="hero" id="haut" aria-labelledby="hero-t">
+        <h1 id="hero-t">Les offres viennent à toi. <em>Tu</em> gardes la main.</h1>
+        <p class="lede">__APP_NAME__ trouve les offres de stage, d'alternance, de CDD et de CDI en Data et IA, les note sur 5 et prépare tes candidatures. Sans rien inventer, et sans rien envoyer sans ton accord.</p>
+        <ul class="chips" aria-label="Contrats couverts"><li>Stage</li><li>Alternance</li><li>CDD</li><li>CDI</li></ul>
+        <div class="actions">
+          <a class="btn btn-fill" href="__APP_URL__">Créer mon compte</a>
+          <a class="btn btn-line" href="#etapes">Comment ça marche</a>
+        </div>
+      </section>
+
+      <section id="etapes" aria-labelledby="etapes-t">
+        <h2 id="etapes-t" class="h2">Comment ça marche</h2>
+        <ol class="steps">
+          <li class="step" data-step>
+            <span class="step-n">01</span>
+            <h3>Collecte</h3>
+            <p>Régulièrement, __APP_NAME__ lit les offres de sources autorisées, comme France Travail ou La Bonne Alternance, dans le respect de leurs conditions d'utilisation. Les doublons sont écartés.</p>
+          </li>
+          <li class="step" data-step>
+            <span class="step-n">02</span>
+            <h3>Score sur 5</h3>
+            <p>Chaque offre est comparée à ton profil : des règles simples, une proximité de sens, puis un avis argumenté. Tu vois pourquoi une offre obtient 4,4 et ce qui lui manque.</p>
+          </li>
+          <li class="step" data-step>
+            <span class="step-n">03</span>
+            <h3>CV adapté</h3>
+            <p>Pour les offres que tu retiens, un CV et une lettre sont préparés à partir de ton profil, uniquement avec des faits que tu as déclarés. Rien n'est ajouté.</p>
+          </li>
+          <li class="step" data-step>
+            <span class="step-n">04</span>
+            <h3>Validation humaine</h3>
+            <p>Tu relis, tu corriges, tu envoies toi-même. Une candidature ne passe « Envoyée » qu'après ta confirmation.</p>
+          </li>
+        </ol>
+      </section>
+    </div>
+
+    <div class="story-visual" aria-hidden="true">
+      <!-- Version 2D statique : affichée sans WebGL ou quand le mouvement est réduit. -->
+      <svg class="still" viewBox="0 0 320 320">
+        <g class="card pick"><rect x="12" y="20" width="296" height="64" rx="14"/><text class="t" x="28" y="46">Machine Learning Engineer</text><text class="s" x="28" y="66">Globex IA · CDI</text><text class="n" x="292" y="56" text-anchor="end">4,6</text></g>
+        <g class="card"><rect x="12" y="96" width="296" height="64" rx="14"/><text class="t" x="28" y="122">Data Engineer</text><text class="s" x="28" y="142">Initech Data · Alternance</text><text class="n" x="292" y="132" text-anchor="end">4,4</text></g>
+        <g class="card"><rect x="12" y="172" width="296" height="64" rx="14"/><text class="t" x="28" y="198">Data Analyst</text><text class="s" x="28" y="218">Umbrella Data · Stage</text><text class="n" x="292" y="208" text-anchor="end">4,2</text></g>
+        <g class="card dim"><rect x="12" y="248" width="296" height="64" rx="14"/><text class="t" x="28" y="274">Technicien support</text><text class="s" x="28" y="294">Massive Dynamic · CDD</text><text class="n" x="292" y="284" text-anchor="end">1,9</text></g>
+      </svg>
+      <canvas id="scene"></canvas>
+    </div>
+  </div>
+
+  <section class="band" id="apercu" aria-labelledby="apercu-t">
+    <h2 id="apercu-t" class="h2" data-reveal>Tout ton suivi sur une page</h2>
+    <p class="lede" data-reveal>Les offres qui valent le coup, ce que fait __APP_NAME__, et où en est chaque candidature.</p>
+
+    <figure class="window" data-reveal aria-label="Aperçu du tableau de bord">
+      <div class="win-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="win-body" aria-hidden="true">
+        <p class="win-hello">Bonjour Léo.</p>
+        <div class="win-stage">
+          <div class="win-offers"><span class="big num">14</span><span>offres pertinentes</span></div>
+          <div class="win-bot">
+            <b>__APP_NAME__ travaille</b>
+            <ul>
+              <li><time>14:03</time>Analyse de Data Engineer, Initech</li>
+              <li><time>14:03</time>Score 4,4 sur 5, confiance élevée</li>
+              <li><time>14:04</time>Nouvelle offre pertinente</li>
+            </ul>
+          </div>
+        </div>
+        <div class="win-rows">
+          <div><b>Globex IA</b><span>Machine Learning Engineer</span><em>CDI</em><span class="st">À préparer</span><span class="num">4,6</span></div>
+          <div><b>Initech Data</b><span>Data Engineer</span><em>Alternance</em><span class="st hot">À valider</span><span class="num">4,4</span></div>
+          <div><b>Umbrella Data</b><span>Data Analyst</span><em>Stage</em><span class="st">Analysée</span><span class="num">4,2</span></div>
+          <div><b>Hooli Labs</b><span>Ingénieur IA générative</span><em>CDD</em><span class="st">Entretien</span><span class="num">4,1</span></div>
+        </div>
+      </div>
+    </figure>
+
+    <div class="charts">
+      <figure class="chart" data-reveal data-chart="collected">
+        <figcaption><span class="big num">1&nbsp;204</span> offres collectées en 30 jours</figcaption>
+      </figure>
+      <figure class="chart" data-reveal data-chart="scores">
+        <figcaption><span class="big num">14</span> offres au-dessus de 4 sur 5</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="band" id="garanties" aria-labelledby="garanties-t">
+    <h2 id="garanties-t" class="h2" data-reveal>Trois promesses, écrites dans le code</h2>
+    <div class="promises">
+      <article class="promise promise-red" data-reveal>
+        <h3>Aucun envoi automatique</h3>
+        <p>__APP_NAME__ prépare, il n'envoie jamais. Chaque candidature part de ta main, après relecture.</p>
+      </article>
+      <article class="promise" data-reveal>
+        <h3>Aucune invention</h3>
+        <p>Un CV ne contient que des faits présents dans ton profil. Une compétence que tu n'as pas déclarée n'y apparaît pas.</p>
+      </article>
+      <article class="promise" data-reveal>
+        <h3>Données protégées</h3>
+        <p>Tes données sont isolées des autres comptes, tes mots de passe sont protégés et rien n'est revendu.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="band cta" aria-labelledby="cta-t">
+    <h2 id="cta-t" class="h2" data-reveal>Prêt à trouver ta prochaine offre ?</h2>
+    <p class="lede" data-reveal>Crée ton compte, renseigne ton profil, __APP_NAME__ s'occupe de la veille.</p>
+    <div class="actions" data-reveal>
+      <a class="btn btn-fill" href="__APP_URL__">Créer mon compte</a>
+      <a class="btn btn-line" href="__APP_URL__">Se connecter</a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p class="foot-name">__APP_NAME__</p>
+  <p>© 2026 __APP_NAME__. Aucun traceur, aucun cookie.</p>
+  <a class="foot-link" href="__REPO_URL__">GitHub</a>
+</footer>
+</body>
+</html>
