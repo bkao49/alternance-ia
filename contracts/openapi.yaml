@@ -439,6 +439,10 @@ paths:
         - name: kind
           in: query
           schema: { $ref: "#/components/schemas/ProfileFactKind" }
+        - name: status
+          in: query
+          description: Sans ce filtre, tous les faits sont renvoyés (validés et à valider).
+          schema: { $ref: "#/components/schemas/ProfileFactStatus" }
       responses:
         "200":
           description: Faits du profil (500 au plus par utilisateur)
@@ -501,6 +505,148 @@ paths:
         "204": { description: Fait supprimé }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /profile/facts/{factId}/validate:
+    parameters:
+      - { name: factId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [profile]
+      operationId: validateProfileFact
+      summary: Valider un fait proposé
+      description: |
+        Passe le fait de « à valider » à « validé ». Seuls les faits validés servent au score
+        des offres et à la génération de CV ou de lettres. Sans effet si le fait est déjà validé.
+      responses:
+        "200":
+          description: Fait validé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileFact" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /profile/facts/{factId}/reject:
+    parameters:
+      - { name: factId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [profile]
+      operationId: rejectProfileFact
+      summary: Rejeter un fait proposé
+      description: |
+        Supprime un fait « à valider ». Un fait déjà validé ne se rejette pas (409 `already_validated`) :
+        il se supprime avec `DELETE /profile/facts/{factId}`.
+      responses:
+        "204": { description: Fait rejeté et supprimé }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Le fait est déjà validé (`already_validated`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /profile/cv:
+    get:
+      tags: [profile]
+      operationId: getProfileCv
+      summary: Voir mon CV déposé et l'état de l'extraction
+      description: Un seul CV par utilisateur. À interroger tant que `status` vaut `processing`.
+      responses:
+        "200":
+          description: Le CV déposé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileCv" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [profile]
+      operationId: uploadProfileCv
+      summary: Déposer mon CV (PDF ou DOCX)
+      description: |
+        Formulaire `multipart/form-data` avec un seul champ `file`. Le type est vérifié sur le contenu
+        du fichier (jamais sur son extension ni sur le type annoncé), la taille est limitée à 5 Mo,
+        un PDF chiffré ou contenant du code actif, un DOCX avec macros ou piégé (zip bombe) sont refusés.
+        L'extraction du texte se fait dans un processus isolé et les faits trouvés sont créés
+        **à valider**. Un nouveau dépôt remplace le CV précédent et ses faits encore à valider.
+        Le nom du fichier n'est conservé que pour l'affichage.
+        Au-delà de 5 dépôts en 1 heure : 429.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "202":
+          description: CV reçu, extraction en cours (`status` = `processing`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileCv" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "413":
+          description: Fichier de plus de 5 Mo (`file_too_large`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "415":
+          description: Ni un PDF ni un DOCX, ou fichier refusé par sécurité (`unsupported_file`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+    delete:
+      tags: [profile]
+      operationId: deleteProfileCv
+      summary: Supprimer mon CV et les faits qui en viennent
+      description: |
+        Supprime le fichier et tous les faits créés à partir de lui (validés ou non). Les faits saisis
+        à la main restent. Irréversible.
+      responses:
+        "204": { description: CV et faits supprimés }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /profile/cv/download-link:
+    post:
+      tags: [profile]
+      operationId: createProfileCvDownloadLink
+      summary: Obtenir un lien de téléchargement de mon CV
+      description: Lien signé, valable 60 secondes, lié à l'utilisateur connecté.
+      responses:
+        "200":
+          description: Lien signé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CvDownloadLink" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /profile/cv/file/{token}:
+    parameters:
+      - { name: token, in: path, required: true, schema: { type: string, maxLength: 512 } }
+    get:
+      tags: [profile]
+      operationId: downloadProfileCv
+      summary: Télécharger mon CV par lien signé
+      description: |
+        Refusé (404) si le lien est expiré, falsifié, délivré à un autre utilisateur, ou si le CV a
+        été supprimé. Réponse en pièce jointe, nom fixe (`cv.pdf` ou `cv.docx`), jamais interprétée
+        par le navigateur.
+      responses:
+        "200":
+          description: Le fichier déposé
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
 components:
@@ -921,6 +1067,12 @@ components:
           minLength: 1
           maxLength: 120
           description: D'où vient le fait (« CV 2026 », « saisie manuelle »…)
+    ProfileFactStatus:
+      type: string
+      enum: [proposed, validated]
+      description: |
+        `proposed` : extrait d'un CV, à relire. `validated` : confirmé par l'utilisateur (ou saisi par
+        lui). Seuls les faits `validated` servent au score et aux documents.
     ProfileFactInput:
       allOf:
         - { $ref: "#/components/schemas/ProfileFactFields" }
@@ -929,7 +1081,35 @@ components:
       allOf:
         - { $ref: "#/components/schemas/ProfileFactFields" }
         - type: object
-          required: [id, created_at]
+          required: [id, created_at, status]
           properties:
             id: { type: string, format: uuid }
             created_at: { type: string, format: date-time }
+            status: { $ref: "#/components/schemas/ProfileFactStatus" }
+    ProfileCv:
+      type: object
+      required: [id, original_name, file_type, size_bytes, status, error_code, facts_proposed, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        original_name:
+          type: string
+          maxLength: 120
+          description: Nom d'origine, pour l'affichage seulement (nettoyé, jamais utilisé comme chemin)
+        file_type: { type: string, enum: [pdf, docx] }
+        size_bytes: { type: integer, minimum: 1 }
+        status: { type: string, enum: [processing, done, failed] }
+        error_code:
+          type: [string, "null"]
+          enum: [encrypted, too_many_pages, no_text, timeout, unreadable, null]
+          description: Raison de l'échec quand `status` vaut `failed`
+        facts_proposed:
+          type: integer
+          minimum: 0
+          description: Nombre de faits créés par l'extraction
+        created_at: { type: string, format: date-time }
+    CvDownloadLink:
+      type: object
+      required: [url, expires_at]
+      properties:
+        url: { type: string, description: "Chemin relatif de `GET /profile/cv/file/{token}`" }
+        expires_at: { type: string, format: date-time }
