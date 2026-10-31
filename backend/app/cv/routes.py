@@ -91,7 +91,6 @@ def _store(user_id: str, data: bytes, file_type: str, name: str) -> dict:
             raise ApiError(429, "too_many_uploads", "Trop de dépôts, réessayez plus tard",
                            headers={"Retry-After": "3600"})
         conn.execute(text("INSERT INTO cv_uploads (user_id) VALUES (:uid)"), {"uid": user_id})
-        conn.execute(text("DELETE FROM profile_facts WHERE status = 'proposed' AND cv_document_id IS NOT NULL"))
         row = conn.execute(
             text("INSERT INTO cv_documents (user_id, original_name, file_type, size_bytes, content) "
                  "VALUES (:uid, :name, :type, :size, :content) "
@@ -101,6 +100,8 @@ def _store(user_id: str, data: bytes, file_type: str, name: str) -> dict:
                  f"RETURNING {COLUMNS}, updated_at"),
             {"uid": user_id, "name": name, "type": file_type, "size": len(data), "content": data},
         ).mappings().one()
+        # Après l'écriture : des faits d'une extraction qui venait de finir partent aussi.
+        conn.execute(text("DELETE FROM profile_facts WHERE status = 'proposed' AND cv_document_id IS NOT NULL"))
     return dict(row)
 
 
@@ -120,9 +121,22 @@ def _process(user_id: str, cv_id: str, version: dt.datetime) -> None:
     except Exception:
         logger.exception("extraction du CV interrompue")
         status, error = "failed", "unreadable"
+    try:
+        _finish(user_id, cv_id, version, status, error, facts)
+    except Exception:
+        logger.exception("enregistrement des faits du CV impossible")
+        with user_scope(user_id) as conn:  # le dépôt ne reste jamais « en cours »
+            conn.execute(text("UPDATE cv_documents SET status = 'failed', error_code = 'unreadable', "
+                              "facts_proposed = 0, updated_at = now() WHERE id = :id AND updated_at = :v"),
+                         {"id": cv_id, "v": version})
+
+
+def _finish(user_id: str, cv_id: str, version: dt.datetime, status: str, error: str | None, facts: list) -> None:
     with user_scope(user_id) as conn:
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('facts:' || :uid, 0))"), {"uid": user_id})
-        room = max(0, MAX_FACTS - conn.execute(text("SELECT count(*) FROM profile_facts")).scalar_one())
+        # Un seul plafond, sur les faits validés (les seuls qui servent) : les faits à relire ne l'entament pas.
+        room = max(0, MAX_FACTS - conn.execute(
+            text("SELECT count(*) FROM profile_facts WHERE status = 'validated'")).scalar_one())
         known = {(r.kind, r.text.lower()) for r in conn.execute(text("SELECT kind, text FROM profile_facts"))}
         facts = [f for f in facts if (f.kind, f.text.lower()) not in known][:room]
         updated = conn.execute(

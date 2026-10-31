@@ -9,7 +9,7 @@ import datetime as dt
 import re
 from dataclasses import dataclass, field
 
-from app.ai.gateway.pseudonymize import ADDRESS, EMAIL, PHONE, URL
+from app.ai.gateway.pseudonymize import ADDRESS, BIRTH, EMAIL, PHONE, URL
 
 MAX_FACTS_PER_CV = 100
 MAX_LINE = 300
@@ -39,7 +39,7 @@ RANGE = re.compile(rf"\(?\b({POINT})\s*(?:[-–—]|à|a|au|to)\s*({POINT}|pr[é
 SINCE = re.compile(rf"\b(?:depuis|since)\s+({POINT})\b", re.IGNORECASE)
 SINGLE = re.compile(rf"\b({POINT})\b", re.IGNORECASE)
 BULLET = re.compile(r"^[\s•·▪■◦*\-–—>]+")
-IDENTITY = (EMAIL, PHONE, URL, ADDRESS)
+IDENTITY = (EMAIL, PHONE, URL, ADDRESS, BIRTH)
 
 
 @dataclass
@@ -97,7 +97,7 @@ CONTROL = re.compile("[\0--  ]")
 
 def _tidy(line: str) -> str:
     line = BULLET.sub("", CONTROL.sub(" ", line))
-    line = re.sub(r"[\s|,;:–—-]+$", "", re.sub(r"^[\s|,;:–—-]+", "", line))
+    line = line.strip(" 	|,;:–—-")  # strip est linéaire (une regex finale serait quadratique sur des espaces)
     return re.sub(r"\s+", " ", line).strip()
 
 
@@ -105,7 +105,7 @@ def propose_facts(cv_text: str) -> list[ProposedFact]:
     facts: list[ProposedFact] = []
     kind: str | None = None  # rien n'est retenu avant la première rubrique : c'est l'en-tête d'identité
     for raw in cv_text.splitlines():
-        line = raw.strip()
+        line = raw.strip()[:MAX_LINE * 4]  # borne le travail des regex quelle que soit la ligne
         if not line:
             continue
         if (section := _section_of(line)) is not None:

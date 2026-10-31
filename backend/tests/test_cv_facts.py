@@ -111,3 +111,29 @@ def test_second_upload_does_not_duplicate_validated_facts(alice):  # noqa: F811
     total = len(alice.get("/profile/facts").json())
     upload(alice, make_docx(TEXT.splitlines()))
     assert wait_done(alice)["facts_proposed"] == 0 and len(alice.get("/profile/facts").json()) == total
+
+
+def test_hostile_lines_stay_fast():
+    import time
+
+    start = time.perf_counter()
+    propose_facts("Expérience\na" + " " * 100_000 + "b\n" + "a, " * 50_000 + "\n" + "2020 - " * 20_000)
+    assert time.perf_counter() - start < 3
+
+
+def test_birth_date_never_enters_a_fact():
+    assert propose_facts("Projets\nNé le 12/03/1999 à Paris\nTableau de bord Python\n")[0].text.startswith("Tableau")
+
+
+def test_validation_respects_the_ceiling(alice, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(profile, "MAX_FACTS", 1)
+    first = alice.post("/profile/facts", {"kind": "skill", "text": "A", "start_date": None, "end_date": None,
+                                          "technologies": [], "source": None})
+    assert first.status_code == 201
+    from sqlalchemy import text
+
+    from app.db import user_scope
+    with user_scope(alice.user_id) as conn:
+        fact = conn.execute(text("INSERT INTO profile_facts (user_id, kind, text, status) VALUES "
+                                 "(:u, 'skill', 'B', 'proposed') RETURNING id"), {"u": alice.user_id}).scalar_one()
+    assert alice.post(f"/profile/facts/{fact}/validate").status_code == 409
