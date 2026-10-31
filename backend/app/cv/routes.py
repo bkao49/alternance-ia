@@ -18,9 +18,11 @@ from starlette.datastructures import UploadFile
 from app.auth import Session, current_session, require_csrf
 from app.config import get_settings
 from app.cv.files import MAX_BYTES, MIME, Rejected, check_file
+from app.cv.parse import propose_facts
 from app.cv.sandbox import ExtractionFailed, extract_text
 from app.db import user_scope
 from app.errors import ApiError
+from app.profile import MAX_FACTS
 
 router = APIRouter(tags=["profile"])
 logger = logging.getLogger("app.cv")
@@ -89,7 +91,6 @@ def _store(user_id: str, data: bytes, file_type: str, name: str) -> dict:
             raise ApiError(429, "too_many_uploads", "Trop de dépôts, réessayez plus tard",
                            headers={"Retry-After": "3600"})
         conn.execute(text("INSERT INTO cv_uploads (user_id) VALUES (:uid)"), {"uid": user_id})
-        conn.execute(text("DELETE FROM profile_facts WHERE status = 'proposed' AND cv_document_id IS NOT NULL"))
         row = conn.execute(
             text("INSERT INTO cv_documents (user_id, original_name, file_type, size_bytes, content) "
                  "VALUES (:uid, :name, :type, :size, :content) "
@@ -99,6 +100,8 @@ def _store(user_id: str, data: bytes, file_type: str, name: str) -> dict:
                  f"RETURNING {COLUMNS}, updated_at"),
             {"uid": user_id, "name": name, "type": file_type, "size": len(data), "content": data},
         ).mappings().one()
+        # Après l'écriture : des faits d'une extraction qui venait de finir partent aussi.
+        conn.execute(text("DELETE FROM profile_facts WHERE status = 'proposed' AND cv_document_id IS NOT NULL"))
     return dict(row)
 
 
@@ -109,17 +112,45 @@ def _process(user_id: str, cv_id: str, version: dt.datetime) -> None:
                            {"id": cv_id, "v": version}).first()
     if row is None:
         return
-    status, error = "done", None
+    status, error, facts = "done", None, []
     try:
-        extract_text(bytes(row.content), row.file_type)
+        # Règles locales seulement : le texte du CV ne quitte jamais cette machine et n'est jamais une consigne.
+        facts = propose_facts(extract_text(bytes(row.content), row.file_type))
     except ExtractionFailed as failure:
         status, error = "failed", failure.code
     except Exception:
         logger.exception("extraction du CV interrompue")
         status, error = "failed", "unreadable"
+    try:
+        _finish(user_id, cv_id, version, status, error, facts)
+    except Exception:
+        logger.exception("enregistrement des faits du CV impossible")
+        with user_scope(user_id) as conn:  # le dépôt ne reste jamais « en cours »
+            conn.execute(text("UPDATE cv_documents SET status = 'failed', error_code = 'unreadable', "
+                              "facts_proposed = 0, updated_at = now() WHERE id = :id AND updated_at = :v"),
+                         {"id": cv_id, "v": version})
+
+
+def _finish(user_id: str, cv_id: str, version: dt.datetime, status: str, error: str | None, facts: list) -> None:
     with user_scope(user_id) as conn:
-        conn.execute(text("UPDATE cv_documents SET status = :s, error_code = :e, updated_at = now() "
-                          "WHERE id = :id AND updated_at = :v"), {"s": status, "e": error, "id": cv_id, "v": version})
+        conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('facts:' || :uid, 0))"), {"uid": user_id})
+        # Un seul plafond, sur les faits validés (les seuls qui servent) : les faits à relire ne l'entament pas.
+        room = max(0, MAX_FACTS - conn.execute(
+            text("SELECT count(*) FROM profile_facts WHERE status = 'validated'")).scalar_one())
+        known = {(r.kind, r.text.lower()) for r in conn.execute(text("SELECT kind, text FROM profile_facts"))}
+        facts = [f for f in facts if (f.kind, f.text.lower()) not in known][:room]
+        updated = conn.execute(
+            text("UPDATE cv_documents SET status = :s, error_code = :e, facts_proposed = :n, updated_at = now() "
+                 "WHERE id = :id AND updated_at = :v RETURNING id"),
+            {"s": status, "e": error, "n": len(facts), "id": cv_id, "v": version}).first()
+        if updated is None:  # un dépôt plus récent a remplacé celui-ci pendant l'extraction
+            return
+        for fact in facts:  # toujours « proposed » : rien n'est utilisé avant la validation de l'utilisateur
+            conn.execute(
+                text("INSERT INTO profile_facts (user_id, kind, text, start_date, end_date, technologies, source, "
+                     "status, cv_document_id) VALUES (:uid, :kind, :text, :start, :end, :tech, 'CV', 'proposed', :cv)"),
+                {"uid": user_id, "kind": fact.kind, "text": fact.text, "start": fact.start_date,
+                 "end": fact.end_date, "tech": fact.technologies, "cv": cv_id})
 
 
 @router.post("/profile/cv", response_model=CvOut, status_code=202, operation_id="uploadProfileCv")

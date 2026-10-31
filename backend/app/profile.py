@@ -75,7 +75,7 @@ def create_fact(body: FactIn, session: Session = Depends(require_csrf)):
     with user_scope(session.user_id) as conn:
         # Verrou par utilisateur : deux ajouts simultanés ne dépassent pas la limite.
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('facts:' || :uid, 0))"), {"uid": session.user_id})
-        if conn.execute(text("SELECT count(*) FROM profile_facts")).scalar() >= MAX_FACTS:
+        if conn.execute(text("SELECT count(*) FROM profile_facts WHERE status = 'validated'")).scalar() >= MAX_FACTS:
             raise ApiError(409, "too_many_facts", f"{MAX_FACTS} faits au plus")
         row = conn.execute(
             text("INSERT INTO profile_facts (user_id, kind, text, start_date, end_date, technologies, source) "
@@ -111,6 +111,9 @@ def delete_fact(fact_id: uuid.UUID, session: Session = Depends(require_csrf)) ->
 @router.post("/profile/facts/{fact_id}/validate", response_model=FactOut, operation_id="validateProfileFact")
 def validate_fact(fact_id: uuid.UUID, session: Session = Depends(require_csrf)):
     with user_scope(session.user_id) as conn:
+        conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('facts:' || :uid, 0))"), {"uid": session.user_id})
+        if conn.execute(text("SELECT count(*) FROM profile_facts WHERE status = 'validated'")).scalar() >= MAX_FACTS:
+            raise ApiError(409, "too_many_facts", f"{MAX_FACTS} faits au plus")
         row = conn.execute(
             text(f"UPDATE profile_facts SET status = 'validated' WHERE id = :id RETURNING {COLUMNS}"),
             {"id": str(fact_id)},
