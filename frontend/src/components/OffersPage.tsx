@@ -49,10 +49,13 @@ export function OffersPage({ preparedIds, onPrepare }: Props) {
   const [total, setTotal] = useState(0);
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [problem, setProblem] = useState<string | null>(null);
-  const current = useRef<ContractType | "">("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
+  const latest = useRef(0); // numéro de la dernière requête : une réponse plus ancienne est ignorée
 
-  const show = useCallback((page: number, kind: ContractType | "", result: OfferPage) => {
-    if (kind !== current.current) return; // un autre filtre a été choisi entre-temps
+  const show = useCallback((request: number, page: number, result: OfferPage) => {
+    if (request !== latest.current) return;
     setOffers((before) => (page === 1 ? result.items : [...before, ...result.items]));
     setTotal(result.total);
     setPhase("ready");
@@ -60,28 +63,46 @@ export function OffersPage({ preparedIds, onPrepare }: Props) {
 
   useEffect(() => {
     let active = true;
+    const request = ++latest.current;
     fetchOffers(api, 1, contract)
-      .then((result) => active && show(1, contract, result))
+      .then((result) => active && show(request, 1, result))
       .catch(() => active && setPhase("error"));
     return () => {
       active = false;
     };
-  }, [api, contract, show]);
+  }, [api, contract, reloadKey, show]);
 
   function choose(kind: ContractType | "") {
-    current.current = kind;
     setPhase("loading");
+    setLoadingMore(false);
     setContract(kind);
   }
 
-  function more(page: number, kind: ContractType | "") {
-    fetchOffers(api, page, kind)
-      .then((result) => show(page, kind, result))
-      .catch(() => setProblem("Chargement des offres suivantes impossible."));
+  function retry() {
+    setPhase("loading");
+    setReloadKey((n) => n + 1);
+  }
+
+  function more() {
+    if (loadingMore) return;
+    const request = ++latest.current;
+    const page = Math.floor(offers.length / PAGE_SIZE) + 1;
+    setLoadingMore(true);
+    fetchOffers(api, page, contract)
+      .then((result) => show(request, page, result))
+      .catch(() => request === latest.current && setProblem("Chargement des offres suivantes impossible."))
+      .finally(() => request === latest.current && setLoadingMore(false));
   }
 
   async function prepare(offer: Offer) {
+    if (busy.has(offer.id)) return;
+    setBusy((before) => new Set(before).add(offer.id));
     setProblem(await onPrepare(offer));
+    setBusy((before) => {
+      const next = new Set(before);
+      next.delete(offer.id);
+      return next;
+    });
   }
 
   return (
@@ -107,7 +128,7 @@ export function OffersPage({ preparedIds, onPrepare }: Props) {
       {phase === "error" && (
         <p role="alert" className="error">
           Chargement des offres impossible.{" "}
-          <button type="button" onClick={() => choose(contract)}>
+          <button type="button" onClick={retry}>
             Réessayer
           </button>
         </p>
@@ -145,7 +166,13 @@ export function OffersPage({ preparedIds, onPrepare }: Props) {
                   {preparedIds.has(offer.id) ? (
                     <span className="chip">Dans vos candidatures</span>
                   ) : (
-                    <button type="button" className="primary" onClick={() => void prepare(offer)}>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={busy.has(offer.id)}
+                      aria-label={`Préparer la candidature : ${offer.title}, ${offer.company}`}
+                      onClick={() => void prepare(offer)}
+                    >
                       Préparer la candidature
                     </button>
                   )}
@@ -156,8 +183,8 @@ export function OffersPage({ preparedIds, onPrepare }: Props) {
         </ul>
       )}
       {phase === "ready" && offers.length < total && (
-        <button type="button" onClick={() => more(Math.floor(offers.length / PAGE_SIZE) + 1, contract)}>
-          Voir plus d'offres
+        <button type="button" disabled={loadingMore} onClick={more}>
+          {loadingMore ? "Chargement…" : "Voir plus d'offres"}
         </button>
       )}
     </>

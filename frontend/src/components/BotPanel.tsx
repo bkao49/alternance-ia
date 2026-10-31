@@ -14,12 +14,17 @@ function NextRun({ at }: { at: Date }) {
     return () => clearInterval(timer);
   }, []);
 
-  const left = Math.max(0, Math.round((at.getTime() - now) / 60_000));
+  const left = Math.round((at.getTime() - now) / 60_000);
   return (
     <div className="bot-next">
       <div className="bot-next-time num">{time(at)}</div>
       <div>
-        prochaine collecte, <span className="num">dans {Math.floor(left / 60)} h {String(left % 60).padStart(2, "0")} min</span>
+        prochaine collecte,{" "}
+        {left <= 0 ? (
+          "imminente"
+        ) : (
+          <span className="num">dans {Math.floor(left / 60)} h {String(left % 60).padStart(2, "0")} min</span>
+        )}
       </div>
     </div>
   );
@@ -47,8 +52,8 @@ export function BotPanel({ status }: { status?: BotStatus }) {
       {working ? (
         <>
           <ul className="bot-feed" aria-label="Dernières actions du bot">
-            {activity.map((line) => (
-              <li key={`${line.at}-${line.source}`}>
+            {activity.map((line, index) => (
+              <li key={`${index}-${line.at}`}>
                 <time dateTime={line.at}>{time(line.at)}</time>
                 {line.source} : {line.message}
               </li>
