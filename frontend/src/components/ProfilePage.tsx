@@ -4,6 +4,7 @@ import { unwrap } from "../api/client";
 import { useApi } from "../api/context";
 import type { ProfileFact, ProfileFactInput } from "../api/types";
 import { Dialog } from "./common";
+import { CvImport } from "./CvImport";
 
 type Kind = ProfileFact["kind"];
 
@@ -158,6 +159,10 @@ export function ProfilePage() {
     };
   }, [fetchFacts]);
 
+  const reloadFacts = useCallback(() => {
+    fetchFacts().then(setFacts, () => undefined); // l'échec se voit au prochain chargement manuel
+  }, [fetchFacts]);
+
   /** Renvoie `null` si l'action a réussi, sinon le message d'erreur. */
   async function run(action: () => Promise<unknown>, message: string): Promise<string | null> {
     try {
@@ -194,6 +199,25 @@ export function ProfilePage() {
     else heading.current?.focus(); // le bouton cliqué n'existe plus : le focus ne doit pas tomber sur <body>
   }
 
+  async function decide(fact: ProfileFact, verdict: "validate" | "reject") {
+    if (busyId) return;
+    setBusyId(fact.id);
+    const failure = await run(async () => {
+      const path = { params: { path: { factId: fact.id } } };
+      const result =
+        verdict === "validate"
+          ? await api.POST("/profile/facts/{factId}/validate", path)
+          : await api.POST("/profile/facts/{factId}/reject", path);
+      if (result.error !== undefined && result.response.status !== 404) unwrap(result as Parameters<typeof unwrap>[0]);
+    }, verdict === "validate" ? "Fait validé" : "Fait rejeté");
+    setBusyId(null);
+    if (failure) setProblem(failure);
+    else heading.current?.focus();
+  }
+
+  const validated = facts?.filter((f) => f.status !== "proposed") ?? [];
+  const proposed = facts?.filter((f) => f.status === "proposed") ?? [];
+
   return (
     <section id="profil" aria-labelledby="profile-title">
       <div className="toolbar">
@@ -218,10 +242,42 @@ export function ProfilePage() {
         </p>
       )}
       {facts === null && !problem && <p role="status">Chargement…</p>}
-      {facts?.length === 0 && <p>Aucun fait pour l'instant. Ajoutez votre première expérience, formation ou compétence.</p>}
-      {facts && facts.length > 0 && (
+      <CvImport onFactsChanged={reloadFacts} />
+      {proposed.length > 0 && (
+        <section aria-labelledby="proposed-title" className="proposed">
+          <h2 id="proposed-title">À valider ({proposed.length})</h2>
+          <p className="muted">
+            Proposés d'après votre CV. Relisez chaque fait : seuls ceux que vous validez comptent pour le score et pour vos
+            documents.
+          </p>
+          <ul className="facts">
+            {proposed.map((fact) => (
+              <li key={fact.id}>
+                <span className="chip">{kindLabel(fact.kind)}</span> <span>{fact.text}</span>
+                <span className="muted">
+                  {(fact.start_date || fact.end_date) && ` · ${fact.start_date ?? "?"}${fact.end_date ? ` → ${fact.end_date}` : ""}`}
+                  {fact.technologies.length > 0 && ` · ${fact.technologies.join(", ")}`}
+                </span>
+                <span className="actions">
+                  <button type="button" className="primary" disabled={busyId !== null} onClick={() => void decide(fact, "validate")} aria-label={`Valider : ${short(fact.text)}`}>
+                    Valider
+                  </button>
+                  <button type="button" disabled={busyId !== null} onClick={() => setEditing(fact)} aria-label={`Modifier : ${short(fact.text)}`}>
+                    Modifier
+                  </button>
+                  <button type="button" disabled={busyId !== null} onClick={() => void decide(fact, "reject")} aria-label={`Rejeter : ${short(fact.text)}`}>
+                    Rejeter
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {facts && validated.length === 0 && <p>Aucun fait pour l'instant. Ajoutez votre première expérience, formation ou compétence.</p>}
+      {validated.length > 0 && (
         <ul className="facts">
-          {facts.map((fact) => (
+          {validated.map((fact) => (
             <li key={fact.id}>
               <span className="chip">{kindLabel(fact.kind)}</span> <span>{fact.text}</span>
               <span className="muted">

@@ -458,6 +458,52 @@ h2.offers-label {
   }
 }
 
+/* Chiffres clés : une bande de compteurs séparés par des filets */
+.stats {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.counters, .rates {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+
+@media (min-width: 40rem) {
+  .counters {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .rates {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.counter, .rate {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-4) var(--space-3) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.counter dd, .rate dd {
+  margin: 0;
+  font: 400 2.2rem/1.1 var(--serif);
+  font-variant-numeric: tabular-nums;
+}
+
+.rate dd {
+  color: var(--accent-text);
+}
+
+.counter dt, .rate dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 /* Candidatures : la cible du lien de la barre latérale garde un peu d'air au-dessus */
 .applications {
   scroll-margin-top: var(--space-5);
@@ -584,25 +630,6 @@ tbody tr:hover > :last-child {
   flex-wrap: wrap;
   gap: 0.35rem;
   align-items: center;
-}
-
-.score {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.7rem;
-}
-
-.score-track {
-  width: 3rem;
-  height: 2px;
-  background: var(--line);
-  position: relative;
-}
-
-.score-track i {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--accent-text);
 }
 
 select.move {
@@ -918,4 +945,40 @@ fieldset {
 
 .facts .actions {
   margin: 0 0 0 auto;
+}
+
+.cv-import,
+.proposed {
+  margin: var(--space-5) 0;
+}
+
+.dropzone {
+  border: 1px dashed var(--control);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+
+.dropzone:hover,
+.dropzone.is-dragging {
+  border-color: var(--accent);
+  background: var(--hover);
+  color: var(--text);
+}
+
+.dropzone:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.dropzone[aria-disabled="true"] {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.cv-state {
+  margin-top: var(--space-4);
 }
