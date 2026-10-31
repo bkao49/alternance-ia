@@ -18,6 +18,7 @@ tags:
   - name: statuses
   - name: tasks
   - name: dashboard
+  - name: bot
   - name: preferences
   - name: account
   - name: profile
@@ -80,6 +81,12 @@ paths:
         - { name: q, in: query, schema: { type: string, maxLength: 200 }, description: Recherche texte }
         - { name: min_score, in: query, schema: { type: number, minimum: 0, maximum: 5 } }
         - { name: source, in: query, schema: { type: string } }
+        - name: contract_type
+          in: query
+          description: Types de contrat à garder (paramètre répété). Une offre sans type connu n'en fait jamais partie.
+          schema: { type: array, items: { $ref: "#/components/schemas/ContractType" } }
+          style: form
+          explode: true
         - { name: include_expired, in: query, schema: { type: boolean, default: false } }
         - name: sort
           in: query
@@ -91,6 +98,22 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/OfferPage" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /bot/status:
+    get:
+      tags: [bot]
+      operationId: getBotStatus
+      summary: État de la collecte (une ligne par source) et activité récente
+      description: |
+        Alimenté par les tables du planificateur. Aucun contenu d'annonce ni donnée personnelle :
+        les causes et messages sont des textes fixes. Sans aucune source configurée, `sources` est vide.
+      responses:
+        "200":
+          description: État du bot
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BotStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /offers/{offerId}:
     get:
       tags: [offers]
@@ -628,7 +651,56 @@ components:
         url: { type: string, format: uri }
         detected_at: { type: string, format: date-time }
         expired: { type: boolean }
+        contract_type: { $ref: "#/components/schemas/ContractType" }
         score: { type: number, minimum: 0, maximum: 5 }
+        explanation: { type: string, maxLength: 500, description: "Explication courte du dernier score. Texte généré à partir d'une annonce non fiable, à afficher en texte brut." }
+    ContractType:
+      type: string
+      enum: [internship, apprenticeship, fixed_term, permanent, other]
+    BotStatus:
+      type: object
+      required: [sources, activity]
+      properties:
+        next_run_at:
+          type: string
+          format: date-time
+          description: Prochaine collecte prévue, toutes sources actives confondues ; absent si aucune.
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/BotSource" }
+        activity:
+          type: array
+          description: Dernières collectes, de la plus récente à la plus ancienne (10 au plus).
+          items: { $ref: "#/components/schemas/BotActivity" }
+    BotSource:
+      type: object
+      required: [source, state]
+      properties:
+        source: { type: string, examples: [adzuna] }
+        state:
+          type: string
+          enum: [ok, error, blocked, disabled, pending]
+          description: |
+            Priorité : blocked, puis disabled, puis le résultat de la dernière tâche. blocked : arrêtée par
+            la détection de blocage, seul le PO la réactive. disabled : non activée. pending : activée, aucune
+            collecte terminée pour l'instant (première tâche éventuellement en file). ok : dernière collecte
+            réussie. error : dernière collecte en échec (tâche failed, dead ou remise en file).
+        cause: { type: string, maxLength: 200, description: "Texte fixe expliquant blocked, disabled ou error" }
+        last_run_at: { type: string, format: date-time }
+        offers_found: { type: integer, minimum: 0, description: "Offres lues par la dernière tâche terminée ou remise en file ; absent si elle n'a rien compté" }
+        offers_new: { type: integer, minimum: 0 }
+        next_run_at: { type: string, format: date-time, description: "Absent pour une source blocked ou disabled. Sinon prochaine tâche en file, ou dernière fin de passage plus l'intervalle (celui de la source, sinon COLLECT_INTERVAL_MINUTES)." }
+    BotActivity:
+      type: object
+      required: [at, source, outcome, message]
+      properties:
+        at: { type: string, format: date-time }
+        source: { type: string }
+        outcome:
+          type: string
+          enum: [done, error, blocked]
+          description: done pour une tâche réussie, blocked pour une tâche arrêtée par un blocage, error pour les autres échecs (failed, dead).
+        message: { type: string, maxLength: 200, description: "Texte fixe, sans contenu d'annonce" }
     OfferDetail:
       allOf:
         - { $ref: "#/components/schemas/Offer" }

@@ -358,10 +358,94 @@ h2.offers-label {
   font: 500 1.2rem/1.3 var(--sans);
 }
 
-.offers-soon {
+a.offers {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.2s;
+}
+
+a.offers:hover {
+  border-color: var(--accent-text);
+}
+
+.offers-go {
   margin: var(--space-1) 0 0;
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+/* Écran des offres : liste épurée, un filet entre chaque offre (maquette I) */
+.offer-list {
+  list-style: none;
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  border-top: 1px solid var(--text);
+}
+
+.offer {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr) auto;
+  gap: 1.6rem;
+  align-items: center;
+  padding-block: 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.offer-score {
+  font: 400 3.2rem/0.9 var(--serif);
+  color: var(--accent-text);
+}
+
+.offer-score .score-track {
+  display: block;
+  width: 3.2rem;
+  margin-top: 0.6rem;
+}
+
+.offer h3 {
+  font: 400 1.55rem/1.15 var(--serif);
+  margin: 0;
+}
+
+.offer h3 .chip {
+  margin-left: 0.7rem;
+  vertical-align: middle;
+}
+
+.offer p {
+  margin: 0.3rem 0 0;
   color: var(--muted);
+  max-width: 38rem;
+}
+
+.offer .offer-link {
+  display: inline-block;
+  margin-top: 0.4rem;
   font-size: 0.9rem;
+}
+
+@media (max-width: 46rem) {
+  .offer {
+    grid-template-columns: 3.8rem minmax(0, 1fr);
+    gap: 1rem;
+  }
+
+  .offer-score {
+    font-size: 2.3rem;
+  }
+
+  .offer .offer-action {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+.bot-problems {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.88rem;
 }
 
 .bot {
