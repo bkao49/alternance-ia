@@ -2,25 +2,27 @@ import { useMemo, useState } from "react";
 
 import { unwrap } from "../api/client";
 import { useApi } from "../api/context";
-import type { Application, Me } from "../api/types";
-import { useDashboardData } from "../hooks";
+import type { Application, Me, Offer } from "../api/types";
+import { useBotStatus, useDashboardData } from "../hooks";
 import { ApplicationDialog } from "./ApplicationDialog";
 import { ApplicationsTable } from "./ApplicationsTable";
-import { BotPanel, type BotActivity } from "./BotPanel";
+import { BotPanel } from "./BotPanel";
 import { Greeting, RelevantOffers } from "./Hero";
 import { KanbanBoard } from "./KanbanBoard";
 import { NewApplicationDialog, type NewApplication } from "./NewApplicationDialog";
 import { CriteriaPage } from "./CriteriaPage";
+import { OffersPage } from "./OffersPage";
 import { ProfilePage } from "./ProfilePage";
 import { Sidebar, type Page } from "./Sidebar";
 
 type View = "table" | "kanban";
 
-type Props = { user: Me; onLogout: () => Promise<void>; botActivity?: BotActivity; page?: Page };
+type Props = { user: Me; onLogout: () => Promise<void>; page?: Page };
 
-export function Dashboard({ user, onLogout, botActivity, page = "home" }: Props) {
+export function Dashboard({ user, onLogout, page = "home" }: Props) {
   const api = useApi();
   const { state, reload } = useDashboardData();
+  const botStatus = useBotStatus();
   const [view, setView] = useState<View>("table");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -90,12 +92,24 @@ export function Dashboard({ user, onLogout, botActivity, page = "home" }: Props)
   const create = (body: NewApplication) =>
     run(async () => unwrap(await api.POST("/applications", { body })), `${body.company} ajoutée`);
 
+  const prepare = (offer: Offer) =>
+    run(
+      async () => unwrap(await api.POST("/applications", { body: { offer_id: offer.id, initial_status: "to_prepare" } })),
+      `Candidature à préparer : ${offer.company}`,
+    );
+  const preparedIds = useMemo(() => new Set(applications.flatMap((a) => (a.offer_id ? [a.offer_id] : []))), [applications]);
+
   const selected = applications.find((a) => a.id === selectedId) ?? null;
 
   return (
     <div className="shell">
       <Sidebar user={user} page={page} onSignOut={() => void signOut()} />
 
+      {page === "offers" && (
+        <main className="page">
+          <OffersPage preparedIds={preparedIds} onPrepare={prepare} />
+        </main>
+      )}
       {page === "criteria" && (
         <main className="page">
           <CriteriaPage />
@@ -124,7 +138,7 @@ export function Dashboard({ user, onLogout, botActivity, page = "home" }: Props)
           <>
             <div className="stage">
               <RelevantOffers count={state.stats.counts.relevant} />
-              <BotPanel activity={botActivity} />
+              <BotPanel status={botStatus} />
             </div>
 
             <section id="candidatures" aria-labelledby="applications-title" className="applications">

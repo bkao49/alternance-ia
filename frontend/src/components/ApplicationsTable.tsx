@@ -27,7 +27,7 @@ function compare(a: Application, b: Application, key: SortKey, scores: ScoresByO
 const scoreOf = (a: Application, scores: ScoresByOffer) => (a.offer_id ? (scores[a.offer_id] ?? -1) : -1);
 
 /** Note sur 5 avec une petite jauge ; sans score (offre non analysée ou saisie à la main), un tiret lu « pas de score ». */
-function Score({ value }: { value: number | undefined }) {
+export function Score({ value }: { value: number | undefined }) {
   if (value === undefined) {
     return (
       <span className="score muted">
