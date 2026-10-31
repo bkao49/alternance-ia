@@ -1,5 +1,5 @@
-import type { Application, ApplicationEvent, DashboardStats, ProfileFact, SearchPreferences, Status } from "../api/types";
-import { seedApplications, seedOffers, seedStatuses } from "./data";
+import type { Application, ApplicationEvent, DashboardStats, ProfileCv, ProfileFact, SearchPreferences, Status } from "../api/types";
+import { seedApplications, seedStatuses } from "./data";
 import { DEMO } from "./demoInfo";
 
 const DEMO_USER = { id: "user-demo", email: DEMO.email };
@@ -16,16 +16,36 @@ const error = (status: number, code: string, message: string) => json({ code, me
 export function createMockFetch() {
   const statuses: Status[] = seedStatuses();
   const applications: Application[] = seedApplications(statuses);
-  const offers = seedOffers(applications);
   const events = new Map<string, ApplicationEvent[]>();
   let signedIn = false;
   let facts: ProfileFact[] = [];
+  let cv: { info: ProfileCv; readyAt: number } | null = null;
   let preferences: SearchPreferences = {
     keywords: [], locations: [], remote_accepted: false, contract_types: [], start_date: null,
     duration_months: null, alternance_rhythm: null, education_level: null, min_salary_eur: null,
     excluded_keywords: [], updated_at: null,
   };
   let nextId = applications.length + 1;
+
+  /** Faits fictifs « trouvés » dans un CV fictif ; le faux backend ne lit jamais le fichier reçu. */
+  function proposeDemoFacts(): ProfileFact[] {
+    const base = { end_date: null, source: "CV", status: "proposed" as const, created_at: new Date().toISOString() };
+    return [
+      { ...base, id: `fact-${nextId++}`, kind: "experience", text: "Stage de data analyst chez Acme (fictif)", start_date: "2025-03-01", technologies: ["Python", "SQL"] },
+      { ...base, id: `fact-${nextId++}`, kind: "education", text: "Master Data Science, Université Imaginaire (fictif)", start_date: "2024-09-01", technologies: [] },
+      { ...base, id: `fact-${nextId++}`, kind: "skill", text: "Python", start_date: null, technologies: ["Python"] },
+      { ...base, id: `fact-${nextId++}`, kind: "language", text: "Anglais (B2)", start_date: null, technologies: [] },
+    ];
+  }
+
+  function cvState(): ProfileCv | null {
+    if (cv && cv.info.status === "processing" && Date.now() >= cv.readyAt) {
+      const found = proposeDemoFacts();
+      facts = [...found, ...facts];
+      cv.info = { ...cv.info, status: "done", facts_proposed: found.length };
+    }
+    return cv?.info ?? null;
+  }
 
   const byKey = (key: string) => statuses.find((s) => s.system_key === key) as Status;
   const reached = (keys: string[]) => applications.filter((a) => keys.includes(a.status.system_key ?? "")).length;
@@ -71,7 +91,8 @@ export function createMockFetch() {
     const url = new URL(request.url);
     const path = url.pathname.replace(/^\/api/, "");
     const method = request.method;
-    const hasBody = method === "POST" || method === "PATCH" || method === "PUT";
+    const cvMatch = /^\/profile\/cv(\/download-link)?$/.exec(path);
+    const hasBody = !cvMatch && (method === "POST" || method === "PATCH" || method === "PUT");
     const factMatch = /^\/profile\/facts(?:\/([^/]+))?$/.exec(path);
     const body = hasBody ? ((await request.json().catch(() => ({}))) as Record<string, unknown>) : {};
 
@@ -91,11 +112,49 @@ export function createMockFetch() {
     if (method === "GET" && path === "/statuses") return json(statuses);
     if (method === "GET" && path === "/dashboard/stats") return json(stats());
     if (method === "GET" && path === "/preferences") return json(preferences);
+    if (cvMatch) {
+      const link = Boolean(cvMatch[1]);
+      if (method === "POST" && !link) {
+        const raw = request.headers.get("content-type")?.startsWith("multipart/form-data") ? await request.text() : "";
+        const name = /filename="([^"]*)"/.exec(raw)?.[1]; // le faux backend ne lit jamais le contenu du fichier
+        if (name === undefined) return error(422, "validation_error", "Un fichier est attendu");
+        const file = { name, size: raw.length };
+        if (file.size > 5 * 1024 * 1024) return error(413, "file_too_large", "Le fichier dépasse 5 Mo");
+        facts = facts.filter((f) => f.status !== "proposed");
+        cv = {
+          readyAt: Date.now() + 1200,
+          info: { id: `cv-${nextId++}`, original_name: file.name, file_type: /\.docx$/i.test(file.name) ? "docx" : "pdf", size_bytes: Math.max(file.size, 1), status: "processing", error_code: null, facts_proposed: 0, created_at: new Date().toISOString() },
+        };
+        return json(cv.info, 202);
+      }
+      const current = cvState();
+      if (!current) return error(404, "not_found", "Aucun CV déposé");
+      if (method === "GET" && !link) return json(current);
+      if (method === "DELETE" && !link) {
+        cv = null;
+        facts = facts.filter((f) => f.source !== "CV");
+        return new Response(null, { status: 204 });
+      }
+      if (method === "POST" && link) return json({ url: "/profile/cv/file/demo", expires_at: new Date(Date.now() + 60000).toISOString() });
+    }
+    const decision = /^\/profile\/facts\/([^/]+)\/(validate|reject)$/.exec(path);
+    if (decision && method === "POST") {
+      const target = facts.find((f) => f.id === decision[1]);
+      if (!target) return error(404, "not_found", "Fait introuvable");
+      if (decision[2] === "reject") {
+        if (target.status === "validated") return error(409, "already_validated", "Ce fait est déjà validé");
+        facts = facts.filter((f) => f !== target);
+        return new Response(null, { status: 204 });
+      }
+      const validated = { ...target, status: "validated" as const };
+      facts = facts.map((f) => (f === target ? validated : f));
+      return json(validated);
+    }
     if (factMatch) {
       const id = factMatch[1];
       if (!id && method === "GET") return json(facts);
       if (!id && method === "POST") {
-        const created = { ...(body as Omit<ProfileFact, "id" | "created_at">), id: `fact-${nextId++}`, created_at: new Date().toISOString() };
+        const created = { ...(body as Omit<ProfileFact, "id" | "created_at">), id: `fact-${nextId++}`, created_at: new Date().toISOString(), status: "validated" as const };
         facts = [created, ...facts];
         return json(created, 201);
       }
@@ -116,11 +175,6 @@ export function createMockFetch() {
       return json(preferences);
     }
 
-    if (method === "GET" && path === "/offers") {
-      const page = Number(url.searchParams.get("page") ?? 1);
-      const size = Number(url.searchParams.get("page_size") ?? 25);
-      return json({ items: offers.slice((page - 1) * size, page * size), page, page_size: size, total: offers.length });
-    }
     if (method === "GET" && path === "/applications") {
       const page = Number(url.searchParams.get("page") ?? 1);
       const size = Number(url.searchParams.get("page_size") ?? 25);
