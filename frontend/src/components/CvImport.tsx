@@ -7,6 +7,7 @@ import { Dialog } from "./common";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const POLL_MS = 1500;
+const GIVE_UP_MS = 120_000;
 
 const FAILURES: Record<NonNullable<ProfileCv["error_code"]>, string> = {
   encrypted: "Ce PDF est protégé par un mot de passe. Enregistrez-en une version sans protection.",
@@ -34,6 +35,11 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
   const [announcement, setAnnouncement] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const wasProcessing = useRef(false);
+  const title = useRef<HTMLHeadingElement>(null);
+  const announce = (message: string) => {
+    setAnnouncement(""); // vider puis réécrire : deux messages identiques sont relus
+    setTimeout(() => setAnnouncement(message), 50);
+  };
 
   const refresh = useCallback(async () => {
     const result = await api.GET("/profile/cv");
@@ -56,18 +62,24 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
   useEffect(() => {
     if (!processing) {
       if (wasProcessing.current && cv?.status === "done") {
-        setAnnouncement(`${cv.facts_proposed} fait(s) proposé(s) à relire.`);
+        announce(`${cv.facts_proposed} fait(s) proposé(s) à relire.`);
         onFactsChanged();
       }
       wasProcessing.current = false;
       return;
     }
     wasProcessing.current = true;
+    const started = Date.now();
     const timer = setInterval(() => {
+      if (Date.now() - started > GIVE_UP_MS) {
+        clearInterval(timer);
+        setProblem("La lecture du CV prend trop de temps. Rechargez la page dans un instant.");
+        return;
+      }
       refresh().then(setCv, () => undefined);
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [processing, cv, refresh, onFactsChanged]);
+  }, [processing, cv?.status, cv?.facts_proposed, refresh, onFactsChanged]);
 
   async function send(file: File) {
     const refused = checkCvFile(file);
@@ -96,13 +108,13 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
     event.preventDefault();
     setDragging(false);
     const file = event.dataTransfer.files[0];
-    if (file && !uploading) void send(file);
+    if (file && !uploading && !processing) void send(file);
   }
 
   const onKey = (event: KeyboardEvent) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      input.current?.click();
+      if (!uploading && !processing) input.current?.click();
     }
   };
 
@@ -112,7 +124,8 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
       if (result.error !== undefined && result.response.status !== 404) unwrap(result);
       setCv(null);
       setProblem(null);
-      setAnnouncement("CV et faits supprimés.");
+      announce("CV et faits supprimés.");
+      title.current?.focus(); // le bouton cliqué a disparu : le focus ne doit pas tomber sur <body>
       onFactsChanged();
     } catch (failure) {
       setProblem(failure instanceof ApiFailure || failure instanceof Error ? failure.message : "Suppression impossible");
@@ -123,6 +136,7 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
   async function download() {
     try {
       const link = unwrap(await api.POST("/profile/cv/download-link"));
+      if (!link.url.startsWith("/profile/cv/file/")) throw new Error("Lien de téléchargement invalide");
       window.location.assign(`/api${link.url}`); // lien signé de 60 s, pièce jointe
     } catch (failure) {
       setProblem(failure instanceof Error ? failure.message : "Téléchargement impossible");
@@ -131,7 +145,9 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
 
   return (
     <section aria-labelledby="cv-title" className="cv-import">
-      <h2 id="cv-title">Mon CV</h2>
+      <h2 id="cv-title" ref={title} tabIndex={-1}>
+        Mon CV
+      </h2>
       <p className="muted">
         Déposez votre CV (PDF ou DOCX, 5 Mo au plus). L'application en tire des faits à relire : rien n'est utilisé tant
         que vous ne l'avez pas validé. Le texte du CV reste sur cette application.
