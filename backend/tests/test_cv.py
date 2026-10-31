@@ -214,5 +214,7 @@ def test_new_upload_replaces_cv_and_proposed_facts_but_keeps_validated(alice):  
                               "VALUES (:u, 'skill', :t, :s, :c)"),
                          {"u": alice.user_id, "t": label, "s": status, "c": cv_id})
     upload(alice, make_docx(), "nouveau.docx")
-    assert [f["text"] for f in alice.get("/profile/facts").json()] == ["Valide"]
+    wait_done(alice)
+    texts = [f["text"] for f in alice.get("/profile/facts").json()]
+    assert "Valide" in texts and "A relire" not in texts  # l'ancien fait à relire est parti, le validé reste
     assert alice.get("/profile/cv").json()["original_name"] == "nouveau.docx"
