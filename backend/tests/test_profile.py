@@ -4,6 +4,7 @@ import psycopg
 import pytest
 from alembic import command
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from test_applications import (  # noqa: F401  (fixtures et helpers partagés)
     alice,
     application,
@@ -13,6 +14,7 @@ from test_applications import (  # noqa: F401  (fixtures et helpers partagés)
 )
 
 from app import profile
+from app.db import user_scope
 
 # Faits fictifs, uniquement pour les tests.
 FACT = {"kind": "experience", "text": "Stage de data analyst de 6 mois chez Acme (fictif)",
@@ -153,3 +155,33 @@ def test_database_checks_hold_without_the_api(alice, migrated_db, values):  # no
     with psycopg.connect(migrated_db) as conn, pytest.raises(psycopg.errors.CheckViolation):
         conn.execute("INSERT INTO profile_facts (user_id, kind, text, start_date, end_date, technologies, source) "
                      f"VALUES (%s, {values})", (alice.user_id,))
+
+
+def _propose(user_id, text_="Projet fictif : tableau de bord Python"):
+    """Insère un fait « à valider », comme le fera l'extraction d'un CV."""
+    with user_scope(user_id) as conn:
+        return str(conn.execute(
+            text("INSERT INTO profile_facts (user_id, kind, text, technologies, status) "
+                 "VALUES (:u, 'project', :t, '{Python}', 'proposed') RETURNING id"),
+            {"u": user_id, "t": text_}).scalar_one())
+
+
+def test_manual_facts_are_validated_and_proposed_ones_can_be_filtered(alice):  # noqa: F811
+    assert alice.post("/profile/facts", FACT).json()["status"] == "validated"
+    proposed = _propose(alice.user_id)
+    assert [f["id"] for f in alice.get("/profile/facts", params={"status": "proposed"}).json()] == [proposed]
+    assert len(alice.get("/profile/facts").json()) == 2
+    assert alice.get("/profile/facts", params={"status": "bof"}).status_code == 422
+
+
+def test_validate_and_reject(alice, bob, contract):  # noqa: F811
+    first, second = _propose(alice.user_id), _propose(alice.user_id, "Autre projet")
+    assert bob.post(f"/profile/facts/{first}/validate").status_code == 404  # fait d'un autre utilisateur
+    assert bob.post(f"/profile/facts/{first}/reject").status_code == 404
+    validated = alice.post(f"/profile/facts/{first}/validate")
+    assert validated.status_code == 200 and validated.json()["status"] == "validated"
+    assert_conforms(contract, "ProfileFact", validated.json())
+    assert alice.post(f"/profile/facts/{first}/reject").status_code == 409  # déjà validé : on le supprime
+    assert alice.post(f"/profile/facts/{second}/reject").status_code == 204
+    assert alice.post(f"/profile/facts/{second}/reject").status_code == 404
+    assert [f["id"] for f in alice.get("/profile/facts").json()] == [first]

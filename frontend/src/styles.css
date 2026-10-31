@@ -919,3 +919,39 @@ fieldset {
 .facts .actions {
   margin: 0 0 0 auto;
 }
+
+.cv-import,
+.proposed {
+  margin: var(--space-5) 0;
+}
+
+.dropzone {
+  border: 1px dashed var(--control);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+
+.dropzone:hover,
+.dropzone.is-dragging {
+  border-color: var(--accent);
+  background: var(--hover);
+  color: var(--text);
+}
+
+.dropzone:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+.dropzone[aria-disabled="true"] {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.cv-state {
+  margin-top: var(--space-4);
+}
