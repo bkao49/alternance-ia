@@ -50,19 +50,58 @@ const OFFER_SCORES: Record<string, number> = {
   "Hooli Labs": 3.9,
 };
 
+type Detail = [Offer["contract_type"], string, string];
+const DETAILS: Record<string, Detail> = {
+  "Globex IA": ["apprenticeship", "Paris", "Vos projets de classification et Python correspondent aux compétences demandées."],
+  "Initech Data": ["apprenticeship", "Lyon", "SQL, Docker et PostgreSQL sont dans votre profil. Airflow manque."],
+  "Acme Analytics": ["internship", "Nantes", "Mission centrée sur les tableaux de bord déjà réalisés dans vos projets."],
+  "Stark Mobilité": ["fixed_term", "Toulouse", "Déploiement de modèles avec Docker, comme dans l'un de vos projets."],
+  "Hooli Labs": ["apprenticeship", "Paris", "Bonne correspondance sur Python ; l'IA générative n'est pas dans votre profil."],
+};
+
+// Offres fictives sans candidature : on peut en préparer une depuis l'écran des offres.
+const EXTRA_OFFERS: [string, string, Detail, number][] = [
+  ["Nimbus Cloud", "Data Engineer", ["permanent", "Lyon", "SQL et Docker correspondent ; la partie cloud est nouvelle pour vous."], 4.3],
+  ["Orion Analytics", "Stagiaire Data Scientist", ["internship", "Paris", "Statistiques et Python sont dans votre profil."], 4.0],
+  ["Vega Logistique", "Data Analyst", ["fixed_term", "Nantes", "Tableaux de bord et SQL demandés, comme dans vos projets."], 3.7],
+  ["Atlas Conseil", "Ingénieur IA", ["permanent", "Toulouse", "Le niveau d'expérience demandé dépasse un peu votre profil."], 3.6],
+  ["Helios Énergie", "Alternant Business Intelligence", ["apprenticeship", "Lille", "Outils de BI et SQL correspondent à votre formation."], 3.5],
+  ["Borea Média", "Data Analyst", ["permanent", "Bordeaux", "Peu de recoupements avec vos critères."], 2.8],
+];
+
 export function seedOffers(applications: Application[]): Offer[] {
-  return applications
+  const linked = applications
     .filter((a) => a.offer_id)
-    .map((a) => ({
-      id: a.offer_id as string,
-      title: a.title ?? "",
-      company: a.company ?? "",
-      source: "source_fictive",
-      url: "https://example.test/offre",
-      detected_at: a.created_at,
-      expired: false,
-      score: OFFER_SCORES[a.company ?? ""],
-    }));
+    .map((a): Offer => {
+      const [contract_type, location, explanation] = DETAILS[a.company ?? ""] as Detail;
+      return {
+        id: a.offer_id as string,
+        title: a.title ?? "",
+        company: a.company ?? "",
+        location,
+        source: "source_fictive",
+        url: "https://example.test/offre",
+        detected_at: a.created_at,
+        expired: false,
+        contract_type,
+        score: OFFER_SCORES[a.company ?? ""],
+        explanation,
+      };
+    });
+  const extra = EXTRA_OFFERS.map(([company, title, [contract_type, location, explanation], score], index): Offer => ({
+    id: `offer-extra-${index + 1}`,
+    title,
+    company,
+    location,
+    source: "source_fictive",
+    url: "https://example.test/offre",
+    detected_at: "2026-10-28T08:00:00Z",
+    expired: false,
+    contract_type,
+    score,
+    explanation,
+  }));
+  return [...linked, ...extra].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
 
 export function seedApplications(statuses: Status[]): Application[] {

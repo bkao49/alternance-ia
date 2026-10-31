@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app import account, applications, auth, dashboard, offers, preferences, profile, statuses
+from app import account, applications, auth, bot, dashboard, offers, preferences, profile, statuses
 from app.errors import install_error_handlers
 from app.security import LoginLimiter
 
@@ -13,6 +13,7 @@ def create_app() -> FastAPI:
     application.include_router(statuses.router)
     application.include_router(applications.router)
     application.include_router(offers.router)
+    application.include_router(bot.router)
     application.include_router(dashboard.router)
     application.include_router(preferences.router)
     application.include_router(account.router)

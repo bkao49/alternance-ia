@@ -39,10 +39,10 @@ export function Greeting({ user, stats, onCreate }: { user: Me; stats?: Dashboar
   );
 }
 
-/** Grand chiffre des offres pertinentes. Deviendra un lien quand l'écran des offres existera. */
+/** Grand chiffre des offres pertinentes : ouvre l'écran des offres. */
 export function RelevantOffers({ count }: { count: number }) {
   return (
-    <section className="offers" aria-labelledby="offers-title">
+    <a className="offers" href="#offres">
       <span className="offers-big num" aria-hidden="true">
         {count}
       </span>
@@ -50,8 +50,8 @@ export function RelevantOffers({ count }: { count: number }) {
         <h2 id="offers-title" className="offers-label">
           <span className="visually-hidden">{count}</span> {plural(count, "offre pertinente", "offres pertinentes")}
         </h2>
-        <p className="offers-soon">La liste détaillée arrive avec l'écran des offres.</p>
+        <p className="offers-go">Voir la liste</p>
       </div>
-    </section>
+    </a>
   );
 }

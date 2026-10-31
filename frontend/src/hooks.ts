@@ -4,7 +4,7 @@ import type { Middleware } from "openapi-fetch";
 
 import { ApiFailure, unwrap, type Api } from "./api/client";
 import { useApi } from "./api/context";
-import type { Application, DashboardStats, Me, Offer, Status } from "./api/types";
+import type { Application, BotStatus, DashboardStats, Me, Offer, Status } from "./api/types";
 
 export type SessionState = { user: Me | null | undefined; login: (email: string, password: string) => Promise<void>; logout: () => Promise<void> };
 
@@ -100,6 +100,25 @@ async function fetchDashboard(api: Api): Promise<DashboardState> {
   } catch (error) {
     return { phase: "error", message: error instanceof Error ? error.message : "Chargement impossible" };
   }
+}
+
+/** État de la collecte. Un échec de chargement revient à « aucune collecte » : le bloc n'invente rien. */
+export function useBotStatus(): BotStatus | undefined {
+  const api = useApi();
+  const [status, setStatus] = useState<BotStatus>();
+
+  useEffect(() => {
+    let active = true;
+    api
+      .GET("/bot/status")
+      .then((result) => active && setStatus(result.data))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [api]);
+
+  return status;
 }
 
 export function useDashboardData(): { state: DashboardState; reload: () => Promise<void> } {
