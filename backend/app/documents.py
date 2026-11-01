@@ -11,7 +11,7 @@ import uuid
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Connection, text
 
 from app.ai.gateway import BudgetExceeded, GatewayError, LLMGateway
@@ -23,9 +23,11 @@ from app.auth import Session, current_session, require_csrf
 from app.db import user_scope
 from app.documents_pdf import render_pdf
 from app.errors import ApiError
+from app.profile import MAX_FACTS
 
 router = APIRouter(tags=["documents"])
 
+MAX_LINES = 150  # lignes au total par version : borne la taille du texte stocké
 MAX_VERSIONS = 100  # au-delà, les plus anciennes sont supprimées
 GENERAL_TITLE = "CV général"
 MANUAL_SOURCE = "Ajout manuel dans un CV"
@@ -70,6 +72,12 @@ class SaveIn(BaseModel):
 
     base_version: int = Field(ge=1)
     sections: list[SectionIn] = Field(max_length=MAX_SECTIONS)
+
+    @model_validator(mode="after")
+    def _bounded(self) -> "SaveIn":
+        if sum(len(s.bullets) for s in self.sections) > MAX_LINES:
+            raise ValueError(f"{MAX_LINES} lignes au plus")
+        return self
 
 
 class RestoreIn(BaseModel):
@@ -254,6 +262,8 @@ def save_draft(document_id: uuid.UUID, body: SaveIn, session: Session = Depends(
 
 
 def _manual_fact(conn: Connection, user: str, content: str) -> uuid.UUID:
+    if conn.execute(text("SELECT count(*) FROM profile_facts WHERE status = 'proposed'")).scalar() >= MAX_FACTS:
+        raise ApiError(409, "too_many_facts", f"{MAX_FACTS} faits à valider au plus : validez ou rejetez-en")
     existing = conn.execute(text("SELECT id FROM profile_facts WHERE text = :t AND status = 'proposed' AND source = :s"),
                             {"t": content, "s": MANUAL_SOURCE}).scalar()
     if existing:
