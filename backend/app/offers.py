@@ -1,6 +1,6 @@
 import datetime as dt
 import uuid
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -20,7 +20,9 @@ LATEST_SCORE = """
     FROM scores ORDER BY job_posting_id, created_at DESC, id
 """
 
-OFFER_COLUMNS = "o.id, o.title, o.company, o.location, o.source, o.url, o.detected_at, o.expired"
+OFFER_COLUMNS = ("o.id, o.title, o.company, o.location, o.source, o.url, o.detected_at, o.expired, "
+                 "o.contract_type")
+ContractType = Literal["internship", "apprenticeship", "fixed_term", "permanent", "other"]
 
 SORTS = {
     "score_desc": "ls.value DESC NULLS LAST, o.detected_at DESC, o.id",
@@ -38,7 +40,9 @@ class OfferOut(BaseModel):
     url: str
     detected_at: dt.datetime
     expired: bool
+    contract_type: ContractType | None = None
     score: float | None = None
+    explanation: str | None = None
 
 
 def _offer(row: Any) -> dict:
@@ -46,7 +50,8 @@ def _offer(row: Any) -> dict:
     data = OfferOut(
         id=row["id"], title=row["title"], company=row["company"], location=row["location"],
         source=row["source"], url=row["url"], detected_at=row["detected_at"], expired=row["expired"],
-        score=float(row["score"]) if row["score"] is not None else None,
+        contract_type=row["contract_type"], score=float(row["score"]) if row["score"] is not None else None,
+        explanation=(row.get("explanation") or None) and row["explanation"][:500],
     ).model_dump(mode="json")
     return {key: value for key, value in data.items() if value is not None}
 
@@ -56,6 +61,7 @@ def list_offers(
     q: str | None = Query(default=None, max_length=200),
     min_score: float | None = Query(default=None, ge=0, le=5),
     source: str | None = Query(default=None, max_length=100),
+    contract_type: Annotated[list[ContractType] | None, Query()] = None,
     include_expired: bool = False,
     sort: Literal["score_desc", "detected_desc", "title_asc"] = "score_desc",
     params: PageParams = Depends(page_params),
@@ -72,13 +78,16 @@ def list_offers(
     if source:
         where.append("o.source = :source")
         args["source"] = source
+    if contract_type:  # une offre sans type connu ne passe jamais ce filtre
+        where.append("o.contract_type = ANY(CAST(:contract_types AS text[]))")
+        args["contract_types"] = contract_type
     if not include_expired:
         where.append("NOT o.expired")
     base = f"FROM job_postings o LEFT JOIN ({LATEST_SCORE}) ls ON ls.job_posting_id = o.id WHERE " + " AND ".join(where)
     with user_scope(session.user_id) as conn:
         total = conn.execute(text("SELECT count(*) " + base), args).scalar_one()
         rows = conn.execute(
-            text(f"SELECT {OFFER_COLUMNS}, ls.value AS score {base} ORDER BY {SORTS[sort]} LIMIT :limit OFFSET :offset"),
+            text(f"SELECT {OFFER_COLUMNS}, ls.value AS score, ls.explanation {base} ORDER BY {SORTS[sort]} LIMIT :limit OFFSET :offset"),
             args,
         ).mappings().all()
     return page_of([_offer(r) for r in rows], total, params)

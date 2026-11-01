@@ -2,7 +2,7 @@ import type { Me } from "../api/types";
 import { APP_NAME } from "../brand";
 import { Logo } from "./Logo";
 
-export type Page = "home" | "criteria" | "profile";
+export type Page = "home" | "offers" | "criteria" | "profile";
 
 export function Sidebar({ user, page, onSignOut }: { user: Me; page: Page; onSignOut: () => void }) {
   return (
@@ -15,10 +15,9 @@ export function Sidebar({ user, page, onSignOut }: { user: Me; page: Page; onSig
         <a href="#accueil" aria-current={page === "home" ? "page" : undefined}>
           Accueil
         </a>
-        {/* Pas encore d'écran des offres : l'entrée reste visible, inactive, et le dit. */}
-        <span className="side-soon" aria-disabled="true">
-          Offres <span className="chip">bientôt</span>
-        </span>
+        <a href="#offres" aria-current={page === "offers" ? "page" : undefined}>
+          Offres
+        </a>
         <a href="#candidatures">Candidatures</a>
         <a href="#criteres" aria-current={page === "criteria" ? "page" : undefined}>
           Mes critères

@@ -50,7 +50,7 @@ export function createMockFetch() {
       counts: {
         detected: 42,
         analyzed: 31,
-        relevant: 14,
+        relevant: offers.filter((o) => (o.score ?? 0) >= 3.5).length,
         prepared: reached(PREPARED_KEYS),
         to_validate: reached(["human_review"]),
         sent,
@@ -119,7 +119,28 @@ export function createMockFetch() {
     if (method === "GET" && path === "/offers") {
       const page = Number(url.searchParams.get("page") ?? 1);
       const size = Number(url.searchParams.get("page_size") ?? 25);
-      return json({ items: offers.slice((page - 1) * size, page * size), page, page_size: size, total: offers.length });
+      const kinds = url.searchParams.getAll("contract_type");
+      const min = Number(url.searchParams.get("min_score") ?? 0);
+      const matching = offers.filter(
+        (o) => (o.score ?? 0) >= min && (kinds.length === 0 || kinds.includes(o.contract_type ?? "")),
+      );
+      return json({ items: matching.slice((page - 1) * size, page * size), page, page_size: size, total: matching.length });
+    }
+    if (method === "GET" && path === "/bot/status") {
+      const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+      return json({
+        next_run_at: new Date(Date.now() + 134 * 60_000).toISOString(),
+        sources: [
+          { source: "source_a", state: "ok", last_run_at: ago(46), offers_found: 61, offers_new: 4 },
+          { source: "source_b", state: "ok", last_run_at: ago(45), offers_found: 38, offers_new: 2 },
+          { source: "site_carrieres", state: "blocked", cause: "Blocage détecté (403), source arrêtée" },
+        ],
+        activity: [
+          { at: ago(45), source: "source_b", outcome: "done", message: "38 offres lues, 2 nouvelles" },
+          { at: ago(46), source: "source_a", outcome: "done", message: "61 offres lues, 4 nouvelles" },
+          { at: ago(300), source: "site_carrieres", outcome: "blocked", message: "Blocage détecté (403), source arrêtée" },
+        ],
+      });
     }
     if (method === "GET" && path === "/applications") {
       const page = Number(url.searchParams.get("page") ?? 1);
@@ -130,11 +151,13 @@ export function createMockFetch() {
     if (method === "POST" && path === "/applications") {
       const status = byKey(String(body.initial_status ?? "to_prepare"));
       const now = new Date().toISOString();
+      const offer = offers.find((o) => o.id === body.offer_id);
+      if (body.offer_id && !offer) return error(404, "not_found", "Offre introuvable");
       const created: Application = {
         id: `application-${nextId++}`,
-        offer_id: null,
-        company: String(body.company),
-        title: String(body.title),
+        offer_id: offer?.id ?? null,
+        company: offer?.company ?? String(body.company),
+        title: offer?.title ?? String(body.title),
         status,
         notes: (body.notes as string | undefined) ?? null,
         sent_at: null,
