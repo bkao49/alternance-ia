@@ -22,6 +22,7 @@ tags:
   - name: preferences
   - name: account
   - name: profile
+  - name: documents
 
 paths:
   /auth/login:
@@ -672,6 +673,221 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /documents:
+    get:
+      tags: [documents]
+      x-planned: true
+      operationId: listDocumentDrafts
+      summary: Lister mes CV et lettres en préparation
+      parameters:
+        - { name: offer_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Brouillons, le plus récemment modifié d'abord
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DocumentDraftSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /documents/generate:
+    post:
+      tags: [documents]
+      x-planned: true
+      operationId: generateDocument
+      summary: Générer un CV ou une lettre à partir de mes faits validés
+      description: |
+        `kind` = `cv` avec `offer_id` : CV adapté à l'offre ; `cv` sans offre : CV général amélioré (structure,
+        formulations, ordre des sections) ; `cover_letter` : lettre, `offer_id` obligatoire. Le modèle ne
+        reçoit que des faits **validés** (jamais les faits « à valider »), pseudonymisés, par la passerelle IA.
+        Le texte de l'annonce est une donnée non fiable. Chaque ligne cite ses faits (`fact_ids`) ; la réponse
+        contient déjà le contrôle factuel. Un brouillon existant pour la même offre reçoit une nouvelle version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentGenerateRequest" }
+      responses:
+        "201":
+          description: Brouillon avec sa nouvelle version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentDraft" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            `not_enough_facts` (moins de 3 faits validés dont une expérience, une formation ou un projet) ou
+            `offer_expired` (offre expirée)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+        "429":
+          description: Plafond de coût IA du jour atteint (`llm_budget_exceeded`) ou trop de demandes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "502":
+          description: Le modèle n'a pas rendu un texte exploitable (`generation_failed`) ; rien n'est enregistré
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /documents/{documentId}:
+    parameters:
+      - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [documents]
+      x-planned: true
+      operationId: getDocumentDraft
+      summary: Voir un brouillon (version courante, contrôle factuel, écart avec le CV maître)
+      responses:
+        "200":
+          description: Le brouillon
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentDraft" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [documents]
+      x-planned: true
+      operationId: saveDocumentDraft
+      summary: Enregistrer mes modifications (nouvelle version)
+      description: |
+        Remplace le texte (modifier, réordonner, retirer des lignes). Une ligne ajoutée à la main
+        (`manual: true`) crée un fait **à valider** dans le profil et le cite : elle reste rejetée par le
+        contrôle tant que l'utilisateur ne l'a pas validé. Le contrôle déterministe est refait ; l'ancienne
+        version est conservée.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentSaveRequest" }
+      responses:
+        "200":
+          description: Brouillon avec la nouvelle version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentDraft" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: |
+            `version_conflict` (le brouillon a changé depuis `base_version`) ou `too_many_facts`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [documents]
+      x-planned: true
+      operationId: deleteDocumentDraft
+      summary: Supprimer un brouillon et ses versions
+      responses:
+        "204": { description: Brouillon supprimé }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /documents/{documentId}/versions:
+    parameters:
+      - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [documents]
+      x-planned: true
+      operationId: listDocumentVersions
+      summary: Historique des versions (la plus récente d'abord)
+      responses:
+        "200":
+          description: Versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DocumentVersion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /documents/{documentId}/restore:
+    parameters:
+      - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [documents]
+      x-planned: true
+      operationId: restoreDocumentVersion
+      summary: Revenir à une version précédente
+      description: Recopie cette version en une nouvelle version (`origin` = `restored`) ; l'historique n'est jamais réécrit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentRestoreRequest" }
+      responses:
+        "200":
+          description: Brouillon avec la version restaurée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentDraft" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /documents/{documentId}/check:
+    parameters:
+      - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [documents]
+      x-planned: true
+      operationId: checkDocumentDraft
+      summary: Lancer le contrôle factuel
+      description: |
+        Contrôle déterministe toujours ; avec `verify` = true, un second regard par modèle (via la passerelle IA)
+        s'y ajoute, seulement si le contrôle déterministe passe. Le vérificateur ne peut qu'ajouter des rejets.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentCheckRequest" }
+      responses:
+        "200":
+          description: Résultat du contrôle
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FactCheck" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429":
+          description: Plafond de coût IA du jour atteint (`llm_budget_exceeded`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /documents/{documentId}/pdf:
+    parameters:
+      - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [documents]
+      x-planned: true
+      operationId: exportDocumentPdf
+      summary: Exporter la version courante en PDF lisible par les logiciels de recrutement
+      description: |
+        Une colonne, texte réel sélectionnable, polices standard, sans tableau ni icône. Refusé (409
+        `check_failed`) tant que le contrôle factuel de la version courante n'est pas vert. L'export ne
+        change le statut d'aucune candidature et n'envoie rien.
+      responses:
+        "200":
+          description: Le PDF, en pièce jointe
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Contrôle factuel non vert (`check_failed`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
 components:
   securitySchemes:
     sessionCookie:
@@ -1185,3 +1401,143 @@ components:
       properties:
         url: { type: string, description: "Chemin relatif de `GET /profile/cv/file/{token}`" }
         expires_at: { type: string, format: date-time }
+    DocumentKind:
+      type: string
+      enum: [cv, cover_letter]
+    DocumentGenerateRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, offer_id]
+      properties:
+        kind: { $ref: "#/components/schemas/DocumentKind" }
+        offer_id:
+          type: [string, "null"]
+          format: uuid
+          description: null seulement pour un CV général amélioré
+    DocumentBullet:
+      type: object
+      required: [texte, fact_ids]
+      properties:
+        texte: { type: string, minLength: 1, maxLength: 600 }
+        fact_ids:
+          type: array
+          maxItems: 20
+          items: { type: string, format: uuid }
+          description: Faits du profil dont la ligne est tirée (vide = ligne non justifiée, rejetée par le contrôle)
+    DocumentSection:
+      type: object
+      required: [section, bullets]
+      properties:
+        section: { type: string, minLength: 1, maxLength: 80 }
+        bullets:
+          type: array
+          maxItems: 30
+          items: { $ref: "#/components/schemas/DocumentBullet" }
+    DocumentBulletInput:
+      allOf:
+        - { $ref: "#/components/schemas/DocumentBullet" }
+        - type: object
+          properties:
+            manual:
+              type: boolean
+              default: false
+              description: Ligne écrite par l'utilisateur ; `fact_ids` est ignoré, un fait à valider est créé
+    DocumentSectionInput:
+      type: object
+      required: [section, bullets]
+      properties:
+        section: { type: string, minLength: 1, maxLength: 80 }
+        bullets:
+          type: array
+          maxItems: 30
+          items: { $ref: "#/components/schemas/DocumentBulletInput" }
+    DocumentSaveRequest:
+      type: object
+      additionalProperties: false
+      required: [base_version, sections]
+      properties:
+        base_version: { type: integer, minimum: 1, description: Version à partir de laquelle l'utilisateur a modifié }
+        sections:
+          type: array
+          maxItems: 12
+          items: { $ref: "#/components/schemas/DocumentSectionInput" }
+    DocumentRestoreRequest:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: { type: integer, minimum: 1 }
+    DocumentCheckRequest:
+      type: object
+      additionalProperties: false
+      required: [verify]
+      properties:
+        verify: { type: boolean }
+    DocumentIssue:
+      type: object
+      required: [section, bullet, code, message]
+      properties:
+        section: { type: integer, minimum: 0 }
+        bullet: { type: integer, minimum: 0 }
+        code:
+          type: string
+          enum: [no_fact_ids, unknown_fact, unvalidated_fact, number_not_in_facts, date_not_in_facts,
+                 name_not_in_facts, technology_not_in_facts, degree_not_in_facts, verifier_rejected,
+                 verifier_unavailable]
+        message: { type: string, description: "Raison du rejet, en français" }
+    FactCheck:
+      type: object
+      required: [ok, verified, issues]
+      properties:
+        ok: { type: boolean, description: "Vrai seulement si aucune ligne n'est rejetée" }
+        verified: { type: boolean, description: "Le second regard par modèle a été fait" }
+        issues:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentIssue" }
+    DocumentDiffLine:
+      type: object
+      required: [section, bullet, status, master_text]
+      properties:
+        section: { type: integer, minimum: 0 }
+        bullet: { type: integer, minimum: 0 }
+        status: { type: string, enum: [same, reformulated], description: "Identique au fait cité, ou reformulée" }
+        master_text: { type: string, description: "Texte des faits cités dans le CV maître (vide si aucun fait connu)" }
+    DocumentDiff:
+      type: object
+      required: [lines, omitted_fact_ids]
+      properties:
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentDiffLine" }
+        omitted_fact_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: "Faits validés du CV maître que cette version n'utilise pas"
+    DocumentVersion:
+      type: object
+      required: [number, origin, created_at]
+      properties:
+        number: { type: integer, minimum: 1 }
+        origin: { type: string, enum: [generated, edited, restored] }
+        created_at: { type: string, format: date-time }
+    DocumentDraftSummary:
+      type: object
+      required: [id, kind, offer_id, title, current_version, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/DocumentKind" }
+        offer_id: { type: [string, "null"], format: uuid }
+        title: { type: string, description: "Intitulé de l'offre, ou « CV général »" }
+        current_version: { type: integer, minimum: 1 }
+        updated_at: { type: string, format: date-time }
+    DocumentDraft:
+      allOf:
+        - { $ref: "#/components/schemas/DocumentDraftSummary" }
+        - type: object
+          required: [sections, check, diff]
+          properties:
+            sections:
+              type: array
+              items: { $ref: "#/components/schemas/DocumentSection" }
+            check: { $ref: "#/components/schemas/FactCheck" }
+            diff: { $ref: "#/components/schemas/DocumentDiff" }
