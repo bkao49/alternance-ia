@@ -5,10 +5,18 @@ import uuid
 from dataclasses import dataclass
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
-Line = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=600)]
-SectionName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+
+def _storable(value: str) -> str:
+    if "\0" in value:  # PostgreSQL refuse le caractère nul dans un texte ou un jsonb
+        raise ValueError("caractère nul")
+    return value
+
+
+Line = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=600), AfterValidator(_storable)]
+SectionName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80),
+                        AfterValidator(_storable)]
 MAX_SECTIONS = 12
 MAX_BULLETS = 30
 MAX_FACT_IDS = 20

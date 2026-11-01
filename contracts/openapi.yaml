@@ -367,6 +367,7 @@ paths:
   /documents/{documentId}/download:
     get:
       tags: [tasks]
+      x-planned: true
       operationId: downloadDocument
       summary: Télécharger un CV ou une lettre
       description: Redirige vers une URL signée, courte et liée à l'utilisateur.
@@ -676,7 +677,6 @@ paths:
   /documents:
     get:
       tags: [documents]
-      x-planned: true
       operationId: listDocumentDrafts
       summary: Lister mes CV et lettres en préparation
       parameters:
@@ -693,7 +693,6 @@ paths:
   /documents/generate:
     post:
       tags: [documents]
-      x-planned: true
       operationId: generateDocument
       summary: Générer un CV ou une lettre à partir de mes faits validés
       description: |
@@ -744,7 +743,6 @@ paths:
       - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       tags: [documents]
-      x-planned: true
       operationId: getDocumentDraft
       summary: Voir un brouillon (version courante, contrôle factuel, écart avec le CV maître)
       responses:
@@ -757,7 +755,6 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
     put:
       tags: [documents]
-      x-planned: true
       operationId: saveDocumentDraft
       summary: Enregistrer mes modifications (nouvelle version)
       description: |
@@ -788,7 +785,6 @@ paths:
         "422": { $ref: "#/components/responses/ValidationError" }
     delete:
       tags: [documents]
-      x-planned: true
       operationId: deleteDocumentDraft
       summary: Supprimer un brouillon et ses versions
       responses:
@@ -801,7 +797,6 @@ paths:
       - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       tags: [documents]
-      x-planned: true
       operationId: listDocumentVersions
       summary: Historique des versions (la plus récente d'abord)
       responses:
@@ -819,7 +814,6 @@ paths:
       - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
     post:
       tags: [documents]
-      x-planned: true
       operationId: restoreDocumentVersion
       summary: Revenir à une version précédente
       description: Recopie cette version en une nouvelle version (`origin` = `restored`) ; l'historique n'est jamais réécrit.
@@ -843,7 +837,6 @@ paths:
       - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
     post:
       tags: [documents]
-      x-planned: true
       operationId: checkDocumentDraft
       summary: Lancer le contrôle factuel
       description: |

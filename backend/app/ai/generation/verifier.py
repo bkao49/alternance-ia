@@ -58,7 +58,8 @@ def verify_with_llm(gateway: LLMGateway, user_id: str, sections: Sequence[Sectio
     try:
         reply = gateway.call(user_id, purpose="verify_document", kind=DataKind.PROFILE, instructions=INSTRUCTIONS,
                              data=json.dumps(payload, ensure_ascii=False), known_names=known_names,
-                             max_output_tokens=min(4000, 80 + 70 * len(lines)))
+                             max_output_tokens=min(4000, 80 + 70 * len(lines)),
+                             use_cache=False)  # une réponse invalide ne doit pas rester en cache
         body = reply.text.strip()
         fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", body, re.DOTALL)
         verdicts = Verdicts.model_validate_json(fenced.group(1) if fenced else body).results
