@@ -12,3 +12,7 @@ Statut : proposé (2026-11-01)
 - Une technologie absente de la liste, écrite en minuscules, n'est vue que par le vérificateur.
 - Le premier mot d'une ligne n'est toléré que s'il ressemble à un verbe ou à un nom d'action (suffixes) et n'est le nom d'aucun autre fait.
 - Un ordre de dates inversé (deux dates vraies, mal placées) ou une exagération sans chiffre ne sont vus que par le vérificateur et la relecture humaine.
+- Un nom d'employeur en minuscules sans « chez » (« pour google »), une compétence hors liste (« leadership »), un mois abrégé sans année, et le mélange de deux faits cités (« Python chez Airbus » où chaque mot vient d'un fait différent) ne sont vus que par le vérificateur.
+- Le contrôle ne connaît pas l'utilisateur : l'appelant ne doit charger les faits que via `user_scope` (test avec un autre utilisateur dans la PR de génération).
+- Sont rejetés d'emblée : caractères invisibles et lettres hors alphabet latin (homoglyphes). Le titre de section subit les règles chiffres, dates, diplômes et technologies. Le jour et le mois d'une date ne valent jamais pour une quantité (« 15 ans »).
+- Le motif du vérificateur est du texte du modèle, affiché à l'utilisateur : l'écran l'échappe.

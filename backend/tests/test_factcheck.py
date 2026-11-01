@@ -80,7 +80,7 @@ def test_several_facts_support_a_line_together_but_not_a_fact_that_is_not_cited(
 
 
 def test_offer_words_excuse_names_only():
-    letter = doc("Je candidate au poste d'analyste chez Globex")
+    letter = doc("Je candidate au poste d'analyste de Globex")
     assert "name_not_in_facts" in codes(letter)
     assert codes(letter, extra_names=["Globex"]) == []
     assert "number_not_in_facts" in codes(doc("Stage de 12 mois chez Acme"), extra_names=["12"])
@@ -91,6 +91,38 @@ def test_sentence_start_verb_is_tolerated_only_if_it_is_not_another_facts_name()
     other = Fact(str(uuid.uuid4()), "experience", "Stage chez Initech", None, None, (), None, "validated")
     result = check_document(doc("Initech a recruté chez Acme"), {**FACTS, other.id: other})
     assert "name_not_in_facts" in [i.code for i in result.issues]
+
+
+@pytest.mark.parametrize(("line", "code", "kwargs"), [
+    ("J'ai travaillé chez Google sur Python", "name_not_in_facts", {"extra_names": ["Google"]}),  # offre ≠ employeur
+    ("Airbus : analyse de ventes avec Python", "name_not_in_facts", {}),
+    ("Bouygues a employé Python", "name_not_in_facts", {}),
+    ("Déploiement kubern\u0435tes", "invalid_characters", {}),  # e cyrillique
+    ("Gestion de 1\u200b5 projets", "invalid_characters", {}),  # espace de largeur nulle
+    ("Pilotage de seize projets", "number_not_in_facts", {}),
+    ("Plus de quatre-vingts clients", "number_not_in_facts", {}),
+    ("Des millions de lignes traitées", "number_not_in_facts", {}),
+    ("Diplômé ingénieur en informatique", "degree_not_in_facts", {}),
+    ("Titulaire d'une maîtrise", "degree_not_in_facts", {}),
+    ("Stage du 06/01/2026 au 30/06/2026", "date_not_in_facts", {}),  # jour modifié
+    ("Stage du 6 janvier 2026", "date_not_in_facts", {}),
+])
+def test_evasions_found_by_the_cold_review_are_rejected(line, code, kwargs):
+    assert code in codes(doc(line), **kwargs), line
+
+
+def test_days_and_months_of_dates_are_not_quantities():
+    dated = Fact(str(uuid.uuid4()), "experience", "Stage chez Acme", dt.date(2021, 3, 15), None, ("Python",), None,
+                 "validated")
+    sections = [Section(section="Expérience", bullets=[Bullet(texte="15 ans de Python chez Acme",
+                                                              fact_ids=[uuid.UUID(dated.id)])])]
+    assert "number_not_in_facts" in [i.code for i in check_document(sections, {dated.id: dated}).issues]
+
+
+def test_section_title_cannot_carry_an_invention():
+    sections = [Section(section="Expert Kubernetes 2015", bullets=[Bullet(texte="Stage chez Acme",
+                                                                          fact_ids=[uuid.UUID(STAGE.id)])])]
+    assert {"technology_not_in_facts", "number_not_in_facts"} <= {i.code for i in check_document(sections, FACTS).issues}
 
 
 def verdicts(*, rejected=(), skip=()):
@@ -105,7 +137,7 @@ def test_verifier_adds_rejections_through_the_gateway(users):  # noqa: F811
     alice, _ = users
     provider = FakeProvider(reply=verdicts(rejected={"0.1"}))
     sections = doc("Stage chez Acme", "Analysé les ventes avec Python")
-    issues = verify_with_llm(LLMGateway(provider, daily_cap_eur=1.0), alice, sections, FACTS)
+    issues = verify_with_llm(LLMGateway(provider, daily_cap_eur=1.0), alice, sections, FACTS, [])
     assert [(i.bullet, i.code) for i in issues] == [(1, "verifier_rejected")]
     assert "Stage de data analyst" in provider.received[0].data  # les faits cités accompagnent la ligne
 
@@ -114,13 +146,13 @@ def test_incomplete_or_invalid_verifier_answer_is_not_a_pass(users):  # noqa: F8
     alice, _ = users
     sections = doc("Stage chez Acme", "Analysé les ventes avec Python")
     for reply in (verdicts(skip={"0.1"}), lambda request: "pas du json", lambda request: '{"results": []}'):
-        issues = verify_with_llm(LLMGateway(FakeProvider(reply=reply), daily_cap_eur=1.0), alice, sections, FACTS)
+        issues = verify_with_llm(LLMGateway(FakeProvider(reply=reply), daily_cap_eur=1.0), alice, sections, FACTS, [])
         assert [i.code for i in issues] == ["verifier_unavailable"]
 
 
 def test_deterministic_rejection_cannot_be_lifted_by_the_verifier(users):  # noqa: F811
     alice, _ = users
     provider = FakeProvider(reply=verdicts())  # le vérificateur approuve tout
-    result = full_check(LLMGateway(provider, daily_cap_eur=1.0), alice, doc("Maîtrise de Kubernetes"), FACTS)
+    result = full_check(LLMGateway(provider, daily_cap_eur=1.0), alice, doc("Maîtrise de Kubernetes"), FACTS, [])
     assert not result.ok and provider.received == []
-    assert full_check(LLMGateway(provider, daily_cap_eur=1.0), alice, doc("Stage chez Acme"), FACTS).ok
+    assert full_check(LLMGateway(provider, daily_cap_eur=1.0), alice, doc("Stage chez Acme"), FACTS, []).ok
