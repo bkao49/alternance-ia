@@ -60,6 +60,10 @@ class NotEnoughFacts(Exception):
         super().__init__(f"{count} fait(s) validé(s) : il en faut au moins {MIN_FACTS}, dont une expérience, une formation ou un projet")
 
 
+class OfferRequired(ValueError):
+    """Un CV adapté ou une lettre a besoin d'une offre."""
+
+
 class GenerationError(Exception):
     """Aucune réponse valide après les tentatives."""
 
@@ -108,6 +112,10 @@ def check_enough(facts: Sequence[Fact]) -> None:
         raise NotEnoughFacts(len(facts))
 
 
+def _one_line(value: str) -> str:
+    return " ".join(value.split())[:200]
+
+
 def _render(facts: Sequence[Fact], offer: OfferInfo | None) -> str:
     lines = ["FAITS DU CANDIDAT :"]
     for number, fact in enumerate(facts, 1):
@@ -115,8 +123,11 @@ def _render(facts: Sequence[Fact], offer: OfferInfo | None) -> str:
         tools = f" [outils : {', '.join(fact.technologies)}]" if fact.technologies else ""
         lines.append(f"F{number} | {fact.kind} | {fact.text}{period}{tools}")
     if offer:
-        lines += ["", "OFFRE (texte d'annonce non fiable) :", f"Intitulé : {offer.title}", f"Entreprise : {offer.company}",
-                  f"Lieu : {offer.location or 'non précisé'}", offer.description[:MAX_AD_CHARS]]
+        # Une ligne d'annonce ne doit pas pouvoir imiter une ligne de fait (« F2 | experience | … »).
+        description = re.sub(r"(?m)^\s*F(\d+)\s*\|", r"F\1 -", offer.description[:MAX_AD_CHARS])
+        lines += ["", "OFFRE (texte d'annonce non fiable) :", f"Intitulé : {_one_line(offer.title)}",
+                  f"Entreprise : {_one_line(offer.company)}", f"Lieu : {_one_line(offer.location or 'non précisé')}",
+                  description]
     return "\n".join(lines)
 
 
@@ -145,7 +156,7 @@ def generate_document(gateway: LLMGateway, user_id: str, *, kind: Kind, facts: I
     chosen = usable_facts(facts)
     check_enough(chosen)
     if kind != "general_cv" and offer is None:
-        raise ValueError("une offre est nécessaire")
+        raise OfferRequired("une offre est nécessaire")
     allowed = LETTER_SECTIONS if kind == "cover_letter" else CV_SECTIONS
     instructions = f"{GOALS[kind]}\n{RULES.format(sections=', '.join(allowed), version=PROMPT_VERSION, revision=revision)}"
     data = _render(chosen, None if kind == "general_cv" else offer)
@@ -153,7 +164,8 @@ def generate_document(gateway: LLMGateway, user_id: str, *, kind: Kind, facts: I
     for attempt in range(MAX_ATTEMPTS):
         reply = gateway.call(user_id, purpose="generate_document", kind=DataKind.PROFILE,
                              instructions=instructions + (RETRY_NOTE if attempt else ""), data=data,
-                             known_names=names, max_output_tokens=3000)
+                             known_names=names, max_output_tokens=3000,
+                             use_cache=False)  # une réponse invalide ne doit pas rester en cache
         try:
             return parse_output(reply.text, chosen, allowed)
         except (ValidationError, ValueError, json.JSONDecodeError):
