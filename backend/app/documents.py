@@ -10,7 +10,7 @@ import re
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection, text
 
@@ -21,6 +21,7 @@ from app.ai.generation.schema import MAX_SECTIONS, Bullet, Fact, Line, Section, 
 from app.ai.generation.verifier import verify_with_llm
 from app.auth import Session, current_session, require_csrf
 from app.db import user_scope
+from app.documents_pdf import render_pdf
 from app.errors import ApiError
 
 router = APIRouter(tags=["documents"])
@@ -308,3 +309,17 @@ def check_draft(document_id: uuid.UUID, body: CheckIn, session: Session = Depend
     extra = verify_with_llm(_need(gateway), session.user_id, sections, facts, known_names=[])
     return _check_out(sections, facts, names, issues=extra,
                       verified=not any(i.code == "verifier_unavailable" for i in extra))
+
+
+@router.get("/documents/{document_id}/pdf", operation_id="exportDocumentPdf")
+def export_pdf(document_id: uuid.UUID, session: Session = Depends(current_session)):
+    with user_scope(session.user_id) as conn:
+        row = _draft(conn, str(document_id))
+        facts = _facts(conn)
+    sections = _sections(row["content"])
+    names = _words(row["offer_title"], row["offer_company"]) if row["kind"] == "cover_letter" else []
+    if not check_document(sections, facts, names).ok:  # le texte exporté est toujours un texte que le contrôle accepte
+        raise ApiError(409, "check_failed", "Le contrôle factuel n'est pas vert : corrigez les lignes signalées")
+    return Response(render_pdf(row["kind"], sections), media_type="application/pdf", headers={
+        "Content-Disposition": f'attachment; filename="{"cv" if row["kind"] == "cv" else "lettre"}.pdf"',
+        "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})

@@ -867,7 +867,6 @@ paths:
       - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
     get:
       tags: [documents]
-      x-planned: true
       operationId: exportDocumentPdf
       summary: Exporter la version courante en PDF lisible par les logiciels de recrutement
       description: |
