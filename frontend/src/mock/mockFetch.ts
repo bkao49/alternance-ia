@@ -1,4 +1,5 @@
 import type { Application, ApplicationEvent, DashboardStats, ProfileCv, ProfileFact, SearchPreferences, Status } from "../api/types";
+import { createDocumentsMock } from "./documentsMock";
 import { seedApplications, seedOffers, seedStatuses } from "./data";
 import { DEMO } from "./demoInfo";
 
@@ -13,13 +14,13 @@ function json(body: unknown, status = 200): Response {
 const error = (status: number, code: string, message: string) => json({ code, message }, status);
 
 /** Faux backend en mémoire : mêmes routes et mêmes règles que le contrat (dont « Envoyée » par confirmation). */
-export function createMockFetch() {
+export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
   const statuses: Status[] = seedStatuses();
   const applications: Application[] = seedApplications(statuses);
   const offers = seedOffers(applications);
   const events = new Map<string, ApplicationEvent[]>();
   let signedIn = false;
-  let facts: ProfileFact[] = [];
+  let facts: ProfileFact[] = options.facts ?? [];
   let cv: { info: ProfileCv; readyAt: number } | null = null;
   let preferences: SearchPreferences = {
     keywords: [], locations: [], remote_accepted: false, contract_types: [], start_date: null,
@@ -27,6 +28,7 @@ export function createMockFetch() {
     excluded_keywords: [], updated_at: null,
   };
   let nextId = applications.length + 1;
+  const documents = createDocumentsMock(() => ({ facts, offers, nextId: () => nextId++ }));
 
   /** Faits fictifs « trouvés » dans un CV fictif ; le faux backend ne lit jamais le fichier reçu. */
   function proposeDemoFacts(): ProfileFact[] {
@@ -109,6 +111,13 @@ export function createMockFetch() {
     }
     if (!signedIn) return error(401, "unauthorized", "Non connecté");
 
+    const handled = documents(method, path, url.search, body);
+    if (handled) return handled;
+    const offerMatch = /^\/offers\/([^/]+)$/.exec(path);
+    if (method === "GET" && offerMatch) {
+      const offer = offers.find((o) => o.id === offerMatch[1]);
+      return offer ? json({ ...offer, description_text: "Annonce fictive de démonstration." }) : error(404, "not_found", "Offre introuvable");
+    }
     if (method === "GET" && path === "/auth/me") return json(DEMO_USER);
     if (method === "GET" && path === "/statuses") return json(statuses);
     if (method === "GET" && path === "/dashboard/stats") return json(stats());

@@ -9,6 +9,7 @@ EXPECTED_TABLES = {
     "users", "profile_facts", "job_postings", "analyses", "scores", "applications",
     "status_definitions", "events", "tasks", "llm_calls", "search_preferences",
     "llm_cache", "source_settings", "jobs", "cv_documents", "cv_uploads",
+    "document_drafts", "document_versions",
 }
 # Journal du plafond de coût : l'application ne peut pas en supprimer de lignes (migration 0005).
 APPEND_ONLY = {"llm_calls"}
@@ -44,6 +45,10 @@ SEED = [
     ("cv_documents", ("INSERT INTO cv_documents (user_id, original_name, file_type, size_bytes, content) "
                       "VALUES (%(uid)s, 'cv.pdf', 'pdf', 1, 'x'::bytea) RETURNING user_id")),
     ("cv_uploads", "INSERT INTO cv_uploads (user_id) VALUES (%(uid)s) RETURNING user_id",),
+    ("document_drafts", ("INSERT INTO document_drafts (user_id, kind, job_posting_id) "
+                        "VALUES (%(uid)s, 'cv', %(job_postings)s) RETURNING id")),
+    ("document_versions", ("INSERT INTO document_versions (user_id, draft_id, number, origin, content) "
+                          "VALUES (%(uid)s, %(document_drafts)s, 1, 'generated', '[]') RETURNING id")),
     ("source_settings", ("INSERT INTO source_settings (user_id, source) "
                         "VALUES (%(uid)s, 'lba') RETURNING user_id")),
     ("jobs", "INSERT INTO jobs (user_id, kind, source) VALUES (%(uid)s, 'collect', 'lba') RETURNING id"),

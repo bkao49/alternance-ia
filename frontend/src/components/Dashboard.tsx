@@ -12,14 +12,15 @@ import { KanbanBoard } from "./KanbanBoard";
 import { NewApplicationDialog, type NewApplication } from "./NewApplicationDialog";
 import { CriteriaPage } from "./CriteriaPage";
 import { OffersPage } from "./OffersPage";
+import { PreparePage } from "./PreparePage";
 import { ProfilePage } from "./ProfilePage";
 import { Sidebar, type Page } from "./Sidebar";
 
 type View = "table" | "kanban";
 
-type Props = { user: Me; onLogout: () => Promise<void>; page?: Page };
+type Props = { user: Me; onLogout: () => Promise<void>; page?: Page; offerId?: string };
 
-export function Dashboard({ user, onLogout, page = "home" }: Props) {
+export function Dashboard({ user, onLogout, page = "home", offerId }: Props) {
   const api = useApi();
   const { state, reload } = useDashboardData();
   const botStatus = useBotStatus();
@@ -108,6 +109,11 @@ export function Dashboard({ user, onLogout, page = "home" }: Props) {
       {page === "offers" && (
         <main className="page">
           <OffersPage preparedIds={preparedIds} onPrepare={prepare} />
+        </main>
+      )}
+      {page === "prepare" && offerId && (
+        <main className="page">
+          <PreparePage key={offerId} offerId={offerId} />
         </main>
       )}
       {page === "criteria" && (
