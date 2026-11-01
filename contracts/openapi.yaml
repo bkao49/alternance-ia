@@ -734,6 +734,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: Aucun fournisseur d'IA configuré (`llm_not_configured`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
   /documents/{documentId}:
     parameters:
       - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -843,7 +848,8 @@ paths:
       summary: Lancer le contrôle factuel
       description: |
         Contrôle déterministe toujours ; avec `verify` = true, un second regard par modèle (via la passerelle IA)
-        s'y ajoute, seulement si le contrôle déterministe passe. Le vérificateur ne peut qu'ajouter des rejets.
+        s'y ajoute, seulement si le contrôle déterministe passe. Le vérificateur ne peut qu'ajouter des rejets ; s'il ne
+        peut pas répondre (plafond de coût, réponse invalide), le résultat contient `verifier_unavailable` (texte non vérifié).
       requestBody:
         required: true
         content:
@@ -858,8 +864,8 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        "429":
-          description: Plafond de coût IA du jour atteint (`llm_budget_exceeded`)
+        "503":
+          description: "`verify` demandé sans fournisseur d'IA configuré (`llm_not_configured`)"
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
