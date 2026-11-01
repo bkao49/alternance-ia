@@ -35,23 +35,33 @@ describe("accueil", () => {
   it("salue l'utilisateur et résume les chiffres réels", async () => {
     await signedInApp();
     expect(screen.getByRole("heading", { level: 1, name: "Bonjour Demo." })).toBeInTheDocument();
-    expect(screen.getByText(/14 offres pertinentes à regarder\. Une candidature attend votre validation\./)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "14 offres pertinentes" })).toBeInTheDocument();
+    expect(screen.getByText(/10 offres pertinentes à regarder\. Une candidature attend votre validation\./)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "10 offres pertinentes" })).toBeInTheDocument();
   });
 
-  it("n'invente aucune activité du bot hors démonstration", async () => {
-    await signedInApp();
+  it("n'invente aucune activité du bot quand rien n'a été collecté", async () => {
+    await signedInApp((request) =>
+      request.url.endsWith("/bot/status") ? Response.json({ sources: [], activity: [] }) : undefined,
+    );
     const bot = screen.getByRole("region", { name: "Le bot" });
     expect(bot).toHaveTextContent("Aucune collecte pour l'instant");
     expect(within(bot).queryByRole("list")).not.toBeInTheDocument();
   });
 
-  it("garde l'écran des offres annoncé mais inactif tant qu'il n'existe pas", async () => {
+  it("montre l'activité réelle du bot et ses sources bloquées", async () => {
+    await signedInApp();
+    const bot = await screen.findByRole("region", { name: "Le bot travaille" });
+    expect(within(bot).getByRole("list", { name: "Dernières actions du bot" })).toHaveTextContent("38 offres lues, 2 nouvelles");
+    expect(within(bot).getByRole("list", { name: "Sources à surveiller" })).toHaveTextContent("site_carrieres : bloquée");
+    expect(bot).toHaveTextContent(/prochaine collecte, dans \d h \d\d min/);
+  });
+
+  it("propose l'écran des offres depuis la barre latérale et le grand chiffre", async () => {
     await signedInApp();
     const nav = screen.getByRole("navigation", { name: "Navigation principale" });
-    expect(within(nav).getByRole("link", { name: "Candidatures" })).toHaveAttribute("href", "#candidatures");
-    expect(within(nav).queryByRole("link", { name: /Offres/ })).not.toBeInTheDocument();
-    expect(within(nav).getByText("bientôt")).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Offres" })).toHaveAttribute("href", "#offres");
+    expect(within(nav).queryByText("bientôt")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /10 offres pertinentes/ })).toHaveAttribute("href", "#offres");
   });
 });
 

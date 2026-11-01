@@ -11,7 +11,7 @@ describe("choix d'un statut au clavier", () => {
     const row = select.closest("tr") as HTMLElement;
     await user.selectOptions(select, "Analysée");
     expect(within(row).getByText("Détectée")).toBeInTheDocument();
-    expect(requests.some((r) => r.url.endsWith("/status"))).toBe(false);
+    expect(requests.some((r) => /\/applications\/[^/]+\/status$/.test(r.url))).toBe(false);
 
     await user.click(validateMove("Cyberdyne Vision"));
     expect(await within(row).findByText("Analysée")).toBeInTheDocument();
