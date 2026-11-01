@@ -42,7 +42,7 @@ class Verdicts(BaseModel):
 
 
 def verify_with_llm(gateway: LLMGateway, user_id: str, sections: Sequence[Section], facts: Mapping[str, Fact],
-                    known_names: Iterable[str] = ()) -> list[Issue]:
+                    known_names: Iterable[str]) -> list[Issue]:
     """Rejets ajoutés par le modèle. Réponse invalide, incomplète ou passerelle en échec : un rejet
     `verifier_unavailable` (le texte n'est pas vérifié, donc pas accepté)."""
     lines = {f"{s}.{b}": (s, b, bullet) for s, section in enumerate(sections) for b, bullet in enumerate(section.bullets)}
@@ -72,7 +72,7 @@ def verify_with_llm(gateway: LLMGateway, user_id: str, sections: Sequence[Sectio
 
 
 def full_check(gateway: LLMGateway, user_id: str, sections: Sequence[Section], facts: Mapping[str, Fact],
-               extra_names: Iterable[str] = (), known_names: Iterable[str] = ()) -> CheckResult:
+               known_names: Iterable[str], extra_names: Iterable[str] = ()) -> CheckResult:
     """Contrôle déterministe d'abord ; le vérificateur ne tourne que si ce contrôle passe (inutile de payer
     un appel pour un texte déjà bloqué)."""
     result = check_document(sections, facts, extra_names)

@@ -1482,7 +1482,7 @@ components:
         code:
           type: string
           enum: [no_fact_ids, unknown_fact, unvalidated_fact, number_not_in_facts, date_not_in_facts,
-                 name_not_in_facts, technology_not_in_facts, degree_not_in_facts, verifier_rejected,
+                 name_not_in_facts, technology_not_in_facts, degree_not_in_facts, invalid_characters, verifier_rejected,
                  verifier_unavailable]
         message: { type: string, description: "Raison du rejet, en français" }
     FactCheck:
