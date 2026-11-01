@@ -242,3 +242,14 @@ def test_no_criteria_means_no_score(user):
     with db.user_scope(user) as conn:
         assert score_offer(conn, user, add_posting(conn, user)) is None
         assert conn.execute(text("SELECT count(*) FROM scores")).scalar_one() == 0
+
+
+def test_unvalidated_facts_are_never_used_by_the_score(user):
+    with db.user_scope(user) as conn:
+        facts = setup_user(conn, user)
+        conn.execute(text("UPDATE profile_facts SET status = 'proposed'"))
+        result = score_offer(conn, user, add_posting(conn, user), today=dt.date(2026, 10, 30))
+        cited = conn.execute(text("SELECT criteria FROM scores")).scalar_one()
+        conn.execute(text("UPDATE profile_facts SET status = 'validated' WHERE id = :i"), {"i": facts["experience"]})
+        after = score_offer(conn, user, add_posting(conn, user, title="Data analyst 2"), today=dt.date(2026, 10, 30))
+    assert all(c["fact_ids"] == [] for c in cited) and result.coverage < after.coverage

@@ -8,7 +8,7 @@ from psycopg import errors
 EXPECTED_TABLES = {
     "users", "profile_facts", "job_postings", "analyses", "scores", "applications",
     "status_definitions", "events", "tasks", "llm_calls", "search_preferences",
-    "llm_cache", "source_settings", "jobs",
+    "llm_cache", "source_settings", "jobs", "cv_documents", "cv_uploads",
 }
 # Journal du plafond de coût : l'application ne peut pas en supprimer de lignes (migration 0005).
 APPEND_ONLY = {"llm_calls"}
@@ -41,6 +41,9 @@ SEED = [
                            "VALUES (%(uid)s, '{data}') RETURNING user_id")),
     ("llm_cache", ("INSERT INTO llm_cache (user_id, input_hash, response_text) "
                   "VALUES (%(uid)s, 'h', 'r') RETURNING user_id")),
+    ("cv_documents", ("INSERT INTO cv_documents (user_id, original_name, file_type, size_bytes, content) "
+                      "VALUES (%(uid)s, 'cv.pdf', 'pdf', 1, 'x'::bytea) RETURNING user_id")),
+    ("cv_uploads", "INSERT INTO cv_uploads (user_id) VALUES (%(uid)s) RETURNING user_id",),
     ("source_settings", ("INSERT INTO source_settings (user_id, source) "
                         "VALUES (%(uid)s, 'lba') RETURNING user_id")),
     ("jobs", "INSERT INTO jobs (user_id, kind, source) VALUES (%(uid)s, 'collect', 'lba') RETURNING id"),

@@ -205,7 +205,10 @@ def score_offer(conn: Connection, user_id: str, posting_id: str, *, weights: Map
         record_discard(conn, user_id, posting_id, outcome)
         return ScoreResult(0.0, "high", 1.0, [], list(outcome.reasons), "Offre écartée par un filtre dur.")
     keywords = conn.execute(text("SELECT keywords FROM search_preferences")).scalar_one()
-    facts = conn.execute(text("SELECT id, kind, text, technologies FROM profile_facts")).mappings().all()
+    # Jamais un fait non relu : seuls les faits validés par l'utilisateur comptent.
+    facts = conn.execute(
+        text("SELECT id, kind, text, technologies FROM profile_facts WHERE status = 'validated'")
+    ).mappings().all()
     components = build_components(posting["title"], extraction, criteria, keywords, facts, outcome)
     check_fact_ids(components, {str(f["id"]) for f in facts})
     reasons = [c.reason for c in outcome.checks if c.name in outcome.violated_mandatory]

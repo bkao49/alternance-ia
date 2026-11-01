@@ -15,7 +15,8 @@ router = APIRouter(tags=["profile"])
 
 FactKind = Literal["experience", "education", "project", "skill", "certification", "language", "other"]
 MAX_FACTS = 500
-COLUMNS = "id, kind, text, start_date, end_date, technologies, source, created_at"
+FactStatus = Literal["proposed", "validated"]
+COLUMNS = "id, kind, text, start_date, end_date, technologies, source, created_at, status"
 ORDER = "ORDER BY start_date DESC NULLS LAST, created_at DESC, id"
 
 
@@ -50,6 +51,7 @@ class FactOut(FactIn):
 
     id: uuid.UUID
     created_at: dt.datetime
+    status: FactStatus
 
 
 def _not_found() -> ApiError:
@@ -57,11 +59,13 @@ def _not_found() -> ApiError:
 
 
 @router.get("/profile/facts", response_model=list[FactOut], operation_id="listProfileFacts")
-def list_facts(kind: FactKind | None = None, session: Session = Depends(current_session)):
+def list_facts(kind: FactKind | None = None, status: FactStatus | None = None,
+               session: Session = Depends(current_session)):
     with user_scope(session.user_id) as conn:
         rows = conn.execute(
-            text(f"SELECT {COLUMNS} FROM profile_facts WHERE CAST(:kind AS text) IS NULL OR kind = :kind {ORDER}"),
-            {"kind": kind},
+            text(f"SELECT {COLUMNS} FROM profile_facts WHERE (CAST(:kind AS text) IS NULL OR kind = :kind) "
+                 f"AND (CAST(:status AS text) IS NULL OR status = :status) {ORDER}"),
+            {"kind": kind, "status": status},
         ).mappings().all()
     return [dict(r) for r in rows]
 
@@ -71,7 +75,7 @@ def create_fact(body: FactIn, session: Session = Depends(require_csrf)):
     with user_scope(session.user_id) as conn:
         # Verrou par utilisateur : deux ajouts simultanés ne dépassent pas la limite.
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('facts:' || :uid, 0))"), {"uid": session.user_id})
-        if conn.execute(text("SELECT count(*) FROM profile_facts")).scalar() >= MAX_FACTS:
+        if conn.execute(text("SELECT count(*) FROM profile_facts WHERE status = 'validated'")).scalar() >= MAX_FACTS:
             raise ApiError(409, "too_many_facts", f"{MAX_FACTS} faits au plus")
         row = conn.execute(
             text("INSERT INTO profile_facts (user_id, kind, text, start_date, end_date, technologies, source) "
@@ -102,3 +106,30 @@ def delete_fact(fact_id: uuid.UUID, session: Session = Depends(require_csrf)) ->
         deleted = conn.execute(text("DELETE FROM profile_facts WHERE id = :id"), {"id": str(fact_id)}).rowcount
     if not deleted:
         raise _not_found()
+
+
+@router.post("/profile/facts/{fact_id}/validate", response_model=FactOut, operation_id="validateProfileFact")
+def validate_fact(fact_id: uuid.UUID, session: Session = Depends(require_csrf)):
+    with user_scope(session.user_id) as conn:
+        conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('facts:' || :uid, 0))"), {"uid": session.user_id})
+        if conn.execute(text("SELECT count(*) FROM profile_facts WHERE status = 'validated'")).scalar() >= MAX_FACTS:
+            raise ApiError(409, "too_many_facts", f"{MAX_FACTS} faits au plus")
+        row = conn.execute(
+            text(f"UPDATE profile_facts SET status = 'validated' WHERE id = :id RETURNING {COLUMNS}"),
+            {"id": str(fact_id)},
+        ).mappings().first()
+    if row is None:
+        raise _not_found()
+    return dict(row)
+
+
+@router.post("/profile/facts/{fact_id}/reject", status_code=204, operation_id="rejectProfileFact")
+def reject_fact(fact_id: uuid.UUID, session: Session = Depends(require_csrf)) -> None:
+    with user_scope(session.user_id) as conn:
+        deleted = conn.execute(
+            text("DELETE FROM profile_facts WHERE id = :id AND status = 'proposed'"), {"id": str(fact_id)}
+        ).rowcount
+        if not deleted:
+            if conn.execute(text("SELECT 1 FROM profile_facts WHERE id = :id"), {"id": str(fact_id)}).first():
+                raise ApiError(409, "already_validated", "Ce fait est déjà validé : supprimez-le plutôt")
+            raise _not_found()

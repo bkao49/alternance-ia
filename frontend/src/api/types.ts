@@ -12,3 +12,4 @@ export type Me = Schemas["Me"];
 export type SearchPreferences = Schemas["SearchPreferences"];
 export type ProfileFact = Schemas["ProfileFact"];
 export type ProfileFactInput = Schemas["ProfileFactInput"];
+export type ProfileCv = Schemas["ProfileCv"];
