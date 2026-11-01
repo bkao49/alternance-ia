@@ -37,7 +37,7 @@ def upgrade() -> None:
         draft_id uuid NOT NULL,
         number integer NOT NULL CHECK (number >= 1),
         origin text NOT NULL CHECK (origin IN ('generated','edited','restored')),
-        content jsonb NOT NULL CHECK (jsonb_typeof(content) = 'array' AND pg_column_size(content) <= 400000),
+        content jsonb NOT NULL CHECK (jsonb_typeof(content) = 'array' AND pg_column_size(content) <= 2000000),
         created_at timestamptz NOT NULL DEFAULT now(),
         UNIQUE (draft_id, number),
         FOREIGN KEY (user_id, draft_id) REFERENCES document_drafts (user_id, id) ON DELETE CASCADE)""")

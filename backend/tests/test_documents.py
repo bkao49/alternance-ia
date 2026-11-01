@@ -187,3 +187,15 @@ def test_reads_and_writes_need_a_session(application):
     anonymous = TestClient(application, base_url="https://testserver")
     assert anonymous.get("/documents").status_code == 401
     assert anonymous.post("/documents/generate", json={"kind": "cv", "offer_id": None}).status_code == 401
+
+
+def test_save_is_bounded_and_never_a_server_error(alice, application, ready):
+    use_model(application, GOOD)
+    draft = generate(alice, ready).json()
+    big = [{"texte": "é" * 600, "fact_ids": [draft["sections"][0]["bullets"][0]["fact_ids"][0]] * 20}] * 30
+    too_many = alice.put(f"/documents/{draft['id']}", {"base_version": 1, "sections": [
+        {"section": f"S{i}", "bullets": big} for i in range(12)]})
+    assert too_many.status_code == 422
+    biggest = alice.put(f"/documents/{draft['id']}", {"base_version": 1, "sections": [
+        {"section": f"S{i}", "bullets": big[:12 if i < 12 else 0]} for i in range(12)]})
+    assert biggest.status_code == 200  # 144 lignes de 600 caractères : accepté, stocké
