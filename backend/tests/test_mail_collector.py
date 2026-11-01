@@ -81,7 +81,7 @@ def test_same_offer_in_two_emails_is_one_offer():
     assert len(result.offers) == 2 and result.duplicates == 2
 
 
-def test_senders_outside_the_allowlist_are_ignored_and_left_unread():
+def test_senders_outside_the_allowlist_are_ignored_and_not_reread():
     html = fixture("indeed")
     box = FakeMailbox(
         message("1", "alerte@evil.test", html),
@@ -90,19 +90,43 @@ def test_senders_outside_the_allowlist_are_ignored_and_left_unread():
         message("4", "alerte@indeed.com, autre@evil.test", html),  # deux expéditeurs
     )
     result = EmailCollector(box).collect(QUERY)
-    assert result.offers == [] and box.marked == []
+    assert result.offers == [] and box.marked == ["1", "2", "3", "4"]  # écartés, marqués lus, jamais supprimés
 
 
 def test_forged_sender_without_authentication_is_ignored():
     html = fixture("indeed")
     forged = "mx.example.test; dkim=pass header.d=evil.test; dmarc=fail"
     box = FakeMailbox(message("1", "alerte@indeed.com", html, auth=forged), message("2", "alerte@indeed.com", html, auth=""))
-    assert EmailCollector(box).collect(QUERY).offers == [] and box.marked == []
+    assert EmailCollector(box).collect(QUERY).offers == [] and box.marked == ["1", "2"]
     signed = "mx.example.test; dkim=pass header.d=mail.indeed.com"
     box = FakeMailbox(message("3", "alerte@indeed.com", html, auth=signed))
     assert len(EmailCollector(box).collect(QUERY).offers) == 2
     unchecked = FakeMailbox(message("4", "alerte@indeed.com", html, auth=""))
     assert len(EmailCollector(unchecked, require_auth=False).collect(QUERY).offers) == 2
+
+
+def test_header_added_by_the_sender_is_not_trusted(monkeypatch):
+    html = fixture("indeed")
+    raw = raw_mail("alerte@indeed.com", html, auth="mx.example.test; dmarc=fail")
+    extra = b"Authentication-Results: x; dmarc=pass" + bytes([13, 10])
+    forged = parse_message("1", raw.replace(b"Authentication-Results:", extra + b"Authentication-Results:", 1))
+    assert forged.auth_results[0].startswith("x;")  # en-tête de l'expéditeur placé en tête
+    monkeypatch.setenv("EMAIL_ALERTS_AUTHSERV_ID", "mx.example.test")
+    assert EmailCollector(FakeMailbox(forged)).collect(QUERY).offers == []  # seul l'en-tête de NOTRE serveur compte
+    assert len(EmailCollector(FakeMailbox(message("2", "alerte@indeed.com", html))).collect(QUERY).offers) == 2
+
+
+def test_stale_template_is_discarded_without_error(caplog):
+    box = FakeMailbox(message("1", "alerte@indeed.com", "<p>aucune carte</p>"))
+    assert EmailCollector(box).collect(QUERY).error is None and box.marked == ["1"]
+    assert "gabarit" in caplog.text
+
+
+def test_absurdly_nested_html_does_not_stop_the_scan():
+    nested = "<div>" * 5000 + fixture("indeed")
+    box = FakeMailbox(message("1", "alerte@indeed.com", nested), message("2", "alerte@indeed.com", fixture("indeed")))
+    result = EmailCollector(box).collect(QUERY)
+    assert result.error is None and len(result.offers) >= 2 and box.marked == ["1", "2"]
 
 
 def test_trap_email_is_only_data():
@@ -157,6 +181,7 @@ class FakeImap:
 
     def select(self, folder):
         self.commands.append("SELECT")
+        return "OK", [b"1"]
 
     def search(self, charset, *criteria):
         self.commands.append(("SEARCH", criteria))
@@ -186,6 +211,29 @@ def test_imap_client_only_reads_and_flags_seen():
     assert stores == [("STORE", "+FLAGS", "(\\Seen)")]
     assert not any("EXPUNGE" in str(c).upper() or "DELETE" in str(c).upper() for c in commands)
     assert sum(1 for c in commands if isinstance(c, tuple) and c[0] == "SEARCH") == 1  # domaine douteux sauté
+
+
+def test_imap_reads_newest_first_and_survives_an_unreadable_email():
+    class Mixed(FakeImap):
+        def search(self, charset, *criteria):
+            return "OK", [b"3 9 5" if criteria[2] == '"indeed.com"' else b""]
+
+        def fetch(self, uid, what):
+            if what != "(RFC822.SIZE)" and uid == b"9":
+                return "OK", [(b"9 (BODY[] {1}", bytes([255]))]  # sans en-têtes : lisible mais vide
+            return super().fetch(uid, what)
+
+    client = ImapMailClient("imap.example.test", "boite@example.test", "mdp-fictif", factory=Mixed)
+    assert [m.uid for m in client.unseen(["indeed.com"], 2)] == ["9", "5"]
+
+
+def test_missing_folder_closes_the_connection_cleanly():
+    class NoFolder(FakeImap):
+        def select(self, folder):
+            return "NO", [b"inconnu"]
+
+    with pytest.raises(CollectorError):
+        ImapMailClient("imap.example.test", "boite@example.test", "mdp-fictif", factory=NoFolder)
 
 
 def test_imap_errors_never_leak_the_password():

@@ -82,7 +82,7 @@ def domain_matches(host: str, domains: Sequence[str]) -> bool:
 class MailMessage:
     uid: str
     sender: str  # adresse de l'unique en-tête From, en minuscules ; "" si absente ou ambiguë
-    auth_results: str  # en-tête Authentication-Results le plus récent (ajouté par notre serveur)
+    auth_results: tuple[str, ...]  # en-têtes Authentication-Results, le plus récent d'abord
     html: str
 
 
@@ -92,10 +92,10 @@ def parse_message(uid: str, raw: bytes) -> MailMessage:
     froms = msg.get_all("From") or []
     addresses = getaddresses([str(f) for f in froms])
     sender = addresses[0][1].lower() if len(froms) == 1 and len(addresses) == 1 else ""
-    auth = msg.get_all("Authentication-Results") or [""]
+    auth = tuple(str(a) for a in msg.get_all("Authentication-Results") or [])
     part = msg.get_body(preferencelist=("html",))
     html = part.get_content() if part is not None else ""
-    return MailMessage(uid, sender, str(auth[0]), html if isinstance(html, str) else "")
+    return MailMessage(uid, sender, auth, html if isinstance(html, str) else "")
 
 
 class MailClient(Protocol):
@@ -118,10 +118,13 @@ class ImapMailClient:
             factory = factory or imaplib.IMAP4_SSL
             self.imap = factory(host, port, ssl_context=ssl.create_default_context(), timeout=30)
             self.imap.login(user, password)
-            self.imap.select(folder)
+            if self.imap.select(folder)[0] != "OK":
+                raise imaplib.IMAP4.error("dossier introuvable")
         except imaplib.IMAP4.error:  # le message du serveur peut citer l'identifiant : pas repris
+            self.close()
             raise CollectorError("email", "identifiants IMAP refusés") from None
         except (OSError, ssl.SSLError) as exc:
+            self.close()
             raise NetworkError("email", "connexion IMAP impossible") from exc
 
     def unseen(self, sender_domains: Sequence[str], limit: int) -> Iterator[MailMessage]:
@@ -131,14 +134,22 @@ class ImapMailClient:
                 continue  # jamais de caractère d'injection dans la commande SEARCH
             _, data = self.imap.search(None, "UNSEEN", "FROM", f'"{domain}"')
             uids += data[0].split() if data and data[0] else []
-        for uid in sorted(set(uids), key=int)[:limit]:
+        # Les plus récents d'abord : d'anciens e-mails écartés ne bloquent pas les alertes à venir.
+        for uid in sorted(set(uids), key=int, reverse=True)[:limit]:
             _, size = self.imap.fetch(uid, "(RFC822.SIZE)")
             found = re.search(rb"RFC822\.SIZE (\d+)", size[0] if isinstance(size[0], bytes) else b"")
             if not found or int(found.group(1)) > MAX_MESSAGE_BYTES:
-                continue  # trop gros ou illisible : laissé tel quel dans la boîte
+                self.mark_processed(uid.decode())  # trop gros : écarté (marqué lu, jamais supprimé)
+                continue
             _, data = self.imap.fetch(uid, "(BODY.PEEK[])")
             if data and isinstance(data[0], tuple):
-                yield parse_message(uid.decode(), data[0][1])
+                try:
+                    message = parse_message(uid.decode(), data[0][1])
+                except Exception as exc:  # noqa: BLE001 (e-mail illisible : écarté seul, rien n'est repris)
+                    log.warning("collector=email e-mail illisible écarté (%s)", type(exc).__name__)
+                    self.mark_processed(uid.decode())
+                    continue
+                yield message
 
     def mark_processed(self, uid: str) -> None:
         self.imap.store(uid, "+FLAGS", "(\\Seen)")
@@ -146,7 +157,7 @@ class ImapMailClient:
     def close(self) -> None:
         try:
             self.imap.logout()  # pas de EXPUNGE ni de CLOSE : rien n'est jamais purgé
-        except (OSError, imaplib.IMAP4.error):
+        except (AttributeError, OSError, imaplib.IMAP4.error):
             pass
 
 
@@ -173,6 +184,7 @@ class EmailCollector(Collector):
         env = os.environ
         self.require_auth = (env.get("EMAIL_ALERTS_REQUIRE_AUTH", "true").lower() != "false"
                              if require_auth is None else require_auth)
+        self.authserv_id = env.get("EMAIL_ALERTS_AUTHSERV_ID", "").strip().lower()
         # Domaines d'envoi réglables par site (EMAIL_ALERTS_DOMAINS_INDEED=indeed.com,mail.indeed.com).
         self.templates = tuple(
             replace(t, domains=tuple(d.strip().lower() for d in custom.split(",") if d.strip()) or t.domains)
@@ -201,7 +213,12 @@ class EmailCollector(Collector):
         """DMARC réussi, ou DKIM réussi signé par le domaine de l'expéditeur (un From se falsifie)."""
         if not self.require_auth:
             return True
-        results = message.auth_results.lower()
+        # Seul l'en-tête ajouté par NOTRE serveur compte : le plus récent, ou celui dont l'identifiant de
+        # serveur (premier mot) est EMAIL_ALERTS_AUTHSERV_ID. Un en-tête posé par l'expéditeur est ignoré.
+        headers = message.auth_results
+        if self.authserv_id:
+            headers = tuple(h for h in headers if h.split(";", 1)[0].strip().lower() == self.authserv_id)
+        results = headers[0].lower() if headers else ""
         if re.search(r"\bdmarc=pass\b", results):
             return True
         signer = re.search(r"\bdkim=pass\b[^;]*header\.d=([a-z0-9.-]+)", results)
@@ -216,12 +233,18 @@ class EmailCollector(Collector):
             for message in client.unseen(domains, MAX_MESSAGES):
                 template = self._template(message)
                 if template is None:
-                    log.info("collector=email e-mail ignoré (expéditeur non reconnu ou non authentifié)")
-                    continue  # laissé non lu, jamais touché
-                soup = BeautifulSoup(message.html, "html.parser")
-                for card in soup.select(template.card)[:MAX_OFFERS_PER_MESSAGE]:
+                    log.info("collector=email e-mail écarté (expéditeur non reconnu ou non authentifié)")
+                    client.mark_processed(message.uid)  # marqué lu pour ne pas être relu ; jamais supprimé
+                    continue
+                try:
+                    cards = BeautifulSoup(message.html, "html.parser").select(template.card)
+                except RecursionError:  # HTML imbriqué à l'excès : écarté seul
+                    cards = []
+                if not cards:
+                    log.warning("collector=email aucun résultat avec le gabarit %s (gabarit périmé ?)", template.name)
+                for card in cards[:MAX_OFFERS_PER_MESSAGE]:
                     title_node = card.select_one(template.title)
-                    link = title_node if title_node is not None and title_node.get("href")                         else card.select_one(template.link)
+                    link = title_node if title_node is not None and title_node.get("href") else card.select_one(template.link)
                     yield {
                         "site": template.name, "domains": template.domains,
                         "title": _text(card, template.title), "company": _text(card, template.company),
