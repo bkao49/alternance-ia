@@ -21,11 +21,11 @@ const ORIGIN = { generated: "générée", edited: "modifiée", restored: "restau
 const short = (text: string) => (text.length > 70 ? `${text.slice(0, 67)}…` : text);
 
 /** Une ligne en cours d'édition : `manual` = écrite ici, elle deviendra un fait à valider à l'enregistrement. */
-type Line = { texte: string; fact_ids: string[]; manual: boolean };
+type Line = { texte: string; base: string; fact_ids: string[]; manual: boolean };
 type Block = { section: string; lines: Line[] };
 
 const toBlocks = (draft: DocumentDraft): Block[] =>
-  draft.sections.map((s) => ({ section: s.section, lines: s.bullets.map((b) => ({ texte: b.texte, fact_ids: b.fact_ids, manual: false })) }));
+  draft.sections.map((s) => ({ section: s.section, lines: s.bullets.map((b) => ({ texte: b.texte, base: b.texte, fact_ids: b.fact_ids, manual: false })) }));
 
 const failureText = (failure: unknown) => (failure instanceof Error ? failure.message : "Action impossible");
 
@@ -102,7 +102,10 @@ export function PreparePage({ offerId }: { offerId: string }) {
   function choose(which: Target) {
     setTarget(which);
     setProblem(null);
-    open(which, summaries).catch((failure) => setProblem(failureText(failure)));
+    setBusy(true); // pendant la lecture, rien d'autre n'est actionnable : pas de réponse obsolète affichée
+    open(which, summaries)
+      .catch((failure) => setProblem(failureText(failure)))
+      .finally(() => setBusy(false));
   }
 
   async function act(work: () => Promise<void>) {
@@ -165,8 +168,10 @@ export function PreparePage({ offerId }: { offerId: string }) {
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = target === "cover_letter" ? "lettre.pdf" : "cv.pdf";
+      document.body.append(link);
       link.click();
-      URL.revokeObjectURL(link.href);
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     });
 
   const edit = (b: number, l: number, change: Partial<Line>) =>
@@ -183,7 +188,7 @@ export function PreparePage({ offerId }: { offerId: string }) {
   const remove = (b: number, l: number) =>
     setBlocks((before) => before.map((block, i) => (i === b ? { ...block, lines: block.lines.filter((_, j) => j !== l) } : block)));
   const add = (b: number) =>
-    setBlocks((before) => before.map((block, i) => (i === b ? { ...block, lines: [...block.lines, { texte: "", fact_ids: [], manual: true }] } : block)));
+    setBlocks((before) => before.map((block, i) => (i === b ? { ...block, lines: [...block.lines, { texte: "", base: "", fact_ids: [], manual: true }] } : block)));
 
   if (phase === "loading") return <p role="status">Chargement…</p>;
   if (phase === "error") {
@@ -228,7 +233,7 @@ export function PreparePage({ offerId }: { offerId: string }) {
             <button type="button" disabled={busy || dirty || !check?.ok} onClick={() => void verify()}>
               Faire relire par l'IA
             </button>
-            <button type="button" disabled={busy || dirty || !draft.check.ok} onClick={() => void exportPdf()}>
+            <button type="button" disabled={busy || dirty || !check?.ok} onClick={() => void exportPdf()}>
               Exporter en PDF
             </button>
           </>
@@ -295,6 +300,7 @@ export function PreparePage({ offerId }: { offerId: string }) {
                             );
                           })
                         )}
+                        {!line.manual && line.texte !== line.base && <span className="chip">Texte modifié : fait à revérifier</span>}
                         {!dirty && diff && !line.manual && (
                           <span className="muted">{diff.status === "same" ? "Identique au CV maître" : `Reformulée. CV maître : ${short(diff.master_text)}`}</span>
                         )}

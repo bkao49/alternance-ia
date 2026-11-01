@@ -96,6 +96,21 @@ describe("préparation d'une candidature", () => {
     click.mockRestore();
   });
 
+  it("n'exporte pas un texte que la relecture par l'IA vient de rejeter", async () => {
+    const rejected = { ok: false, verified: true, issues: [{ section: 0, bullet: 0, code: "verifier_rejected", message: "Ajout non écrit" }] };
+    const user = await signedInApp(
+      (request) => (request.url.endsWith("/check") ? new Response(JSON.stringify(rejected), { status: 200, headers: { "Content-Type": "application/json" } }) : undefined),
+      { facts: FACTS },
+    );
+    window.location.hash = "#preparer/offer-extra-1";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await user.click(await screen.findByRole("button", { name: "Générer" }));
+    await screen.findByText(/tout est justifié/);
+    await user.click(screen.getByRole("button", { name: "Faire relire par l'IA" }));
+    expect(await screen.findByText(/1 ligne rejetée/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Exporter en PDF" })).toBeDisabled();
+  });
+
   it("propose la lettre et le CV général", async () => {
     const user = await openPreparation();
     await user.click(screen.getByRole("button", { name: "Lettre de motivation" }));
