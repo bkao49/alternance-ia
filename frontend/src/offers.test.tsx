@@ -45,7 +45,7 @@ describe("écran des offres", () => {
     const user = await openOffers();
     const row = rows().find((r) => r.textContent?.includes("Nimbus Cloud")) as HTMLElement;
     await user.click(within(row).getByRole("button", { name: /Préparer la candidature/ }));
-    expect(await within(row).findByText("Dans vos candidatures")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Préparer la candidature" })).toBeInTheDocument(); // on passe à la rédaction
     const post = requests.find((r) => r.method === "POST" && r.url.endsWith("/applications"));
     expect(await post?.json()).toEqual({ offer_id: "offer-extra-1", initial_status: "to_prepare" });
     expect(requests.some((r) => r.url.includes("confirm-sent"))).toBe(false);

@@ -2,7 +2,7 @@ import type { Me } from "../api/types";
 import { APP_NAME } from "../brand";
 import { Logo } from "./Logo";
 
-export type Page = "home" | "offers" | "criteria" | "profile";
+export type Page = "home" | "offers" | "criteria" | "profile" | "prepare";
 
 export function Sidebar({ user, page, onSignOut }: { user: Me; page: Page; onSignOut: () => void }) {
   return (
@@ -15,7 +15,7 @@ export function Sidebar({ user, page, onSignOut }: { user: Me; page: Page; onSig
         <a href="#accueil" aria-current={page === "home" ? "page" : undefined}>
           Accueil
         </a>
-        <a href="#offres" aria-current={page === "offers" ? "page" : undefined}>
+        <a href="#offres" aria-current={page === "offers" || page === "prepare" ? "page" : undefined}>
           Offres
         </a>
         <a href="#candidatures">Candidatures</a>

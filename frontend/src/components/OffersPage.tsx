@@ -97,7 +97,9 @@ export function OffersPage({ preparedIds, onPrepare }: Props) {
   async function prepare(offer: Offer) {
     if (busy.has(offer.id)) return;
     setBusy((before) => new Set(before).add(offer.id));
-    setProblem(await onPrepare(offer));
+    const failed = await onPrepare(offer);
+    setProblem(failed);
+    if (failed === null) window.location.assign(`#preparer/${offer.id}`);
     setBusy((before) => {
       const next = new Set(before);
       next.delete(offer.id);
@@ -164,7 +166,12 @@ export function OffersPage({ preparedIds, onPrepare }: Props) {
                 </div>
                 <div className="offer-action">
                   {preparedIds.has(offer.id) ? (
-                    <span className="chip">Dans vos candidatures</span>
+                    <>
+                      <span className="chip">Dans vos candidatures</span>
+                      <a className="offer-link" href={`#preparer/${offer.id}`} aria-label={`Rédiger le CV et la lettre : ${offer.title}, ${offer.company}`}>
+                        Rédiger le CV et la lettre
+                      </a>
+                    </>
                   ) : (
                     <button
                       type="button"

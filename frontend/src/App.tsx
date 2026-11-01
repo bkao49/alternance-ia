@@ -6,7 +6,11 @@ import type { Page } from "./components/Sidebar";
 import { useSession } from "./hooks";
 import { DEMO } from "./mock/demoInfo";
 
+/** `#preparer/<id de l'offre>` : page de préparation d'une candidature. */
+const offerOf = () => /^#preparer\/([\w-]{1,64})$/.exec(window.location.hash)?.[1];
+
 const pageOf = (): Page => {
+  if (offerOf()) return "prepare";
   if (window.location.hash === "#offres") return "offers";
   if (window.location.hash === "#criteres") return "criteria";
   return window.location.hash === "#profil" ? "profile" : "home";
@@ -15,9 +19,13 @@ const pageOf = (): Page => {
 export default function App() {
   const { user, login, logout } = useSession();
   const [page, setPage] = useState<Page>(pageOf);
+  const [offerId, setOfferId] = useState(offerOf);
 
   useEffect(() => {
-    const onHash = () => setPage(pageOf());
+    const onHash = () => {
+      setPage(pageOf());
+      setOfferId(offerOf());
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -32,5 +40,5 @@ export default function App() {
   if (user === undefined) return <p role="status" className="boot">Chargement…</p>;
   // Comparaison écrite en ligne : le build de production la remplace par `false` et retire la démo.
   if (user === null) return <LoginPage onLogin={login} demo={import.meta.env.MODE === "mock" ? DEMO : undefined} />;
-  return <Dashboard user={user} page={page} onLogout={logout} />;
+  return <Dashboard user={user} page={page} offerId={offerId} onLogout={logout} />;
 }
