@@ -35,6 +35,9 @@ def latin(value: str) -> str:
     value = unicodedata.normalize("NFC", value).translate(REPLACEMENTS)
     out = []
     for char in value:
+        if unicodedata.category(char) == "Cc":  # caractères de contrôle : valides en cp1252 mais illisibles
+            out.append(" ")
+            continue
         try:
             char.encode("cp1252")
             out.append(char)

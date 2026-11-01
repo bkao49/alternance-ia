@@ -67,6 +67,7 @@ def test_letter_has_paragraphs_without_headings_or_dashes():
 
 def test_unsupported_characters_degrade_instead_of_breaking():
     assert latin("→ ≥ ✓ ü ñ") == "-> >= ? ü ñ"
+    assert latin("abc") == "a b c"  # pas de carré ni de caractère invisible dans le texte extrait
     assert words(render_pdf("cv", sections("日本語 et français")))  # pas d'exception
 
 
