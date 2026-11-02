@@ -5,10 +5,13 @@ répondent « fournisseur non configuré » au lieu de planter. La clé n'est ja
 """
 
 import functools
+import logging
 import os
 
 from app.ai.gateway.claude import ClaudeProvider, ModelSpec
 from app.ai.gateway.gateway import LLMGateway
+
+log = logging.getLogger(__name__)
 
 # Tarifs en euros par million de jetons. À REVÉRIFIER sur anthropic.com/pricing (valeurs prudentes,
 # dollars comptés comme des euros) ; modifiables par ANTHROPIC_EUR_PER_MTOK_{FAST,QUALITY}_{IN,OUT}.
@@ -54,4 +57,8 @@ def build_gateway() -> LLMGateway | None:
 @functools.cache
 def shared_gateway() -> LLMGateway | None:
     """Une seule passerelle par processus. Les tests vident le cache avec `shared_gateway.cache_clear()`."""
-    return build_gateway()
+    try:
+        return build_gateway()
+    except RuntimeError:  # réglage invalide : l'IA reste désactivée au lieu de faire planter le worker ou l'API
+        log.error("réglage de l'IA invalide : IA désactivée (lancez « docker compose run --rm doctor »)")
+        return None

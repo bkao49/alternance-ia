@@ -19,13 +19,13 @@ from app.db import user_scope
 log = logging.getLogger(__name__)
 
 PASS_LIMIT = 100  # offres traitées par passe : le reste attend la passe suivante
-MAX_PROVIDER_FAILURES = 3  # panne du fournisseur : on arrête la passe au lieu d'insister offre après offre
+MAX_PROVIDER_FAILURES = 2  # panne du fournisseur : on arrête la passe au lieu d'insister offre après offre
 BUDGET_CODE = "llm_budget_exceeded"
 TRANSIENT_CODES = {"llm_error", "provider_not_allowed"}  # sinon : le modèle a répondu, mais de façon invalide
 
 PENDING_SQL = (
     "SELECT p.id FROM job_postings p WHERE NOT p.expired "
-    "AND NOT EXISTS (SELECT 1 FROM scores s WHERE s.job_posting_id = p.id) ORDER BY p.detected_at, p.id LIMIT :n")
+    "AND NOT EXISTS (SELECT 1 FROM scores s WHERE s.job_posting_id = p.id) ORDER BY random() LIMIT :n")
 
 
 @dataclass
@@ -89,7 +89,9 @@ def analyse_user_offers(gateway: LLMGateway | None, user_id: str, limit: int = P
                 # pas la repayer à chaque collecte.
             provider_failures = 0
             with user_scope(user_id) as conn:
-                score_offer(conn, user_id, posting_id)
+                scored = score_offer(conn, user_id, posting_id)
+            if scored is None:  # offre disparue ou critères retirés entre-temps
+                continue
             result.scored += 1
         except Exception as exc:  # noqa: BLE001 (une offre en bogue ne bloque pas les autres)
             log.error("analyse d'une offre en échec (%s)", type(exc).__name__)  # type seulement
