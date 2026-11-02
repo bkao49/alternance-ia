@@ -20,6 +20,7 @@ from app.ai.gateway.provider import DataKind, LLMProvider, ProviderRequest, Prov
 log = logging.getLogger(__name__)
 
 API_URL = "https://api.anthropic.com/v1/messages"
+MODELS_URL = "https://api.anthropic.com/v1/models"
 API_VERSION = "2023-06-01"
 TIMEOUT_SECONDS = 90.0  # une génération de CV (3000 jetons) peut durer une minute
 MAX_RETRIES = 2  # deux nouvelles tentatives au plus, donc trois appels
@@ -122,3 +123,19 @@ def _retry_after(reply: httpx.Response, default: float) -> float:
         return min(max(float(reply.headers.get("retry-after", "")), 0.0), RETRY_MAX_SECONDS)
     except ValueError:
         return default
+
+
+def check_api_key(api_key: str, transport: httpx.BaseTransport | None = None) -> str | None:
+    """Vérifie la clé sans générer de texte ni dépenser de jeton (liste d'un modèle). None si elle est
+    acceptée, sinon une phrase courte et fixe. Aucune génération ici : elles passent par la passerelle."""
+    try:
+        with httpx.Client(transport=transport, timeout=15.0) as client:
+            reply = client.get(MODELS_URL, params={"limit": 1},
+                               headers={"x-api-key": api_key, "anthropic-version": API_VERSION})
+    except httpx.TransportError:
+        return "le service Anthropic ne répond pas (réseau ?)"
+    if reply.status_code == 200:
+        return None
+    if reply.status_code in (401, 403):
+        return "clé refusée par Anthropic : vérifiez-la sur console.anthropic.com"
+    return f"réponse inattendue d'Anthropic (HTTP {reply.status_code})"

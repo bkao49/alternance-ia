@@ -39,6 +39,9 @@ services:
       SECRET_KEY: "${SECRET_KEY:?SECRET_KEY est vide : générez-la (32 caractères minimum) et mettez-la dans .env}"
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       ALLOW_DEMO_DATA: ${ALLOW_DEMO_DATA:-false}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_DAILY_CAP_EUR: ${LLM_DAILY_CAP_EUR:-0.50}
     ports:
       - "127.0.0.1:${API_PORT:-8100}:8000"
     depends_on:
@@ -62,12 +65,39 @@ services:
       LBA_API_TOKEN: ${LBA_API_TOKEN:-}
       ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
       ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_DAILY_CAP_EUR: ${LLM_DAILY_CAP_EUR:-0.50}
     depends_on:
       db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
+
+  doctor:
+    # Contrôle de l'installation, à la demande : docker compose run --rm doctor (ADR 0011).
+    # Reçoit aussi le compte propriétaire de la base, pour lire la version des migrations.
+    build: ./backend
+    command: ["python", "-m", "app.doctor"]
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: "postgresql://app:${APP_DB_PASSWORD:?APP_DB_PASSWORD est vide : copiez .env.example en .env puis renseignez-le}@db:5432/app"
+      MIGRATION_DATABASE_URL: "postgresql://owner:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD est vide : copiez .env.example en .env puis renseignez-le}@db:5432/app"
+      SECRET_KEY: "${SECRET_KEY:-}"
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LBA_API_TOKEN: ${LBA_API_TOKEN:-}
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      EMAIL_ALERTS_HOST: ${EMAIL_ALERTS_HOST:-}
+      EMAIL_ALERTS_PORT: ${EMAIL_ALERTS_PORT:-}
+      EMAIL_ALERTS_USER: ${EMAIL_ALERTS_USER:-}
+      EMAIL_ALERTS_PASSWORD: ${EMAIL_ALERTS_PASSWORD:-}
+      EMAIL_ALERTS_FOLDER: ${EMAIL_ALERTS_FOLDER:-}
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   db_data:

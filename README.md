@@ -25,6 +25,23 @@ Pas à pas, sous Windows (PowerShell). Tout tourne sur votre machine ; rien n'es
 Seule l'API est joignable, et seulement depuis votre machine (`127.0.0.1`). La base n'est exposée à aucun port de l'hôte.
 Vérifié sous Windows : étapes 4 à 6 et 8 (démarrage, migrations, compte, données de démo, connexion, remise à zéro). Étape 7 : non vérifiée dans cette PR.
 
+## Premier lancement avec de vraies offres
+À faire après « Lancer en local » (étapes 1 à 5). Les clés vont dans `.env`, jamais dans git, jamais dans un message. Aucune n'est obligatoire pour démarrer : sans clé, la source ou l'IA concernée reste simplement inactive, et la commande de contrôle (étape 5) vous dit ce qui manque.
+
+1. **Clé d'IA (Claude)** : créez un compte sur console.anthropic.com, ajoutez quelques euros de crédit (Billing), puis « API keys » > « Create key ». Dans `.env` : `ANTHROPIC_API_KEY=` suivie de la clé, et `LLM_PROVIDER=anthropic`. Les modèles sont déjà choisis (Haiku pour lire les annonces, Sonnet pour les CV). Le plafond de dépense par jour est `LLM_DAILY_CAP_EUR` (0,50 € par défaut) : au plafond, le bot s'arrête proprement et reprend le lendemain.
+2. **Adzuna** (offres de toute la France) : inscrivez-vous gratuitement sur developer.adzuna.com, copiez l'« Application ID » et l'« Application Key » dans `ADZUNA_APP_ID` et `ADZUNA_APP_KEY`.
+3. **La Bonne Alternance** (offres en alternance) : créez un compte sur francetravail.io, demandez l'accès à l'API « La Bonne Alternance » (ou « Recherche d'opportunités d'emploi en alternance »), puis copiez le jeton dans `LBA_API_TOKEN`. Le délai d'obtention est de quelques jours.
+4. **Appliquer les changements** : `docker compose up -d --build` (relit `.env` et redémarre l'API et le robot).
+5. **Contrôler** :
+   ```powershell
+   docker compose run --rm doctor
+   ```
+   Chaque ligne commence par `[OK]`, `[A FAIRE]` ou `[ERREUR]` et explique quoi faire. La commande vérifie que la base répond, que les migrations sont à jour, quelles clés sont renseignées (oui ou non, jamais leur valeur) et qu'un appel de test à chaque source configurée répond. Elle ne dépense aucun jeton d'IA.
+6. **Saisir vos critères** dans l'application (« Mes critères » : mots-clés, lieu, contrats) et valider quelques faits dans « Mon profil » : sans critères, le robot ne cherche rien à votre place.
+7. **Voir travailler le robot** : `docker compose logs -f worker` (Ctrl+C pour quitter). Après chaque collecte, les nouvelles offres sont filtrées, lues par l'IA une seule fois, puis notées ; l'accueil (« Le bot ») indique combien attendent encore leur analyse.
+
+Si `doctor` signale un problème de base ou de migrations : `docker compose up -d --build`, puis `docker compose run --rm migrate`.
+
 ## Principes
 - Humain dans la boucle · aucun contournement des protections des sites · données personnelles minimisées
 - Scoring évalué sur un jeu de référence, pas seulement « à l'intuition d'un LLM »
