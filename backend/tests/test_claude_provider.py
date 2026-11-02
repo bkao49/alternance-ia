@@ -173,3 +173,12 @@ def test_gateway_logs_the_task_model_and_hides_provider_errors(user, migrated_db
     with pytest.raises(GatewayError) as error:
         failing.call(user, purpose="extract_offer", kind=DataKind.JOB_POSTING, instructions="a", data="c")
     assert KEY not in str(error.value)
+
+
+def test_invalid_settings_disable_ai_instead_of_crashing(monkeypatch):
+    from app.ai.gateway import shared_gateway
+
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")  # ancien .env.example
+    shared_gateway.cache_clear()
+    assert shared_gateway() is None
+    shared_gateway.cache_clear()

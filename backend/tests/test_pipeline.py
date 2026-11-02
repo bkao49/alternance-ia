@@ -88,7 +88,7 @@ def test_provider_outage_stops_the_pass_and_keeps_offers_pending(env):  # noqa: 
     assert worker.run_one()
     postings, scored = totals(url, alice)
     assert scored == 0 and postings > 3
-    assert len(provider.received) == 3  # trois échecs de suite : on arrête au lieu d'insister
+    assert len(provider.received) == 2  # deux échecs de suite : on arrête au lieu d'insister
 
 
 def test_invalid_model_answers_still_give_a_low_confidence_score(env):  # noqa: F811

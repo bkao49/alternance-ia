@@ -63,8 +63,13 @@ def _analysis(conn) -> dict | None:
     result = {"pending": pending}
     if not configured:
         result["paused"] = "not_configured"
-    elif daily_cap_from_env() - float(conn.execute(text(SPENT_SQL)).scalar_one()) < BUDGET_MARGIN_EUR:
-        result["paused"] = "budget"
+    else:
+        try:
+            cap = daily_cap_from_env()
+        except RuntimeError:  # plafond mal réglé : le détail est dans `doctor`, l'écran ne plante pas
+            return result
+        if cap - float(conn.execute(text(SPENT_SQL)).scalar_one()) < BUDGET_MARGIN_EUR:
+            result["paused"] = "budget"
     return result
 
 
