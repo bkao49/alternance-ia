@@ -146,3 +146,26 @@ def test_default_interval_comes_from_the_environment(alice, migrated_db, monkeyp
     add_job(migrated_db, alice.user_id, "adzuna", "done", found=1, new=0, finished=last)
     source = by_source(alice.get("/bot/status").json())["adzuna"]
     assert dt.datetime.fromisoformat(source["next_run_at"]) == last + dt.timedelta(minutes=240)
+
+
+def test_analysis_progress_is_reported_only_while_offers_wait(alice, migrated_db, contract, monkeypatch):  # noqa: F811
+    from app.ai.gateway import shared_gateway
+
+    monkeypatch.delenv("LLM_PROVIDER", raising=False)
+    shared_gateway.cache_clear()
+    assert "analysis" not in alice.get("/bot/status").json()
+    scored = add_offer(migrated_db, alice.user_id, "scored")
+    add_score(migrated_db, alice.user_id, scored, 3.0)
+    add_offer(migrated_db, alice.user_id, "waiting-1")
+    add_offer(migrated_db, alice.user_id, "waiting-2")
+    add_offer(migrated_db, alice.user_id, "old", expired=True)  # une offre expirée n'attend rien
+    status = alice.get("/bot/status").json()
+    assert_conforms(contract, "BotStatus", status)
+    assert status["analysis"] == {"pending": 2, "paused": "not_configured"}
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fausse-cle-de-test")
+    shared_gateway.cache_clear()
+    assert alice.get("/bot/status").json()["analysis"] == {"pending": 2}
+    monkeypatch.setenv("LLM_DAILY_CAP_EUR", "0")
+    assert alice.get("/bot/status").json()["analysis"] == {"pending": 2, "paused": "budget"}
+    shared_gateway.cache_clear()

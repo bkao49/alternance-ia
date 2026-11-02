@@ -1032,6 +1032,16 @@ components:
           type: array
           description: Dernières collectes, de la plus récente à la plus ancienne (10 au plus).
           items: { $ref: "#/components/schemas/BotActivity" }
+        analysis:
+          type: object
+          description: |
+            Offres qui attendent leur analyse (filtres, extraction, score) ; absent quand tout est analysé.
+            `paused` explique l'arrêt : not_configured (pas de clé d'IA) ou budget (plafond de coût du jour
+            atteint, reprise le lendemain).
+          required: [pending]
+          properties:
+            pending: { type: integer, minimum: 1 }
+            paused: { type: string, enum: [not_configured, budget] }
     BotSource:
       type: object
       required: [source, state]
