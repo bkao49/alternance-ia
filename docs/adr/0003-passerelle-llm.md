@@ -19,3 +19,10 @@ L'application appellera des modèles de langage (extraction d'annonces, brouillo
 - La pseudonymisation par motifs est un filet de sécurité, pas une garantie : n'envoyer que le strict nécessaire reste la règle (l'extraction ne voit jamais le CV).
 - Les noms à masquer doivent être fournis par l'appelant (`known_names`), car la base ne stocke pas encore le nom de l'utilisateur.
 - Le plafond mensuel global (`LLM_MONTHLY_BUDGET_EUR`) et le plafond chez le fournisseur restent à ajouter avec le premier vrai fournisseur.
+
+## Mise à jour : fournisseur Claude (2026-11-02)
+- `backend/app/ai/gateway/claude.py` appelle l'API Anthropic en HTTP direct (`httpx`, pas de SDK). Délai maximal 90 s, deux nouvelles tentatives au plus sur erreur réseau, 429, 5xx ou 529 (délai croissant, `retry-after` respecté et borné à 20 s), jamais de nouvelle tentative sur 401/403. Les erreurs ont un message fixe : ni clé, ni texte de la requête, ni corps de réponse.
+- Un modèle par tâche : `LLMProvider.for_purpose(purpose)` rend le fournisseur adapté. Génération de CV et de lettres (`generate_document`) : `claude-sonnet-5-5`. Tout le reste (extraction, vérification) : `claude-haiku-5-5`. Réglable par `ANTHROPIC_MODEL_FAST` / `ANTHROPIC_MODEL_QUALITY`. Le journal `llm_calls` note le modèle réellement utilisé.
+- Tarifs par défaut prudents, **à revérifier** sur anthropic.com/pricing (`ANTHROPIC_EUR_PER_MTOK_{FAST,QUALITY}_{IN,OUT}`).
+- Politique de données : Claude accepte les deux types (`JOB_POSTING`, `PROFILE`) et ne reçoit le profil que pseudonymisé (la passerelle pseudonymise toujours avant l'envoi). `reuses_data = False` (conditions commerciales de l'API, à revérifier).
+- `factory.py` construit la passerelle depuis `LLM_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` ; sans clé, l'IA est « non configurée » (503 côté API), sans plantage.

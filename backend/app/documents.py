@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import Connection, text
 
-from app.ai.gateway import BudgetExceeded, GatewayError, LLMGateway
+from app.ai.gateway import BudgetExceeded, GatewayError, LLMGateway, shared_gateway
 from app.ai.generation.factcheck import check_document
 from app.ai.generation.generate import GenerationError, NotEnoughFacts, OfferInfo, generate_document
 from app.ai.generation.schema import MAX_SECTIONS, Bullet, Fact, Line, Section, SectionName
@@ -35,8 +35,8 @@ FACT_COLUMNS = "id, kind, text, start_date, end_date, technologies, source, stat
 
 
 def llm_gateway() -> LLMGateway | None:
-    """Aucun fournisseur réel n'est encore branché (issue #15) : les tests remplacent cette dépendance."""
-    return None
+    """Passerelle du processus (LLM_PROVIDER + clé dans .env) ; None sans clé. Les tests la remplacent."""
+    return shared_gateway()
 
 
 def _need(gateway: LLMGateway | None) -> LLMGateway:
