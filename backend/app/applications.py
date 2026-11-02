@@ -90,7 +90,13 @@ def _to_application(row) -> dict:
 
 
 def _fetch(conn: Connection, application_id: uuid.UUID, lock: bool = False) -> dict:
-    suffix = " WHERE a.id = :id" + (" FOR UPDATE OF a" if lock else "")
+    if lock:
+        # Verrou sur la seule ligne, sans jointure : avec « FOR UPDATE OF a » + jointures, une requête
+        # qui attendait le verrou revérifie la jointure avec l'ancien statut et ne trouve plus rien (404 à tort).
+        locked = conn.execute(text("SELECT 1 FROM applications WHERE id = :id FOR UPDATE"), {"id": str(application_id)})
+        if locked.first() is None:
+            raise ApiError(404, "not_found", "Candidature introuvable")
+    suffix = " WHERE a.id = :id"
     row = conn.execute(text(SELECT_APPLICATION + suffix), {"id": str(application_id)}).mappings().first()
     if row is None:
         raise ApiError(404, "not_found", "Candidature introuvable")
