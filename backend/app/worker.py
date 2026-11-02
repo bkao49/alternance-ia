@@ -3,6 +3,7 @@
 Prend les tâches en attente une à une, lance le collecteur de la source avec les critères de
 l'utilisateur et enregistre les offres sous sa RLS. Erreur réseau : nouvel essai avec délai croissant.
 Blocage (403, anti-bot, CAPTCHA) : la source est arrêtée, jamais de nouvel essai ni de contournement.
+Après chaque collecte, les offres en attente de l'utilisateur sont filtrées, analysées et notées (`pipeline.py`).
 """
 import contextlib
 import logging
@@ -19,6 +20,7 @@ from typing import Self
 from sqlalchemy import Connection, text
 
 from app import jobs
+from app.ai.gateway import LLMGateway, shared_gateway
 from app.collectors.adzuna import AdzunaCollector
 from app.collectors.base import (
     Collector,
@@ -35,6 +37,7 @@ from app.collectors.lba import LbaCollector
 from app.collectors.web import WebCollector, load_sites
 from app.config import WorkerSettings, get_worker_settings
 from app.db import user_scope
+from app.pipeline import analyse_user_offers
 
 log = logging.getLogger(__name__)
 
@@ -118,8 +121,9 @@ class Heartbeat:
 
 class Worker:
     def __init__(self, registry: Registry, settings: WorkerSettings, notifier: Notifier | None = None,
-                 name: str | None = None):
+                 name: str | None = None, gateway: LLMGateway | None = None):
         self.registry, self.settings = registry, settings
+        self.gateway = gateway  # None : filtres durs seulement, les offres restent en attente d'analyse
         self.notifier = notifier or LogNotifier()
         self.name = name or f"{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:6]}"
         self.stop = threading.Event()
@@ -132,6 +136,7 @@ class Worker:
         with Heartbeat(job, self.name, self.settings.heartbeat_seconds):
             try:
                 self._collect(job)
+                self._analyse(job)
             except Exception as exc:  # noqa: BLE001 (une tâche en bogue ne tue pas le worker)
                 # Type seulement : une trace SQL peut contenir le texte d'une annonce.
                 log.error("job=%s source=%s erreur inattendue (%s)", job.id, job.source, type(exc).__name__)
@@ -178,6 +183,14 @@ class Worker:
         else:
             jobs.fail(job, self.name, error.message, counts)
 
+    def _analyse(self, job: jobs.Job) -> None:
+        """Filtres, extraction et score des offres en attente de cet utilisateur (après la collecte).
+        Une erreur ici ne change pas le résultat de la collecte, déjà enregistré."""
+        try:
+            analyse_user_offers(self.gateway, job.user_id)
+        except Exception as exc:  # noqa: BLE001 (base indisponible : reprise à la prochaine collecte)
+            log.error("job=%s analyse interrompue (%s)", job.id, type(exc).__name__)
+
     def tick(self) -> None:
         """Planifie les collectes dues et relève les tâches abandonnées."""
         created = jobs.schedule_due(self.settings.collect_interval_minutes)
@@ -204,7 +217,7 @@ class Worker:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     settings = get_worker_settings()
-    worker = Worker(default_registry(settings), settings)
+    worker = Worker(default_registry(settings), settings, gateway=shared_gateway())
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: worker.stop.set())
     worker.run_forever()

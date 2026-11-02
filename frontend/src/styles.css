@@ -440,6 +440,12 @@ a.offers:hover {
   }
 }
 
+.bot-analysis {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.88rem;
+}
+
 .bot-problems {
   grid-column: 1 / -1;
   margin: 0;

@@ -67,6 +67,13 @@ export function BotPanel({ status }: { status?: BotStatus }) {
           <p>Les offres trouvées par le bot apparaîtront ici dès que les sources seront branchées.</p>
         </div>
       )}
+      {status?.analysis && (
+        <p className="bot-analysis">
+          {status.analysis.pending} offre(s) en attente d'analyse
+          {status.analysis.paused === "budget" && " : plafond de coût IA atteint, reprise demain"}
+          {status.analysis.paused === "not_configured" && " : clé d'IA non configurée"}.
+        </p>
+      )}
       {problems.length > 0 && (
         <ul className="bot-problems" aria-label="Sources à surveiller">
           {problems.map((s) => (
