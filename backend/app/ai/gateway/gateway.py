@@ -83,7 +83,7 @@ class LLMGateway:
             raise ValueError("max_output_tokens hors limites")
         if len(instructions) > MAX_INPUT_CHARS or len(data) > MAX_INPUT_CHARS:
             raise GatewayError("texte trop long")
-        provider = self.provider
+        provider = self.provider.for_purpose(purpose)  # le modèle dépend de la tâche
         known_names = list(known_names)
         # Des noms fournis signalent des données de l'utilisateur, quelle que soit l'étiquette `kind`.
         if not provider.allows(kind) or (known_names and provider.reuses_data):

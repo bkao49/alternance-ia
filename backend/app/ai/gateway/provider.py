@@ -1,7 +1,7 @@
 """Interface des fournisseurs LLM et fournisseur factice pour les tests.
 
-Aucun vrai fournisseur n'est branché ici : chaque adaptateur réel (Claude, etc.) arrivera dans sa
-propre PR, avec sa clé lue depuis l'environnement et jamais versionnée.
+Les adaptateurs réels (`claude.py`) vivent à côté, avec leur clé lue depuis l'environnement et jamais
+versionnée.
 """
 
 from abc import ABC, abstractmethod
@@ -51,6 +51,10 @@ class LLMProvider(ABC):
     @abstractmethod
     def complete(self, request: ProviderRequest) -> ProviderResponse:
         """Seule méthode qui touche au réseau ; ne s'appelle que depuis `LLMGateway` (test dédié)."""
+
+    def for_purpose(self, purpose: str) -> "LLMProvider":
+        """Fournisseur à utiliser pour cet usage (un fournisseur à plusieurs modèles choisit ici le sien)."""
+        return self
 
     def cost_eur(self, input_tokens: int, output_tokens: int) -> float:
         return (input_tokens * self.eur_per_mtok_input + output_tokens * self.eur_per_mtok_output) / 1_000_000
