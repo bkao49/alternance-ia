@@ -51,6 +51,7 @@ Calculés avec la formule de luminance relative du WCAG.
 | `--muted` sur `--bg` / `--surface` / `--hover` | 8,0 / 7,6 / 7,2 | 6,2 / 6,7 / 5,8 | 4,5 |
 | `--accent-text` sur `--bg` / `--surface` / `--hover` | 6,3 / 6,0 / 5,7 | 6,4 / 7,0 / 6,0 | 4,5 |
 | `--on-accent` sur `--accent` | 5,1 | 5,9 | 4,5 |
+| `--ok` (contrôle factuel réussi) sur `--bg` / `--surface` | 11,0 / 10,4 | 5,8 / 6,4 | 4,5 |
 | `--control` sur `--bg` / `--surface` | 3,7 / 3,5 | 3,3 / 3,6 | 3 (non-texte) |
 
 `--line` sert seulement de séparateur décoratif : un champ ou un bouton a toujours une bordure

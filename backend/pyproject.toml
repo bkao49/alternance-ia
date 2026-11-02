@@ -16,6 +16,7 @@ dependencies = [
     "soupsieve==3.0.4",
     "python-multipart==0.0.32",
     "pypdf==6.21.4",
+    "reportlab==4.4.10",
 ]
 
 [project.optional-dependencies]

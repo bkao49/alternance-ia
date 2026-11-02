@@ -17,6 +17,7 @@
   --control: #6b6b74;
   --accent: #d6231e;
   --accent-text: #ff5a52;
+  --ok: #4ade80; /* contrôle factuel réussi : texte et trait seulement (contraste 12 sur --bg) */
   --on-accent: #ffffff;
   --backdrop: rgb(0 0 0 / 70%);
 
@@ -57,6 +58,7 @@
   --control: #86868f;
   --accent: #c41e19;
   --accent-text: #b3140f;
+  --ok: #146c2e;
   --backdrop: rgb(20 20 24 / 45%);
   color-scheme: light;
 }

@@ -1,6 +1,17 @@
 from fastapi import FastAPI
 
-from app import account, applications, auth, bot, dashboard, offers, preferences, profile, statuses
+from app import (
+    account,
+    applications,
+    auth,
+    bot,
+    dashboard,
+    documents,
+    offers,
+    preferences,
+    profile,
+    statuses,
+)
 from app.cv import routes as cv_routes
 from app.errors import install_error_handlers
 from app.security import LoginLimiter
@@ -20,6 +31,7 @@ def create_app() -> FastAPI:
     application.include_router(account.router)
     application.include_router(profile.router)
     application.include_router(cv_routes.router)
+    application.include_router(documents.router)
 
     @application.get("/health")
     def health() -> dict[str, str]:

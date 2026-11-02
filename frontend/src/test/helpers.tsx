@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { createApi } from "../api/client";
 import { ApiContext } from "../api/context";
 import App from "../App";
+import type { ProfileFact } from "../api/types";
 import { createMockFetch } from "../mock/mockFetch";
 import { DEMO } from "../mock/demoInfo";
 
@@ -18,8 +19,8 @@ export let requests: Request[] = [];
 export const failure = (status: number, code: string, message: string) =>
   new Response(JSON.stringify({ code, message }), { status, headers: { "Content-Type": "application/json" } });
 
-export function renderApp(intercept?: Intercept): User {
-  const mock = createMockFetch();
+export function renderApp(intercept?: Intercept, options?: { facts?: ProfileFact[] }): User {
+  const mock = createMockFetch(options);
   requests = [];
   const api = createApi(async (request) => {
     requests.push(request.clone());
@@ -39,8 +40,8 @@ export async function signIn(user: User, password: string = DEMO.password) {
   await user.click(screen.getByRole("button", { name: "Se connecter" }));
 }
 
-export async function signedInApp(intercept?: Intercept): Promise<User> {
-  const user = renderApp(intercept);
+export async function signedInApp(intercept?: Intercept, options?: { facts?: ProfileFact[] }): Promise<User> {
+  const user = renderApp(intercept, options);
   await signIn(user);
   await screen.findByRole("heading", { name: "Candidatures" });
   return user;
