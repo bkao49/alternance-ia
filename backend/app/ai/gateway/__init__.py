@@ -1,5 +1,7 @@
 """Passerelle LLM (`ai/gateway`) : tout appel à un modèle de langage passe par `LLMGateway`."""
 
+from app.ai.gateway.claude import ClaudeProvider, ModelSpec, ProviderError
+from app.ai.gateway.factory import build_gateway, shared_gateway
 from app.ai.gateway.gateway import (
     BudgetExceeded,
     GatewayError,
@@ -17,6 +19,7 @@ from app.ai.gateway.provider import (
 from app.ai.gateway.pseudonymize import Pseudonymizer
 
 __all__ = [
-    "BudgetExceeded", "DataKind", "FakeProvider", "GatewayError", "GatewayResult", "LLMGateway",
-    "LLMProvider", "ProviderNotAllowed", "ProviderRequest", "ProviderResponse", "Pseudonymizer",
+    "BudgetExceeded", "ClaudeProvider", "DataKind", "FakeProvider", "GatewayError", "GatewayResult",
+    "LLMGateway", "LLMProvider", "ModelSpec", "ProviderError", "ProviderNotAllowed", "ProviderRequest",
+    "ProviderResponse", "Pseudonymizer", "build_gateway", "shared_gateway",
 ]

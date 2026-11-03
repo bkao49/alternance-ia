@@ -8,6 +8,8 @@ import datetime as dt
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 
+from app.ai.gateway import shared_gateway
+from app.ai.gateway.gateway import daily_cap_from_env
 from app.auth import Session, current_session
 from app.config import get_worker_settings
 from app.db import user_scope
@@ -39,6 +41,36 @@ ACTIVITY_SQL = """
       AND j.last_error IS DISTINCT FROM 'source bloquée'  -- tâches en file abandonnées par un blocage : doublons
     ORDER BY j.finished_at DESC, j.id LIMIT :limit
 """
+
+
+# Offres sans score (le worker les filtre, les analyse et les note après chaque collecte), et dépense du jour.
+PENDING_SQL = ("SELECT count(*) FROM job_postings p WHERE NOT p.expired "
+               "AND NOT EXISTS (SELECT 1 FROM scores s WHERE s.job_posting_id = p.id)")
+SPENT_SQL = ("SELECT COALESCE(SUM(GREATEST(cost_eur, reserved_eur)), 0) FROM llm_calls "
+             "WHERE created_at >= date_trunc('day', now(), 'Europe/Paris')")
+BUDGET_MARGIN_EUR = 0.01
+
+
+def _analysis(conn) -> dict | None:
+    """Avancement de l'analyse ; None quand rien n'attend. `paused` dit pourquoi elle ne progresse pas."""
+    pending = conn.execute(text(PENDING_SQL)).scalar_one()
+    if not pending:
+        return None
+    try:
+        configured = shared_gateway() is not None
+    except RuntimeError:  # LLM_PROVIDER inconnu
+        configured = False
+    result = {"pending": pending}
+    if not configured:
+        result["paused"] = "not_configured"
+    else:
+        try:
+            cap = daily_cap_from_env()
+        except RuntimeError:  # plafond mal réglé : le détail est dans `doctor`, l'écran ne plante pas
+            return result
+        if cap - float(conn.execute(text(SPENT_SQL)).scalar_one()) < BUDGET_MARGIN_EUR:
+            result["paused"] = "budget"
+    return result
 
 
 def plural(n: int, one: str, many: str) -> str:
@@ -91,12 +123,15 @@ def get_bot_status(session: Session = Depends(current_session)):
     with user_scope(session.user_id) as conn:
         sources = [_source(r, default_minutes) for r in conn.execute(text(SOURCES_SQL)).mappings().all()]
         activity = [_activity(r) for r in conn.execute(text(ACTIVITY_SQL), {"limit": ACTIVITY_LIMIT}).mappings().all()]
+        analysis = _analysis(conn)
     upcoming = [s["next_run_at"] for s in sources if "next_run_at" in s]
     for source in sources:
         for key in ("last_run_at", "next_run_at"):
             if key in source:
                 source[key] = _iso(source[key])
     result = {"sources": sources, "activity": activity}
+    if analysis:
+        result["analysis"] = analysis
     if upcoming:
         result["next_run_at"] = _iso(min(upcoming))
     return result
