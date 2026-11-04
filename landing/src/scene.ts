@@ -1,5 +1,5 @@
 // Scène 3D unique : des cartes d'offres tombent, se rangent par score, puis la meilleure est validée.
-// Un état par moment du récit (0 accroche, 1 collecte, 2 score, 3 CV, 4 validation) ; la scène interpole
+// Un état par moment du récit (0 accroche, 1 collecte, 2 analyse, 3 note sur 5, 4 CV, 5 validation, 6 suivi) ; la scène interpole
 // entre deux états selon l'avancement du défilement.
 import {
   BufferGeometry,
@@ -32,7 +32,7 @@ const ACCENT = new Color("#d6231e");
 const ACCENT_TEXT = new Color("#ff5a52");
 const WHITE = new Color("#ffffff");
 
-type State = { pos: [number, number, number]; rot: [number, number, number]; scale: number; alpha: number; bar: number; red: number };
+type State = { pos: [number, number, number]; rot: [number, number, number]; scale: number; alpha: number; bar: number; red: number; show: number };
 
 // Générateur pseudo-aléatoire déterministe : la même scène à chaque visite.
 function random(seed: number) {
@@ -46,18 +46,18 @@ function random(seed: number) {
 
 // Offres fictives affichées sur les cartes : [poste, entreprise, contrat, score sur 5].
 export const OFFERS: [string, string, string, number][] = [
-  ["Data Engineer", "Initech Data", "Alternance", 4.4],
-  ["Machine Learning Engineer", "Globex IA", "CDI", 4.6],
-  ["Data Analyst", "Umbrella Data", "Stage", 4.2],
-  ["MLOps Engineer", "Stark Mobilité", "CDD", 4.1],
-  ["Ingénieur IA générative", "Hooli Labs", "CDI", 3.9],
-  ["Data Scientist", "Wayne Santé", "Alternance", 3.7],
-  ["Analytics Engineer", "Soylent Retail", "CDI", 3.4],
-  ["BI Developer", "Vandelay Conseil", "Stage", 3.1],
-  ["Développeur Python", "Cyberdyne", "CDD", 2.8],
-  ["Chargé d'études", "Tyrell Assurances", "CDI", 2.4],
-  ["Technicien support", "Massive Dynamic", "CDD", 1.9],
-  ["Assistant marketing", "Pied Piper", "Stage", 1.5],
+  ["Chargé de communication", "Atelier Lumen", "Alternance", 4.4],
+  ["Responsable de magasin", "Maison Verdier", "CDI", 4.6],
+  ["Technicien de maintenance", "Forges du Nord", "CDD", 4.2],
+  ["Infirmier / infirmière", "Clinique des Pins", "CDI", 4.1],
+  ["Comptable", "Cabinet Aubin", "CDI", 3.9],
+  ["Développeur web", "Studio Orme", "Alternance", 3.7],
+  ["Cuisinier", "Brasserie Marceau", "CDD", 3.4],
+  ["Assistant administratif", "Mairie de Valmont", "Stage", 3.1],
+  ["Électricien", "Volt & Fils", "CDD", 2.8],
+  ["Conseiller clientèle", "Banque Rivage", "CDI", 2.4],
+  ["Magasinier", "Logistique Sud", "CDD", 1.9],
+  ["Graphiste", "Agence Pixel", "Stage", 1.5],
 ];
 
 export function cardStates(): State[][] {
@@ -71,19 +71,25 @@ export function cardStates(): State[][] {
     const cloud: State = {
       pos: [(rnd() - 0.5) * 7, -1.5 + rnd() * 6.5, -5 + rnd() * 6],
       rot: [(rnd() - 0.5) * 1.2, (rnd() - 0.5) * 1.2, (rnd() - 0.5) * 0.8],
-      scale: 1, alpha: 0.9, bar: 0, red: 0,
+      scale: 1, alpha: 0.9, bar: 0, red: 0, show: 0,
     };
-    const fallen: State = { pos: [(rnd() - 0.5) * 0.5, 4.1 - i * GAP, 0], rot: [0, 0, (rnd() - 0.5) * 0.12], scale: 1, alpha: 1, bar: 0, red: 0 };
-    const sorted: State = { pos: [0, top, 0], rot: [0, 0, 0], scale: 1, alpha: dim, bar: score / 5, red: 0 };
+    // Collectées : rangées en liste, dans l'ordre de lecture. Analysées : alignées, une première lecture (barre courte).
+    const fallen: State = { pos: [(rnd() - 0.5) * 0.5, 4.1 - i * GAP, 0], rot: [0, 0, (rnd() - 0.5) * 0.12], scale: 1, alpha: 1, bar: 0, red: 0, show: 0 };
+    const analysed: State = { pos: [0, 4.1 - i * GAP, 0], rot: [0, 0, 0], scale: 1, alpha: 1, bar: 0.18, red: 0, show: 0 };
+    const sorted: State = { pos: [0, top, 0], rot: [0, 0, 0], scale: 1, alpha: dim, bar: score / 5, red: 0, show: 1 };
     const shortlist: State = r < 3
-      ? { pos: [0, 1.1 - r * 1.1, 0.8], rot: [0, 0, 0], scale: 1.1, alpha: 1, bar: score / 5, red: 0 }
-      : { pos: [0, top, -3], rot: [0, 0, 0], scale: 1, alpha: 0.12, bar: score / 5, red: 0 };
+      ? { pos: [0, 1.1 - r * 1.1, 0.8], rot: [0, 0, 0], scale: 1.1, alpha: 1, bar: score / 5, red: 0, show: 1 }
+      : { pos: [0, top, -3], rot: [0, 0, 0], scale: 1, alpha: 0.12, bar: score / 5, red: 0, show: 1 };
     const chosen: State = r === 0
-      ? { pos: [0, 0.4, 1.2], rot: [0, 0, 0], scale: 1.3, alpha: 1, bar: score / 5, red: 1 }
+      ? { pos: [0, 0.4, 1.2], rot: [0, 0, 0], scale: 1.3, alpha: 1, bar: score / 5, red: 1, show: 1 }
       : r < 3
-        ? { pos: [0, -1.4 - r * 0.8, 0.5], rot: [0, 0, 0], scale: 1.1, alpha: 0.4, bar: score / 5, red: 0 }
+        ? { pos: [0, -1.4 - r * 0.8, 0.5], rot: [0, 0, 0], scale: 1.1, alpha: 0.4, bar: score / 5, red: 0, show: 1 }
         : { ...shortlist, alpha: 0 };
-    return [cloud, fallen, sorted, shortlist, chosen];
+    // Suivi : les trois candidatures retenues en escalier, de la plus avancée (rouge) à la plus récente.
+    const tracked: State = r < 3
+      ? { pos: [1.5 - r * 1.5, 1.8 - r * 1.8, 0.5], rot: [0, -0.18, 0], scale: 0.9, alpha: 1, bar: score / 5, red: r === 0 ? 1 : 0, show: 1 }
+      : { ...shortlist, alpha: 0 };
+    return [cloud, fallen, analysed, sorted, shortlist, chosen, tracked];
   });
 }
 
@@ -216,7 +222,7 @@ function startNow(canvas: HTMLCanvasElement, progress: () => number): () => void
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     shown += (progress() - shown) * (1 - Math.exp(-dt * 5));
-    const k = Math.min(3, Math.floor(shown));
+    const k = Math.min(5, Math.floor(shown));
     const t = smooth(clamp01(shown - k));
     const drift = 1 - clamp01(shown);
     const time = now / 1000;
@@ -250,7 +256,7 @@ function startNow(canvas: HTMLCanvasElement, progress: () => number): () => void
       c.edge.material.opacity = alpha * (1 - red);
       (c.label.material as MeshBasicMaterial).opacity = alpha;
       (c.score.material as MeshBasicMaterial).color.copy(tmp.copy(ACCENT_TEXT).lerp(WHITE, red));
-      (c.score.material as MeshBasicMaterial).opacity = alpha * clamp01(bar * 8);
+      (c.score.material as MeshBasicMaterial).opacity = alpha * mix(a.show, b.show);
       (c.bar.material as MeshBasicMaterial).color.copy(tmp.copy(ACCENT_TEXT).lerp(WHITE, red));
       (c.bar.material as MeshBasicMaterial).opacity = alpha;
       c.check.material.opacity = red;
