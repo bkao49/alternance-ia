@@ -118,21 +118,22 @@ function drawLabel(offer: [string, string, string, number]): HTMLCanvasElement {
   const g = c.getContext("2d")!;
   g.textBaseline = "alphabetic";
   g.fillStyle = "#f4f4f4";
-  g.font = '500 44px Geist, system-ui, sans-serif';
-  g.fillText(offer[0], 38, 112, LABEL_W - 330);
-  g.font = '400 30px Geist, system-ui, sans-serif';
+  // Texte grand par rapport à la carte : il reste lisible quand la carte ne fait que 200 à 300 px de large.
+  g.font = '500 92px Geist, system-ui, sans-serif';
+  g.fillText(offer[0], 38, 118, LABEL_W - 330);
+  g.font = '400 52px Geist, system-ui, sans-serif';
   g.fillStyle = "#d0d0d6";
-  g.fillText(offer[1], 38, 160, 520);
+  g.fillText(offer[1], 38, 204, 700);
   // Pastille du contrat, à droite du nom de l'entreprise.
-  const x = 38 + Math.min(520, g.measureText(offer[1]).width) + 22;
-  g.font = '400 24px Geist, system-ui, sans-serif';
-  const w = g.measureText(offer[2]).width + 28;
+  const x = 38 + Math.min(700, g.measureText(offer[1]).width) + 26;
+  g.font = '400 40px Geist, system-ui, sans-serif';
+  const w = g.measureText(offer[2]).width + 36;
   g.strokeStyle = "#a6a6ae";
-  g.lineWidth = 2;
+  g.lineWidth = 3;
   g.beginPath();
-  g.roundRect(x, 134, w, 34, 17);
+  g.roundRect(x, 160, w, 58, 29);
   g.stroke();
-  g.fillText(offer[2], x + 14, 159);
+  g.fillText(offer[2], x + 18, 202);
   return c;
 }
 
@@ -199,7 +200,7 @@ function startNow(canvas: HTMLCanvasElement, progress: () => number): () => void
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     // Une fenêtre large et basse (mobile) rapproche la caméra pour garder des cartes lisibles.
-    camera.position.z = camera.aspect > 1.4 ? 11 : 16;
+    camera.position.z = camera.aspect > 1.4 ? 10 : 13;
     camera.updateProjectionMatrix();
   };
   const ro = new ResizeObserver(resize);
@@ -278,8 +279,8 @@ function startNow(canvas: HTMLCanvasElement, progress: () => number): () => void
 // Les textures de texte sont dessinées avec les polices du site : on attend qu'elles soient chargées.
 export async function startScene(canvas: HTMLCanvasElement, progress: () => number): Promise<() => void> {
   await Promise.all([
-    document.fonts.load('500 44px "Geist"'),
-    document.fonts.load('400 30px "Geist"'),
+    document.fonts.load('500 92px "Geist"'),
+    document.fonts.load('400 52px "Geist"'),
     document.fonts.load('italic 400 128px "Instrument Serif"'),
   ]).catch(() => undefined);
   return startNow(canvas, progress);
