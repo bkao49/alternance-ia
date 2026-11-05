@@ -42,9 +42,11 @@ function hasWebGL(): boolean {
   }
 }
 
-// La 3D (three.js) n'est chargée que si elle sera montrée ; sinon la version 2D reste affichée.
+// La 3D (three.js) n'est chargée que si elle sera montrée : écran large, mouvement permis, WebGL.
+// Sinon la version 2D reste affichée (voir styles.css, écran étroit).
 const canvas = document.querySelector<HTMLCanvasElement>("#scene");
-if (canvas && motion && hasWebGL()) {
+const wide = matchMedia("(min-width: 60.01rem)").matches;
+if (canvas && motion && wide && hasWebGL()) {
   import("./scene")
     .then(async ({ startScene }) => {
       await startScene(canvas, () => progress);

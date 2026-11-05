@@ -41,7 +41,7 @@ main, .foot { max-width: 84rem; margin: 0 auto; padding-inline: clamp(1rem, 4vw,
 .story-visual { position: sticky; top: 0; height: 100svh; align-self: start; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; overflow: hidden; }
 .story-visual canvas, .story-visual .still { grid-area: 1 / 1; width: 100%; height: 100%; }
 .story-visual canvas { display: none; }
-.story-visual.has-3d::after { content: ""; grid-area: 1 / 1; pointer-events: none; background: radial-gradient(ellipse closest-side at 50% 50%, transparent 50%, var(--bg) 98%); }
+.story-visual.has-3d::after { content: ""; grid-area: 1 / 1; place-self: stretch; pointer-events: none; background: radial-gradient(ellipse closest-side at 50% 50%, transparent 50%, var(--bg) 98%); }
 .story-visual.has-3d canvas { display: block; }
 .story-visual.has-3d .still { display: none; }
 .still { max-height: 30rem; }
@@ -66,21 +66,23 @@ h1 em { color: var(--accent-text); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
 
 .steps { list-style: none; padding: 0; margin-top: var(--space-5); }
-.step { min-height: 56svh; display: flex; flex-direction: column; justify-content: center; gap: var(--space-3); padding-left: var(--space-5); border-left: 1.5px solid var(--line); transition: border-color var(--dur); }
+.step { min-height: 46svh; display: flex; flex-direction: column; justify-content: center; gap: var(--space-3); padding-left: var(--space-5); border-left: 1.5px solid var(--line); transition: border-color var(--dur); }
 .step.is-active { border-left-color: var(--accent-text); }
 .step-n { font: 400 0.9rem/1 var(--mono); color: var(--accent-text); }
 .step h3 { font: italic 400 clamp(2rem, 3.4vw, 2.8rem)/1 var(--serif); }
 .step p { color: var(--muted); max-width: 32rem; font-size: 1.05rem; }
 
 @media (max-width: 60rem) {
-  /* Sur mobile, la scène devient un bandeau collé sous l'en-tête, entre l'accroche et les étapes. */
+  /* Écran étroit : pas de 3D (illisible en petit). Le dessin 2D des offres notées s'affiche une fois,
+     entre l'accroche et les étapes, puis les étapes se lisent comme une simple liste. */
   .story { grid-template-columns: 1fr; gap: 0; }
   .story-text { display: contents; }
-  .story-visual { order: 1; top: 4.1rem; height: clamp(11rem, 32svh, 20rem); z-index: 2; background: var(--bg); border-bottom: 1px solid var(--line); }
-  #etapes { order: 2; padding-top: var(--space-7); }
-  .hero { min-height: auto; padding-block: var(--space-7); }
-  .step { min-height: 40svh; padding-block: var(--space-6); }
-  .still { max-height: 100%; }
+  .story-visual { order: 1; position: static; height: auto; padding-bottom: var(--space-6); }
+  .story-visual canvas, .story-visual.has-3d canvas, .story-visual.has-3d::after { display: none; }
+  .story-visual .still, .story-visual.has-3d .still { display: block; width: 100%; max-width: 26rem; height: auto; max-height: none; }
+  #etapes { order: 2; padding-top: var(--space-7); border-top: 1px solid var(--line); }
+  .hero { min-height: auto; padding-block: var(--space-7) var(--space-6); }
+  .step { min-height: 0; padding-block: var(--space-5); }
 }
 
 .band { padding-block: clamp(4rem, 9vw, 8rem); border-top: 1px solid var(--line); }
@@ -110,9 +112,12 @@ h1 em { color: var(--accent-text); }
 .win-rows .num { color: var(--accent-text); text-align: right; }
 @media (max-width: 46rem) {
   .win-stage { grid-template-columns: minmax(0, 1fr); }
-  .win-rows div { grid-template-columns: minmax(0, 1fr) auto; }
-  .win-rows div > span:not(.st, .num), .win-rows em { display: none; }
-  .win-rows .num { grid-column: 2; grid-row: 1; }
+  .win-rows div { grid-template-columns: minmax(0, 1fr) auto; row-gap: 0.2rem; }
+  .win-rows em { display: none; }
+  .win-rows b { grid-area: 1 / 1; }
+  .win-rows .num { grid-area: 1 / 2; }
+  .win-rows div > span:not(.st, .num) { grid-area: 2 / 1; font-size: 0.85rem; }
+  .win-rows .st { grid-area: 2 / 2; font-size: 0.85rem; }
 }
 
 .charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-4); }
@@ -126,7 +131,7 @@ h1 em { color: var(--accent-text); }
 .chart .area { fill: var(--accent); opacity: 0.12; }
 .chart .bar { fill: var(--control); }
 .chart .bar.hot { fill: var(--accent-text); }
-@media (max-width: 46rem) { .charts { grid-template-columns: 1fr; } }
+@media (max-width: 34rem) { .charts { grid-template-columns: 1fr; } }
 
 .promises { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-6); }
 .promise { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: clamp(1.4rem, 2.4vw, 2.1rem); min-height: 16rem; display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-5); }
