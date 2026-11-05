@@ -198,8 +198,8 @@ function startNow(canvas: HTMLCanvasElement, progress: () => number): () => void
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    // Une fenêtre large et basse (mobile) rapproche la caméra pour garder des cartes lisibles.
-    camera.position.z = camera.aspect > 1.4 ? 11 : 16;
+    // Une fenêtre large et basse (bandeau mobile) rapproche la caméra pour garder des cartes lisibles.
+    camera.position.z = camera.aspect > 1.1 ? (camera.aspect > 1.4 ? 11 : 9) : 16;
     camera.updateProjectionMatrix();
   };
   const ro = new ResizeObserver(resize);
