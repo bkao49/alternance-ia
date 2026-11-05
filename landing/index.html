@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>__APP_NAME__ · les offres Data et IA, sans rien envoyer à ta place</title>
-<meta name="description" content="__APP_NAME__ trouve les offres de stage, d'alternance, de CDD et de CDI en Data et IA, les note sur 5 et prépare des candidatures sans rien inventer ni rien envoyer sans ton accord.">
+<title>__APP_NAME__ · trouve ton prochain poste, sans rien envoyer à ta place</title>
+<meta name="description" content="__APP_NAME__ rassemble les offres de stage, d'alternance, de CDD et de CDI pour tous les métiers, les note sur 5 et prépare des candidatures sans rien inventer ni rien envoyer sans ton accord.">
 <meta name="color-scheme" content="dark">
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
 <script>document.documentElement.classList.add("js", ...(matchMedia("(prefers-reduced-motion: reduce)").matches ? [] : ["motion"]))</script>
@@ -15,7 +15,7 @@
 
 <header class="top">
   <a class="brand" href="#haut">
-    <svg viewBox="0 0 40 40" aria-hidden="true"><circle class="fill" cx="20" cy="20" r="20"/><path class="stroke" d="M10 27 C16 27 15 15 21 15 S27 13 30 11"/><circle class="ink" cx="30" cy="11" r="2.9"/></svg>
+    <svg viewBox="0 0 40 40" aria-hidden="true"><circle class="fill" cx="20" cy="20" r="20"/><path class="stroke" d="M20 33V24M20 24L12 17L9 10M20 24L28 15"/><circle class="fill ring" cx="28" cy="15" r="4.4"/><g class="ink"><circle cx="20" cy="33" r="2.4"/><circle cx="20" cy="24" r="2.4"/><circle cx="12" cy="17" r="2.4"/><circle cx="9" cy="10" r="2.2"/><circle cx="28" cy="15" r="1.6"/></g></svg>
     <span>__APP_NAME__</span>
   </a>
   <nav aria-label="Sections">
@@ -32,8 +32,8 @@
     <div class="story-text">
       <section class="hero" id="haut" aria-labelledby="hero-t">
         <h1 id="hero-t">Les offres viennent à toi. <em>Tu</em> gardes la main.</h1>
-        <p class="lede">__APP_NAME__ trouve les offres de stage, d'alternance, de CDD et de CDI en Data et IA, les note sur 5 et prépare tes candidatures. Sans rien inventer, et sans rien envoyer sans ton accord.</p>
-        <ul class="chips" aria-label="Contrats couverts"><li>Stage</li><li>Alternance</li><li>CDD</li><li>CDI</li></ul>
+        <p class="lede">__APP_NAME__ rassemble les offres de stage, d'alternance, de CDD et de CDI, pour tous les métiers, les note sur 5 et prépare tes candidatures. Sans rien inventer, et sans rien envoyer sans ton accord.</p>
+        <ul class="chips" aria-label="Contrats couverts"><li>Stage</li><li>Alternance</li><li>CDD</li><li>CDI</li><li>Tous métiers</li></ul>
         <div class="actions">
           <a class="btn btn-fill" href="__APP_URL__">Créer mon compte</a>
           <a class="btn btn-line" href="#etapes">Comment ça marche</a>
@@ -46,22 +46,32 @@
           <li class="step" data-step>
             <span class="step-n">01</span>
             <h3>Collecte</h3>
-            <p>Régulièrement, __APP_NAME__ lit les offres de sources autorisées, comme France Travail ou La Bonne Alternance, dans le respect de leurs conditions d'utilisation. Les doublons sont écartés.</p>
+            <p>Régulièrement, __APP_NAME__ lit les offres de sources autorisées, comme France Travail ou Adzuna, dans le respect de leurs conditions d'utilisation. Les doublons sont écartés.</p>
           </li>
           <li class="step" data-step>
             <span class="step-n">02</span>
-            <h3>Score sur 5</h3>
-            <p>Chaque offre est comparée à ton profil : des règles simples, une proximité de sens, puis un avis argumenté. Tu vois pourquoi une offre obtient 4,4 et ce qui lui manque.</p>
+            <h3>Analyse</h3>
+            <p>Chaque offre est lue et résumée : poste, lieu, contrat, compétences demandées. Le texte d'une annonce reste une simple donnée : il n'est jamais pris pour une consigne.</p>
           </li>
           <li class="step" data-step>
             <span class="step-n">03</span>
-            <h3>CV adapté</h3>
-            <p>Pour les offres que tu retiens, un CV et une lettre sont préparés à partir de ton profil, uniquement avec des faits que tu as déclarés. Rien n'est ajouté.</p>
+            <h3>Note sur 5</h3>
+            <p>Chaque offre est comparée à ton profil : des règles simples, une proximité de sens, puis un avis argumenté. Tu vois pourquoi une offre obtient 4,4 et ce qui lui manque.</p>
           </li>
           <li class="step" data-step>
             <span class="step-n">04</span>
+            <h3>CV et lettre adaptés</h3>
+            <p>Pour les offres que tu retiens, un CV et une lettre sont préparés à partir de ton profil, uniquement avec des faits que tu as déclarés. Rien n'est inventé.</p>
+          </li>
+          <li class="step" data-step>
+            <span class="step-n">05</span>
             <h3>Validation humaine</h3>
-            <p>Tu relis, tu corriges, tu envoies toi-même. Une candidature ne passe « Envoyée » qu'après ta confirmation.</p>
+            <p>Tu relis, tu corriges, tu décides. __APP_NAME__ n'envoie jamais rien : la candidature part de ta main, quand tu le veux.</p>
+          </li>
+          <li class="step" data-step>
+            <span class="step-n">06</span>
+            <h3>Suivi des candidatures</h3>
+            <p>Chaque candidature a son statut, dans un tableau ou un Kanban. Elle ne passe « Envoyée » qu'après ta confirmation, et tu vois où tu en es d'un coup d'œil.</p>
           </li>
         </ol>
       </section>
@@ -70,10 +80,10 @@
     <div class="story-visual" aria-hidden="true">
       <!-- Version 2D statique : affichée sans WebGL ou quand le mouvement est réduit. -->
       <svg class="still" viewBox="0 0 320 320">
-        <g class="card pick"><rect x="12" y="20" width="296" height="64" rx="14"/><text class="t" x="28" y="46">Machine Learning Engineer</text><text class="s" x="28" y="66">Globex IA · CDI</text><text class="n" x="292" y="56" text-anchor="end">4,6</text></g>
-        <g class="card"><rect x="12" y="96" width="296" height="64" rx="14"/><text class="t" x="28" y="122">Data Engineer</text><text class="s" x="28" y="142">Initech Data · Alternance</text><text class="n" x="292" y="132" text-anchor="end">4,4</text></g>
-        <g class="card"><rect x="12" y="172" width="296" height="64" rx="14"/><text class="t" x="28" y="198">Data Analyst</text><text class="s" x="28" y="218">Umbrella Data · Stage</text><text class="n" x="292" y="208" text-anchor="end">4,2</text></g>
-        <g class="card dim"><rect x="12" y="248" width="296" height="64" rx="14"/><text class="t" x="28" y="274">Technicien support</text><text class="s" x="28" y="294">Massive Dynamic · CDD</text><text class="n" x="292" y="284" text-anchor="end">1,9</text></g>
+        <g class="card pick"><rect x="12" y="20" width="296" height="64" rx="14"/><text class="t" x="28" y="46">Responsable de magasin</text><text class="s" x="28" y="66">Maison Verdier · CDI</text><text class="n" x="292" y="56" text-anchor="end">4,6</text></g>
+        <g class="card"><rect x="12" y="96" width="296" height="64" rx="14"/><text class="t" x="28" y="122">Chargé de communication</text><text class="s" x="28" y="142">Atelier Lumen · Alternance</text><text class="n" x="292" y="132" text-anchor="end">4,4</text></g>
+        <g class="card"><rect x="12" y="172" width="296" height="64" rx="14"/><text class="t" x="28" y="198">Technicien de maintenance</text><text class="s" x="28" y="218">Forges du Nord · CDD</text><text class="n" x="292" y="208" text-anchor="end">4,2</text></g>
+        <g class="card dim"><rect x="12" y="248" width="296" height="64" rx="14"/><text class="t" x="28" y="274">Magasinier</text><text class="s" x="28" y="294">Logistique Sud · CDD</text><text class="n" x="292" y="284" text-anchor="end">1,9</text></g>
       </svg>
       <canvas id="scene"></canvas>
     </div>
@@ -92,17 +102,17 @@
           <div class="win-bot">
             <b>__APP_NAME__ travaille</b>
             <ul>
-              <li><time>14:03</time>Analyse de Data Engineer, Initech</li>
+              <li><time>14:03</time>Analyse de Chargé de communication, Atelier Lumen</li>
               <li><time>14:03</time>Score 4,4 sur 5, confiance élevée</li>
               <li><time>14:04</time>Nouvelle offre pertinente</li>
             </ul>
           </div>
         </div>
         <div class="win-rows">
-          <div><b>Globex IA</b><span>Machine Learning Engineer</span><em>CDI</em><span class="st">À préparer</span><span class="num">4,6</span></div>
-          <div><b>Initech Data</b><span>Data Engineer</span><em>Alternance</em><span class="st hot">À valider</span><span class="num">4,4</span></div>
-          <div><b>Umbrella Data</b><span>Data Analyst</span><em>Stage</em><span class="st">Analysée</span><span class="num">4,2</span></div>
-          <div><b>Hooli Labs</b><span>Ingénieur IA générative</span><em>CDD</em><span class="st">Entretien</span><span class="num">4,1</span></div>
+          <div><b>Maison Verdier</b><span>Responsable de magasin</span><em>CDI</em><span class="st">À préparer</span><span class="num">4,6</span></div>
+          <div><b>Atelier Lumen</b><span>Chargé de communication</span><em>Alternance</em><span class="st hot">À valider</span><span class="num">4,4</span></div>
+          <div><b>Forges du Nord</b><span>Technicien de maintenance</span><em>CDD</em><span class="st">Analysée</span><span class="num">4,2</span></div>
+          <div><b>Clinique des Pins</b><span>Infirmier / infirmière</span><em>CDI</em><span class="st">Entretien</span><span class="num">4,1</span></div>
         </div>
       </div>
     </figure>

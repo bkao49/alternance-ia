@@ -13,10 +13,14 @@ par des filets fins.
 
 ## Nom et logo
 
-Le nom n'est pas décidé (Piste, Boussole, Cap, Jalon). Il vit dans **une seule constante**,
-`APP_NAME` dans `frontend/src/brand.ts` (valeur provisoire « Piste »), reprise aussi par le titre de
-l'onglet. Le logo est un SVG en ligne dans `frontend/src/components/Logo.tsx` : changer de nom, c'est
-modifier ces deux fichiers. Les quatre logos possibles sont dans la maquette I.
+Le produit s'appelle **Ereuna** (du grec ἔρευνα, « recherche »), choix du PO du 2026-11-04. Le nom vit dans
+**une seule constante**, `APP_NAME` dans `frontend/src/brand.ts` (et `landing/src/brand.ts`), reprise aussi par
+le titre de l'onglet.
+
+Le logo est un arbre dont les nœuds sont reliés ; une branche « cherche » et son nœud est entouré d'un rond
+(le point mis en évidence). Disque rouge, tracé blanc : lisible jusqu'à 16 px. Les sources SVG sont dans
+`docs/brand/` : `logo-ereuna.svg` (avec le mot), `logo-symbole.svg`, `logo-arbre.svg` (sans disque, pour
+fonds sombres) et `favicon.svg`. Le composant `frontend/src/components/Logo.tsx` en reprend le dessin.
 
 ## Couleurs
 

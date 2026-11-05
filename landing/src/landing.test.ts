@@ -47,6 +47,18 @@ describe("storyProgress", () => {
   });
 });
 
+describe("contenu", () => {
+  it("raconte les six étapes, pour tous les métiers", () => {
+    expect(html.match(/data-step/g)).toHaveLength(6);
+    expect(html).not.toMatch(/Data et IA|Data \/ IA|Piste/);
+  });
+
+  it("ne promet aucun envoi automatique", () => {
+    expect(html).toContain("n'envoie jamais rien");
+    expect(html).not.toMatch(/envoi automatique de candidatures? (est|:)/i);
+  });
+});
+
 describe("page", () => {
   it("ne charge aucune ressource externe ni traceur", () => {
     expect(html).not.toMatch(/fonts\.googleapis|googletagmanager|analytics|<iframe/i);

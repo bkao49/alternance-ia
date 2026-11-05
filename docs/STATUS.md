@@ -1,6 +1,6 @@
 # STATUS
 
-Dernière mise à jour : 2026-10-30
+Dernière mise à jour : 2026-11-04
 
 ## Phase en cours
 Phase 2 — Collecte des offres (collecteurs faits, planificateur en cours), puis Phase 3 (analyse et score)
@@ -24,7 +24,7 @@ Phase 2 — Collecte des offres (collecteurs faits, planificateur en cours), pui
 - Cours « créer sa petite IA » (hors dépôt, pour le PO)
 
 ## Bloqué / décisions attendues du PO
-1. **Nom et logo du projet** : quatre pistes dans la maquette I (Piste, Boussole, Cap, Jalon), choix ouvert.
+1. ~~Nom et logo~~ : décidé, le produit s'appelle **Ereuna** (arbre qui cherche, `docs/brand/`). Reste à renommer à la main : dépôt GitHub, paquets et services Docker, titre OpenAPI.
 2. Clés API : Adzuna (developer.adzuna.com) et API « Recherche d'opportunités d'emploi en alternance » + ROME 4.0 chez France Travail (francetravail.io). À mettre dans `.env`, jamais dans git
 3. Licence (MIT recommandée)
 6. Sources fermées (Indeed, LinkedIn, Glassdoor, APEC…) : pas de contournement ; passer par les alertes e-mail (#90). HelloWork à étudier (#91)

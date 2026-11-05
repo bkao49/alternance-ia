@@ -1,6 +1,6 @@
-# Aide à la recherche d'alternance (Data / IA)
+# Ereuna — aide à la recherche d'emploi
 
-Application web qui collecte des offres d'alternance depuis des sources autorisées, les analyse, les score
+Application web qui collecte des offres (stage, alternance, CDD, CDI, tous métiers) depuis des sources autorisées, les analyse, les score
 de façon hybride (règles + embeddings + LLM), prépare un CV et une lettre sans rien inventer, et suit les
 candidatures. **Aucun envoi automatique : l'humain décide et clique.**
 

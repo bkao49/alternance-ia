@@ -23,7 +23,8 @@ h1, h2, h3, p, ul, ol, dl, dd, figure { margin: 0; }
 .brand svg { width: 2rem; height: 2rem; flex: none; }
 .brand .fill { fill: var(--accent); }
 .brand .ink { fill: var(--on-accent); }
-.brand .stroke { stroke: var(--on-accent); fill: none; stroke-width: 2.6; stroke-linecap: round; }
+.brand .ring { stroke: var(--on-accent); stroke-width: 2.4; }
+.brand .stroke { stroke: var(--on-accent); fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .brand span { font: italic 400 1.7rem/1 var(--serif); }
 .top nav { display: flex; gap: var(--space-5); margin-right: var(--space-4); }
 .top nav a { color: var(--muted); text-decoration: none; padding: var(--space-2) 0; border-bottom: 1.5px solid transparent; transition: color var(--dur-fast); }
