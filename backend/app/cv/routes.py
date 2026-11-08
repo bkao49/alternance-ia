@@ -15,10 +15,12 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from starlette.datastructures import UploadFile
 
+from app.ai.gateway import LLMGateway, shared_gateway
 from app.auth import Session, current_session, require_csrf
 from app.config import get_settings
+from app.cv.ai_extract import extract_with_ai
 from app.cv.files import MAX_BYTES, MIME, Rejected, check_file
-from app.cv.parse import propose_facts
+from app.cv.parse import drop_known, propose_facts
 from app.cv.sandbox import ExtractionFailed, extract_text
 from app.db import user_scope
 from app.errors import ApiError
@@ -32,6 +34,10 @@ LINK_SECONDS = 60
 STALE_SECONDS = 180  # extraction « en cours » depuis plus longtemps : le processus a été interrompu
 MULTIPART_OVERHEAD = 64 * 1024
 COLUMNS = "id, original_name, file_type, size_bytes, status, error_code, facts_proposed, created_at"
+# Le compteur affiché est le nombre de faits encore à relire, pas celui du dernier import (il baisse quand
+# l'utilisateur valide ou rejette).
+LIVE_COLUMNS = COLUMNS.replace(
+    "facts_proposed", "(SELECT count(*) FROM profile_facts WHERE status = 'proposed')::int AS facts_proposed")
 REASONS = {"too_large": (413, "file_too_large", "Le fichier dépasse 5 Mo"),
            "empty": (415, "unsupported_file", "Le fichier est vide")}
 
@@ -50,6 +56,11 @@ class CvOut(BaseModel):
 class DownloadLink(BaseModel):
     url: str
     expires_at: dt.datetime
+
+
+def _gateway() -> LLMGateway | None:
+    """Passerelle du processus ; None sans clé d'IA. Les tests la remplacent."""
+    return shared_gateway()
 
 
 def _no_cv() -> ApiError:
@@ -100,8 +111,7 @@ def _store(user_id: str, data: bytes, file_type: str, name: str) -> dict:
                  f"RETURNING {COLUMNS}, updated_at"),
             {"uid": user_id, "name": name, "type": file_type, "size": len(data), "content": data},
         ).mappings().one()
-        # Après l'écriture : des faits d'une extraction qui venait de finir partent aussi.
-        conn.execute(text("DELETE FROM profile_facts WHERE status = 'proposed' AND cv_document_id IS NOT NULL"))
+        # Les faits déjà proposés par un CV précédent restent à relire : on peut importer plusieurs CV.
     return dict(row)
 
 
@@ -114,8 +124,11 @@ def _process(user_id: str, cv_id: str, version: dt.datetime) -> None:
         return
     status, error, facts = "done", None, []
     try:
-        # Règles locales seulement : le texte du CV ne quitte jamais cette machine et n'est jamais une consigne.
-        facts = propose_facts(extract_text(bytes(row.content), row.file_type))
+        cv_text = extract_text(bytes(row.content), row.file_type)
+        gateway = _gateway()
+        # L'IA (texte pseudonymisé, via la passerelle) structure le CV ; sans elle, ou si elle échoue, les règles
+        # locales s'appliquent. Dans les deux cas le texte du CV n'est jamais une consigne.
+        facts = (extract_with_ai(gateway, user_id, cv_text) if gateway else None) or propose_facts(cv_text)
     except ExtractionFailed as failure:
         status, error = "failed", failure.code
     except Exception:
@@ -137,8 +150,8 @@ def _finish(user_id: str, cv_id: str, version: dt.datetime, status: str, error: 
         # Un seul plafond, sur les faits validés (les seuls qui servent) : les faits à relire ne l'entament pas.
         room = max(0, MAX_FACTS - conn.execute(
             text("SELECT count(*) FROM profile_facts WHERE status = 'validated'")).scalar_one())
-        known = {(r.kind, r.text.lower()) for r in conn.execute(text("SELECT kind, text FROM profile_facts"))}
-        facts = [f for f in facts if (f.kind, f.text.lower()) not in known][:room]
+        known = [(r.kind, r.text) for r in conn.execute(text("SELECT kind, text FROM profile_facts"))]
+        facts = drop_known(facts, known)[:room]
         updated = conn.execute(
             text("UPDATE cv_documents SET status = :s, error_code = :e, facts_proposed = :n, updated_at = now() "
                  "WHERE id = :id AND updated_at = :v RETURNING id"),
@@ -173,7 +186,7 @@ def get_cv(session: Session = Depends(current_session)):
         conn.execute(text("UPDATE cv_documents SET status = 'failed', error_code = 'timeout' "
                           "WHERE status = 'processing' AND updated_at < now() - make_interval(secs => :s)"),
                      {"s": STALE_SECONDS})
-        row = conn.execute(text(f"SELECT {COLUMNS} FROM cv_documents")).mappings().first()
+        row = conn.execute(text(f"SELECT {LIVE_COLUMNS} FROM cv_documents")).mappings().first()
     if row is None:
         raise _no_cv()
     return dict(row)

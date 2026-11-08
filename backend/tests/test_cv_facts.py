@@ -137,3 +137,109 @@ def test_validation_respects_the_ceiling(alice, monkeypatch):  # noqa: F811
         fact = conn.execute(text("INSERT INTO profile_facts (user_id, kind, text, status) VALUES "
                                  "(:u, 'skill', 'B', 'proposed') RETURNING id"), {"u": alice.user_id}).scalar_one()
     assert alice.post(f"/profile/facts/{fact}/validate").status_code == 409
+
+
+TWO_COLUMNS = """COMPÉTENCES
+LANGAGES
+Python, SQL
+CONCEPTION
+Algorithmes et structures de
+données
+TRANSVERSES
+Esprit d'équipe
+FORMATION
+MSc Architecte des Systèmes
+d'Information, 2024 - 2026
+IUT Informatique 2021 - 2024
+LANGUES ET INTÉRÊTS
+Anglais (B2)
+Basketball
+"""
+
+
+def test_column_titles_are_ignored_and_cut_lines_are_glued():
+    facts = propose_facts(TWO_COLUMNS)
+    texts = [f.text for f in facts]
+    assert texts == ["Python", "SQL", "Algorithmes et structures de données", "Esprit d'équipe",
+                     "MSc Architecte des Systèmes d'Information", "IUT Informatique", "Anglais (B2)", "Basketball"]
+    assert not {"LANGAGES", "CONCEPTION", "TRANSVERSES"} & set(texts) and all(";" not in t for t in texts)
+    assert propose_facts("Compétences\nSQL\nNLP\nAWS\n")[2].text == "AWS"  # un outil seul n'est pas un titre
+
+
+def test_drop_known_ignores_case_accents_and_punctuation():
+    from app.cv.parse import ProposedFact, drop_known
+
+    known = [("skill", "Python"), ("experience", "Data analyst chez Acme Fictive, de 2024 à 2025 (Paris)")]
+    new = [ProposedFact("skill", "PYTHON."), ProposedFact("language", "Python"),
+           ProposedFact("experience", "Data analyst chez Acme Fictive, de 2024 à 2025"),
+           ProposedFact("skill", "Pandas"), ProposedFact("skill", "pandas")]
+    assert [(f.kind, f.text) for f in drop_known(new, known)] == [("language", "Python"), ("skill", "Pandas")]
+
+
+CV_AI = "Camille Fictif\nExpérience\nData analyst chez Acme Fictive, sept. 2024 - présent, tableaux de bord Python\n"
+
+
+def ai_reply(*facts):
+    import json
+    return json.dumps({"facts": list(facts)})
+
+
+def test_ai_reply_is_validated_and_must_be_grounded_in_the_cv():
+    import pytest
+
+    from app.cv.ai_extract import parse_reply
+
+    good = {"kind": "experience", "text": "Data analyst chez Acme Fictive", "start_date": "2024-09",
+            "end_date": None, "technologies": ["Python"]}
+    invented = {"kind": "experience", "text": "Directeur technique chez Globex Corporation", "start_date": None,
+                "end_date": None, "technologies": []}
+    wrong_year = {**good, "text": "Tableaux de bord Python", "start_date": "2019-01", "technologies": ["Spark"]}
+    facts = parse_reply("```json\n" + ai_reply(good, invented, wrong_year) + "\n```", CV_AI)
+    assert [f.text for f in facts] == ["Data analyst chez Acme Fictive", "Tableaux de bord Python"]
+    assert facts[0].start_date == dt.date(2024, 9, 1) and facts[0].technologies == ["Python"]
+    assert facts[1].start_date is None and facts[1].technologies == []  # année et outil absents du CV
+    for bad in ("pas du json", "[]", ai_reply({"kind": "magie", "text": "Python"}), ai_reply(invented)):
+        with pytest.raises(ValueError):
+            parse_reply(bad, CV_AI)
+
+
+def with_gateway(monkeypatch, reply):
+    from app.ai.gateway import FakeProvider, LLMGateway
+    from app.cv import routes
+
+    provider = FakeProvider(reply=reply)
+    monkeypatch.setattr(routes, "_gateway", lambda: LLMGateway(provider, daily_cap_eur=1.0))
+    return provider
+
+
+def test_upload_uses_the_ai_through_the_gateway_with_a_pseudonymised_text(alice, monkeypatch):  # noqa: F811
+    reply = ai_reply({"kind": "experience", "text": "Data analyst chez Acme Fictive", "start_date": "2024-09",
+                      "end_date": None, "technologies": ["Python"]})
+    provider = with_gateway(monkeypatch, lambda request: reply)
+    upload(alice, make_docx(["Camille Fictif", "camille.fictif@example.test", "06 12 34 56 78", *CV_AI.splitlines()[1:]]),
+           "cv.docx")
+    assert wait_done(alice)["facts_proposed"] == 1
+    fact = alice.get("/profile/facts", params={"status": "proposed"}).json()[0]
+    assert (fact["text"], fact["status"], fact["technologies"]) == ("Data analyst chez Acme Fictive", "proposed", ["Python"])
+    sent = provider.received[0].instructions + provider.received[0].data
+    assert "example.test" not in sent and "06 12 34" not in sent and "Camille" not in sent
+
+
+def test_upload_falls_back_to_the_rules_when_the_ai_fails(alice, monkeypatch):  # noqa: F811
+    for reply in (lambda request: "n'importe quoi", lambda request: 1 / 0):
+        with_gateway(monkeypatch, reply)
+        upload(alice, make_docx(TWO_COLUMNS.splitlines()), "cv.docx")
+        assert wait_done(alice)["facts_proposed"] >= 6
+        alice.delete("/profile/cv")
+
+
+def test_counter_follows_the_facts_and_a_second_cv_adds_to_the_first(alice):  # noqa: F811
+    upload(alice, make_docx(TWO_COLUMNS.splitlines()), "a.docx")
+    first = wait_done(alice)["facts_proposed"]
+    proposed = alice.get("/profile/facts", params={"status": "proposed"}).json()
+    assert first == len(proposed) >= 6
+    assert alice.post(f"/profile/facts/{proposed[0]['id']}/reject").status_code == 204
+    assert alice.get("/profile/cv").json()["facts_proposed"] == first - 1
+    upload(alice, make_docx(["Compétences", "Pandas", "Python"]), "b.docx")  # Python existe déjà
+    assert wait_done(alice)["facts_proposed"] == first  # un fait en moins (rejeté), « Pandas » en plus
+    assert len(alice.get("/profile/facts", params={"status": "proposed"}).json()) == first

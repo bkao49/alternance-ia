@@ -7,6 +7,7 @@ première rubrique (nom, coordonnées) sont écartés : ils n'entrent jamais dan
 
 import datetime as dt
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from app.ai.gateway.pseudonymize import ADDRESS, BIRTH, EMAIL, PHONE, URL
@@ -18,8 +19,9 @@ SECTIONS = {
     "education": r"formations?|[ée]tudes|dipl[ôo]mes?|education|cursus",
     "skill": r"comp[ée]tences?(?: techniques?)?|skills|technologies|outils",
     "project": r"projets?(?: personnels?| acad[ée]miques?)?|projects",
-    "language": r"langues?|languages",
+    "language": r"langues?(?: et int[ée]r[êe]ts?)?|languages",
     "certification": r"certifications?|certificats?",
+    "other": r"(?:centres? d.)?int[ée]r[êe]ts?|loisirs?|hobbies|activit[ée]s extra-?professionnelles?",
 }
 SECTION_RE = {kind: re.compile(rf"^(?:{pattern})\s*:?$", re.IGNORECASE) for kind, pattern in SECTIONS.items()}
 TECHNOLOGIES = [
@@ -85,6 +87,48 @@ def _technologies(line: str) -> list[str]:
     return [t for t, pattern in TECH_RE.items() if pattern.search(line)][:30]
 
 
+# Mots qui ne terminent jamais une phrase : la ligne suivante en est la suite (CV en colonnes étroites).
+CONNECTORS = frozenset({"de", "des", "du", "d", "et", "en", "à", "a", "la", "le", "les", "l", "sur", "pour", "aux",
+                        "au", "par", "avec", "ou", "un", "une", "dans", "chez", "of", "and", "for", "to"})
+LAST_WORD = re.compile(r"(\w+)['’]?$")
+MIN_HEADING_LETTERS = 5  # « SQL », « NLP », « AWS » sont des outils, pas des titres
+OWN_LINE_HEADING_KINDS = (None, "skill", "language", "other")
+
+
+def _is_caps_heading(line: str) -> bool:
+    """Titre en majuscules (« LANGAGES », « TRANSVERSES ») : court, sans chiffre ni ponctuation, pas un outil."""
+    heading = line.strip().strip("-–—_:=#• ").strip()
+    letters = [c for c in heading if c.isalpha()]
+    return (len(letters) >= MIN_HEADING_LETTERS and len(heading) <= 40 and heading.upper() == heading
+            and not any(c.isdigit() or c in ",;()/|" for c in heading) and len(heading.split()) <= 4
+            and not any(pattern.search(heading) for pattern in TECH_RE.values()))
+
+
+def _continues(previous: str, raw: str) -> bool:
+    """La ligne `raw` prolonge-t-elle la ligne `previous` (phrase coupée par la mise en page) ?"""
+    line = raw.strip()
+    if (not previous or BULLET.match(raw) or _section_of(line) or _is_caps_heading(line)
+            or _section_of(previous) or _is_caps_heading(previous)):
+        return False
+    last = LAST_WORD.search(previous.lower())
+    if last and last.group(1) in CONNECTORS:
+        return True
+    return line[0].islower() and previous[-1] not in ".!?:;"
+
+
+def _logical_lines(cv_text: str) -> list[str]:
+    out: list[str] = []
+    for raw in cv_text.splitlines():
+        line = raw.strip()[:MAX_LINE * 4]  # borne le travail des regex quelle que soit la ligne
+        if not line:
+            out.append("")
+        elif out and out[-1] and _continues(out[-1], raw[:MAX_LINE * 4]):
+            out[-1] = f"{out[-1]} {line}"[:MAX_LINE * 4]
+        else:
+            out.append(line)
+    return out
+
+
 def _section_of(line: str) -> str | None:
     heading = line.strip().strip("-–—_:=# ").strip()
     if not heading or len(heading) > 40:
@@ -101,16 +145,40 @@ def _tidy(line: str) -> str:
     return re.sub(r"\s+", " ", line).strip()
 
 
+def _norm(text: str) -> str:
+    plain = unicodedata.normalize("NFKD", text.replace("’", "'"))
+    return re.sub(r"[^a-z0-9+#]+", " ", "".join(c for c in plain if not unicodedata.combining(c)).lower()).strip()
+
+
+MIN_CONTAINED = 25  # un fait long déjà contenu dans un fait connu (ou l'inverse) est le même fait
+
+
+def drop_known(facts: list[ProposedFact], known: list[tuple[str, str]]) -> list[ProposedFact]:
+    """Écarte les faits déjà connus (validés ou proposés), à la casse, aux accents et à la ponctuation près."""
+    seen = [(kind, _norm(text)) for kind, text in known]
+    kept = []
+    for fact in facts:
+        norm = _norm(fact.text)
+        if not norm or any(kind == fact.kind and (
+                norm == other or (min(len(norm), len(other)) >= MIN_CONTAINED and (norm in other or other in norm)))
+                for kind, other in seen):
+            continue
+        seen.append((fact.kind, norm))
+        kept.append(fact)
+    return kept
+
+
 def propose_facts(cv_text: str) -> list[ProposedFact]:
     facts: list[ProposedFact] = []
     kind: str | None = None  # rien n'est retenu avant la première rubrique : c'est l'en-tête d'identité
-    for raw in cv_text.splitlines():
-        line = raw.strip()[:MAX_LINE * 4]  # borne le travail des regex quelle que soit la ligne
+    for line in _logical_lines(cv_text):
         if not line:
             continue
         if (section := _section_of(line)) is not None:
             kind = section
             continue
+        if kind in OWN_LINE_HEADING_KINDS and _is_caps_heading(line):
+            continue  # sous-titre de colonne : jamais un fait
         if kind is None or any(p.search(line) for p in IDENTITY):
             continue
         rest, start, end = _dates(line)

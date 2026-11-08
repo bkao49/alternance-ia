@@ -205,7 +205,7 @@ def test_delete_removes_cv_and_its_facts_only(alice):  # noqa: F811
     assert [f["id"] for f in alice.get("/profile/facts").json()] == [manual]
 
 
-def test_new_upload_replaces_cv_and_proposed_facts_but_keeps_validated(alice):  # noqa: F811
+def test_new_upload_replaces_the_file_and_keeps_every_fact(alice):  # noqa: F811
     upload(alice, make_pdf())
     with user_scope(alice.user_id) as conn:
         cv_id = conn.execute(text("SELECT id FROM cv_documents")).scalar_one()
@@ -216,5 +216,5 @@ def test_new_upload_replaces_cv_and_proposed_facts_but_keeps_validated(alice):  
     upload(alice, make_docx(), "nouveau.docx")
     wait_done(alice)
     texts = [f["text"] for f in alice.get("/profile/facts").json()]
-    assert "Valide" in texts and "A relire" not in texts  # l'ancien fait à relire est parti, le validé reste
+    assert "Valide" in texts and "A relire" in texts  # plusieurs CV peuvent s'additionner : rien n'est effacé
     assert alice.get("/profile/cv").json()["original_name"] == "nouveau.docx"
