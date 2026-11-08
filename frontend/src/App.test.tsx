@@ -209,7 +209,7 @@ describe("clavier", () => {
   it("atteint le changement de vue par la touche Tab", async () => {
     const user = await signedInApp();
     const onKanban = () => document.activeElement?.tagName === "BUTTON" && document.activeElement.textContent === "Kanban";
-    for (let i = 0; i < 12 && !onKanban(); i += 1) await user.tab();
+    for (let i = 0; i < 14 && !onKanban(); i += 1) await user.tab();
     expect(onKanban()).toBe(true);
     await user.keyboard("{Enter}");
     expect(screen.getByRole("button", { name: "Kanban" })).toHaveAttribute("aria-pressed", "true");

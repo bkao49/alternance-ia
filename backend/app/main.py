@@ -10,6 +10,7 @@ from app import (
     offers,
     preferences,
     profile,
+    sources,
     statuses,
 )
 from app.cv import routes as cv_routes
@@ -32,6 +33,7 @@ def create_app() -> FastAPI:
     application.include_router(profile.router)
     application.include_router(cv_routes.router)
     application.include_router(documents.router)
+    application.include_router(sources.router)
 
     @application.get("/health")
     def health() -> dict[str, str]:

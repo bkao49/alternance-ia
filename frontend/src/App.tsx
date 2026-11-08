@@ -13,6 +13,7 @@ const pageOf = (): Page => {
   if (offerOf()) return "prepare";
   if (window.location.hash === "#offres") return "offers";
   if (window.location.hash === "#criteres") return "criteria";
+  if (window.location.hash === "#sources") return "sources";
   return window.location.hash === "#profil" ? "profile" : "home";
 };
 
