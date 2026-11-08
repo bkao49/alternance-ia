@@ -39,7 +39,7 @@ def test_catalog_lists_every_source_off_by_default(alice, contract):  # noqa: F8
     for source in sources:
         assert_conforms(contract, "Source", source)
     found = by_key(alice)
-    assert set(found) == {"france_travail", "lba", "adzuna", "web"}
+    assert set(found) == {"france_travail", "lba", "adzuna", "web", "email"}
     assert found["lba"]["configured"] and not found["france_travail"]["configured"]
     assert found["france_travail"]["key_env"] == ["FRANCE_TRAVAIL_CLIENT_ID", "FRANCE_TRAVAIL_CLIENT_SECRET"]
     assert not any(s["enabled"] or s["blocked"] for s in sources)

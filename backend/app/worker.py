@@ -37,6 +37,7 @@ from app.collectors.lba import LbaCollector
 from app.collectors.web import WebCollector, load_sites
 from app.config import WorkerSettings, get_worker_settings
 from app.db import user_scope
+from app.mailbox import EMAIL_SOURCE, email_collector
 from app.pipeline import analyse_user_offers
 from app.web_pages import WEB_SOURCE, web_collector
 
@@ -71,7 +72,7 @@ def default_registry(settings: WorkerSettings) -> Registry:
 
 
 def default_user_registry() -> UserRegistry:
-    return {WEB_SOURCE: web_collector}
+    return {WEB_SOURCE: web_collector, EMAIL_SOURCE: email_collector}
 
 
 def load_query(conn: Connection) -> SearchQuery | None:

@@ -195,6 +195,68 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "422": { $ref: "#/components/responses/ValidationError" }
 
+  /sources/email/mailbox:
+    get:
+      tags: [sources]
+      operationId: getMailbox
+      summary: Ma boîte e-mail dédiée aux alertes
+      description: Le mot de passe d'application n'est jamais renvoyé. Sans boîte enregistrée, `configured` vaut false.
+      responses:
+        "200":
+          description: Boîte de l'utilisateur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mailbox" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [sources]
+      operationId: updateMailbox
+      summary: Enregistrer ou modifier ma boîte dédiée
+      description: |
+        Le mot de passe est obligatoire à la première saisie ; ensuite, l'omettre garde celui enregistré. Il est
+        chiffré au repos (clé dérivée de `SECRET_KEY`). Serveur : un nom public (ni IP, ni adresse locale ou privée) ;
+        seul le port 993 (IMAP sécurisé) est accepté. Toute modification efface le dernier résultat de test.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailboxInput" }
+      responses:
+        "200":
+          description: Boîte enregistrée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mailbox" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [sources]
+      operationId: deleteMailbox
+      summary: Supprimer ma boîte (et éteindre la source e-mail)
+      responses:
+        "204": { description: Boîte supprimée }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /sources/email/mailbox/test:
+    post:
+      tags: [sources]
+      operationId: testMailbox
+      summary: Tester la connexion à ma boîte
+      description: |
+        Se connecte en IMAP avec les réglages enregistrés et lit le dossier, sans rien modifier. Le résultat
+        (`ok`, message fixe sans identifiant) est aussi gardé dans `Mailbox`. Au plus un test toutes les 10 secondes.
+      responses:
+        "200":
+          description: Résultat du test (un échec de connexion est un résultat, pas une erreur)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailboxTest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
   /offers/{offerId}:
     get:
       tags: [offers]
@@ -1188,6 +1250,36 @@ components:
       required: [urls]
       properties:
         urls: { type: array, items: { type: string, maxLength: 2000 } }
+    Mailbox:
+      type: object
+      required: [configured]
+      properties:
+        configured: { type: boolean }
+        host: { type: string }
+        port: { type: integer }
+        username: { type: string }
+        folder: { type: string }
+        updated_at: { type: string, format: date-time }
+        last_test_at: { type: string, format: date-time }
+        last_test_ok: { type: boolean }
+        last_test_error: { type: string, maxLength: 200, description: "Message fixe, jamais l'identifiant ni la réponse du serveur" }
+    MailboxInput:
+      type: object
+      additionalProperties: false
+      required: [host, username]
+      properties:
+        host: { type: string, minLength: 1, maxLength: 253, examples: [imap.exemple.fr] }
+        port: { type: integer, enum: [993] }
+        username: { type: string, minLength: 1, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 200, writeOnly: true, description: "Mot de passe d'application. Jamais relu ni journalisé." }
+        folder: { type: string, minLength: 1, maxLength: 100, examples: [INBOX] }
+    MailboxTest:
+      type: object
+      required: [ok, message, tested_at]
+      properties:
+        ok: { type: boolean }
+        message: { type: string, maxLength: 200 }
+        tested_at: { type: string, format: date-time }
     OfferDetail:
       allOf:
         - { $ref: "#/components/schemas/Offer" }

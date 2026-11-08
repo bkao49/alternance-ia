@@ -40,6 +40,15 @@ def _is_ip(host: str) -> bool:
     return True
 
 
+def check_hostname(host: str) -> None:
+    """Refuse une adresse IP, un nom local ou interne : `ValueError` avec un message pour l'utilisateur."""
+    host = host.lower().rstrip(".")
+    if _is_ip(host.strip("[]")):
+        raise ValueError("une adresse IP n'est pas acceptée : donnez le nom du site")
+    if "." not in host or host.rsplit(".", 1)[-1].isdigit() or host == "localhost" or host.endswith(LOCAL_SUFFIXES):
+        raise ValueError("adresse locale ou interne refusée")
+
+
 def check_page_url(url: str, resolver: Callable[[str], Iterable[str]] | None = None) -> str:
     """URL canonique d'une page carrières, ou `ValueError` avec un message pour l'utilisateur."""
     try:
@@ -50,10 +59,7 @@ def check_page_url(url: str, resolver: Callable[[str], Iterable[str]] | None = N
     host = parts.hostname or ""
     if parts.port is not None:
         raise ValueError("port non standard refusé")
-    if _is_ip(host.strip("[]")):
-        raise ValueError("une adresse IP n'est pas acceptée : donnez le nom du site")
-    if "." not in host or host.rsplit(".", 1)[-1].isdigit() or host == "localhost" or host.endswith(LOCAL_SUFFIXES):
-        raise ValueError("adresse locale ou interne refusée")
+    check_hostname(host)
     if any(host == d or host.endswith("." + d) for d in CLOSED_SITES):
         raise ValueError("site fermé aux robots : créez plutôt une alerte e-mail (écran « Mes sources »)")
     try:

@@ -17,6 +17,7 @@ from app.auth import Session, current_session, require_csrf
 from app.config import get_worker_settings
 from app.db import user_scope
 from app.errors import ApiError
+from app.mailbox import EMAIL_SOURCE
 from app.web_pages import WEB_SOURCE
 
 router = APIRouter(tags=["sources"])
@@ -31,7 +32,7 @@ class SourceInfo:
     label: str
     description: str
     key_env: tuple[str, ...] = ()  # variables d'environnement du serveur qui doivent être renseignées
-    needs_pages: bool = False  # source « web » : exige au moins une page saisie par l'utilisateur
+    needs: str | None = None  # « pages » (robot web) ou « mailbox » (alertes e-mail) : réglage propre à l'utilisateur
 
     @property
     def configured(self) -> bool:
@@ -50,8 +51,17 @@ CATALOG: tuple[SourceInfo, ...] = (
                ("ADZUNA_APP_ID", "ADZUNA_APP_KEY")),
     SourceInfo(WEB_SOURCE, "Pages carrières (robot web)",
                "Les pages emploi des entreprises que vous indiquez : le robot lit les offres qu'elles publient.",
-               needs_pages=True),
+               needs="pages"),
+    SourceInfo(EMAIL_SOURCE, "Alertes e-mail (LinkedIn, Indeed…)",
+               "Les alertes emploi que vous créez vous-même, reçues dans une boîte e-mail dédiée que le robot lit.",
+               needs="mailbox"),
 )
+
+# Table qui prouve que l'utilisateur a fait le réglage, et message quand il manque.
+NEEDS = {
+    "pages": ("web_pages", "Ajoutez d'abord au moins une page à lire."),
+    "mailbox": ("email_boxes", "Enregistrez d'abord votre boîte e-mail dédiée."),
+}
 BY_KEY = {s.key: s for s in CATALOG}
 
 
@@ -86,7 +96,7 @@ COLUMNS = "source, enabled, interval_minutes, blocked_at, blocked_cause, last_ru
 
 def _ready(conn, info: SourceInfo) -> bool:
     """Prête à collecter : clés du serveur présentes et, pour le robot web, au moins une page saisie."""
-    if info.needs_pages and not conn.execute(text("SELECT EXISTS (SELECT 1 FROM web_pages)")).scalar_one():
+    if info.needs and not conn.execute(text(f"SELECT EXISTS (SELECT 1 FROM {NEEDS[info.needs][0]})")).scalar_one():
         return False
     return info.configured
 
@@ -133,7 +143,7 @@ def update_source(source: str, body: SourceIn, session: Session = Depends(requir
         ready = _ready(conn, info)
         if body.enabled and not ready:
             raise ApiError(409, "source_not_configured",
-                           "Ajoutez d'abord au moins une page à lire." if info.needs_pages
+                           NEEDS[info.needs][1] if info.needs
                            else "La clé de cette source n'est pas configurée sur le serveur.")
         row = conn.execute(
             text("INSERT INTO source_settings (user_id, source, enabled, interval_minutes) "

@@ -1,4 +1,4 @@
-import type { Application, ApplicationEvent, DashboardStats, ProfileCv, ProfileFact, SearchPreferences, Source, Status } from "../api/types";
+import type { Application, ApplicationEvent, DashboardStats, ProfileCv, ProfileFact, Mailbox, SearchPreferences, Source, Status } from "../api/types";
 import { createDocumentsMock } from "./documentsMock";
 import { seedApplications, seedOffers, seedStatuses } from "./data";
 import { DEMO } from "./demoInfo";
@@ -33,7 +33,9 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
     { ...base, source: "lba", label: "La Bonne Alternance", description: "L'API officielle des offres en alternance et des entreprises qui recrutent.", key_env: ["LBA_API_TOKEN"], configured: true, enabled: true, last_run_at: new Date(Date.now() - 46 * 60_000).toISOString() },
     { ...base, source: "adzuna", label: "Adzuna", description: "Un agrégateur d'annonces avec une API gratuite : stages, CDD, CDI et alternance.", key_env: ["ADZUNA_APP_ID", "ADZUNA_APP_KEY"], configured: true, blocked: true, blocked_cause: "blocage détecté (403)", blocked_at: new Date(Date.now() - 300 * 60_000).toISOString() },
     { ...base, source: "web", label: "Pages carrières (robot web)", description: "Les pages emploi des entreprises que vous indiquez : le robot lit les offres qu'elles publient.", key_env: [], configured: false },
+    { ...base, source: "email", label: "Alertes e-mail (LinkedIn, Indeed…)", description: "Les alertes emploi que vous créez vous-même, reçues dans une boîte e-mail dédiée que le robot lit.", key_env: [], configured: false },
   ];
+  let mailbox: Mailbox = { configured: false };
   let webPages: string[] = [];
   let nextId = applications.length + 1;
   const documents = createDocumentsMock(() => ({ facts, offers, nextId: () => nextId++ }));
@@ -189,6 +191,30 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
       }
     }
     if (method === "GET" && path === "/sources") return json(sources);
+    if (path === "/sources/email/mailbox" && method === "GET") return json(mailbox);
+    if (path === "/sources/email/mailbox" && method === "PUT") {
+      const input = body as { host: string; username: string; password?: string; folder?: string };
+      if (/^(localhost|[\d.]+|[^.]+)$/i.test(input.host) || /\.(local|internal)$/i.test(input.host)) {
+        return error(422, "validation_error", "Serveur refusé : adresse locale ou interne refusée.");
+      }
+      if (!input.password && !mailbox.configured) return error(422, "validation_error", "Le mot de passe d'application est obligatoire.");
+      mailbox = { configured: true, host: input.host, port: 993, username: input.username, folder: input.folder ?? "INBOX", updated_at: new Date().toISOString() };
+      const email = sources.findIndex((s) => s.source === "email");
+      sources[email] = { ...sources[email]!, configured: true };
+      return json(mailbox);
+    }
+    if (path === "/sources/email/mailbox" && method === "DELETE") {
+      mailbox = { configured: false };
+      const email = sources.findIndex((s) => s.source === "email");
+      sources[email] = { ...sources[email]!, configured: false, enabled: false };
+      return new Response(null, { status: 204 });
+    }
+    if (path === "/sources/email/mailbox/test" && method === "POST") {
+      if (!mailbox.configured) return error(404, "not_found", "Aucune boîte enregistrée.");
+      const tested_at = new Date().toISOString();
+      mailbox = { ...mailbox, last_test_at: tested_at, last_test_ok: true };
+      return json({ ok: true, message: "Connexion réussie : la boîte et le dossier sont lisibles.", tested_at });
+    }
     if (path === "/sources/web/pages" && method === "GET") return json({ urls: webPages, max: 10 });
     if (path === "/sources/web/pages" && method === "PUT") {
       const urls: string[] = [];
@@ -218,7 +244,7 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
       if (enabled && current.blocked && !confirm_unblock) {
         return error(409, "source_blocked", `Cette source a été arrêtée : ${current.blocked_cause}. La réactiver peut aggraver le blocage ; confirmez pour continuer.`);
       }
-      if (enabled && !current.configured) return error(409, "source_not_configured", current.source === "web" ? "Ajoutez d'abord au moins une page à lire." : "La clé de cette source n'est pas configurée sur le serveur.");
+      if (enabled && !current.configured) return error(409, "source_not_configured", current.source === "web" ? "Ajoutez d'abord au moins une page à lire." : current.source === "email" ? "Enregistrez d'abord votre boîte e-mail dédiée." : "La clé de cette source n'est pas configurée sur le serveur.");
       const unblock = enabled && current.blocked;
       sources[index] = {
         ...current, enabled, interval_minutes,
