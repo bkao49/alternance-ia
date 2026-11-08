@@ -16,13 +16,14 @@ from sqlalchemy import create_engine, text
 
 from app.ai.gateway.claude import check_api_key
 from app.collectors.adzuna import AdzunaCollector
-from app.collectors.base import Collector, SearchQuery
+from app.collectors.base import Collector, CollectorError, SearchQuery
+from app.collectors.france_travail import FranceTravailCollector, NotSubscribed
 from app.collectors.lba import LbaCollector
 from app.collectors.mail import ImapMailClient
 
 BACKEND = Path(__file__).resolve().parent.parent
 OK, TODO, ERROR = "[OK]", "[A FAIRE]", "[ERREUR]"
-Probe = Callable[[], str | None]  # None : la source répond ; sinon une phrase d'explication
+Probe = Callable[[], "str | Line | None"]  # None : la source répond ; sinon une phrase (ERREUR) ou une Line
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,9 @@ def check_keys(env: dict[str, str]) -> list[Line]:
          "sans elle, ni extraction, ni score complet, ni CV : console.anthropic.com."),
         ("ADZUNA_APP_ID et ADZUNA_APP_KEY", _set(env, "ADZUNA_APP_ID", "ADZUNA_APP_KEY"), TODO,
          "source Adzuna inactive : developer.adzuna.com."),
+        ("FRANCE_TRAVAIL_CLIENT_ID et FRANCE_TRAVAIL_CLIENT_SECRET",
+         _set(env, "FRANCE_TRAVAIL_CLIENT_ID", "FRANCE_TRAVAIL_CLIENT_SECRET"), TODO,
+         "source France Travail inactive : francetravail.io."),
         ("LBA_API_TOKEN (La Bonne Alternance)", _set(env, "LBA_API_TOKEN"), TODO,
          "source La Bonne Alternance inactive : francetravail.io."),
         ("EMAIL_ALERTS_HOST, USER et PASSWORD",
@@ -92,6 +96,21 @@ def _collector_probe(make: Callable[[], Collector]) -> Probe:
     return probe
 
 
+def _france_travail_probe() -> Line | None:
+    """Jeton puis une recherche d'une seule offre : valide le scope et l'abonnement à l'API."""
+    name = "France Travail"
+    try:
+        with FranceTravailCollector() as collector:
+            total = collector.check()
+    except NotSubscribed:
+        return Line(TODO, f"{name} : votre application francetravail.io n'est pas abonnée à l'API "
+                          "Offres d'emploi v2, ou le scope est différent. Vérifiez l'abonnement "
+                          "dans votre espace francetravail.io.")
+    except CollectorError as exc:
+        return Line(ERROR, f"{name} : {exc.message}")
+    return Line(OK, f"{name} : l'appel de test répond ({total} offres au total).")
+
+
 def _imap_probe(env: dict[str, str]) -> Probe:
     def probe() -> str | None:
         try:
@@ -111,6 +130,8 @@ def default_probes(env: dict[str, str]) -> dict[str, Probe]:
         probes["Claude (Anthropic)"] = lambda: check_api_key(env["ANTHROPIC_API_KEY"].strip())
     if _set(env, "ADZUNA_APP_ID", "ADZUNA_APP_KEY"):
         probes["Adzuna"] = _collector_probe(AdzunaCollector)
+    if _set(env, "FRANCE_TRAVAIL_CLIENT_ID", "FRANCE_TRAVAIL_CLIENT_SECRET"):
+        probes["France Travail"] = _france_travail_probe
     if _set(env, "LBA_API_TOKEN"):
         probes["La Bonne Alternance"] = _collector_probe(LbaCollector)
     if _set(env, "EMAIL_ALERTS_HOST", "EMAIL_ALERTS_USER", "EMAIL_ALERTS_PASSWORD"):
@@ -127,8 +148,11 @@ def check_sources(probes: dict[str, Probe]) -> list[Line]:
             problem = probe()
         except Exception as exc:  # noqa: BLE001 (le détail pourrait contenir une clé)
             problem = f"échec inattendu ({type(exc).__name__})"
-        lines.append(Line(OK, f"{name} : l'appel de test répond.") if problem is None
-                     else Line(ERROR, f"{name} : {problem}"))
+        if isinstance(problem, Line):
+            lines.append(problem)
+        else:
+            lines.append(Line(OK, f"{name} : l'appel de test répond.") if problem is None
+                         else Line(ERROR, f"{name} : {problem}"))
     return lines
 
 
