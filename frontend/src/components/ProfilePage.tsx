@@ -128,6 +128,8 @@ export function ProfilePage() {
   const [announcement, setAnnouncement] = useState("");
 
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmingRejectAll, setConfirmingRejectAll] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
 
@@ -217,6 +219,28 @@ export function ProfilePage() {
 
   const validated = facts?.filter((f) => f.status !== "proposed") ?? [];
   const proposed = facts?.filter((f) => f.status === "proposed") ?? [];
+  const chosen = proposed.filter((f) => selected.has(f.id));
+
+  async function decideMany(ids: string[], action: "validate" | "reject") {
+    if (busyId || ids.length === 0) return;
+    setBusyId("bulk");
+    const failure = await run(
+      async () => unwrap(await api.POST("/profile/facts/bulk", { body: { action, ids } })),
+      action === "validate" ? `${ids.length} fait(s) validé(s)` : `${ids.length} fait(s) rejeté(s)`,
+    );
+    setBusyId(null);
+    setSelected(new Set());
+    setConfirmingRejectAll(false);
+    if (failure) setProblem(failure);
+    else heading.current?.focus();
+  }
+
+  const toggle = (id: string) =>
+    setSelected((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   return (
     <section id="profil" aria-labelledby="profile-title">
@@ -242,7 +266,7 @@ export function ProfilePage() {
         </p>
       )}
       {facts === null && !problem && <p role="status">Chargement…</p>}
-      <CvImport onFactsChanged={reloadFacts} />
+      <CvImport onFactsChanged={reloadFacts} proposedCount={proposed.length} />
       {proposed.length > 0 && (
         <section aria-labelledby="proposed-title" className="proposed">
           <h2 id="proposed-title">À valider ({proposed.length})</h2>
@@ -250,9 +274,32 @@ export function ProfilePage() {
             Proposés d'après votre CV. Relisez chaque fait : seuls ceux que vous validez comptent pour le score et pour vos
             documents.
           </p>
+          <div className="actions bulk" role="group" aria-label="Actions sur plusieurs faits">
+            <label>
+              <input
+                type="checkbox"
+                checked={chosen.length === proposed.length}
+                onChange={(event) => setSelected(event.target.checked ? new Set(proposed.map((f) => f.id)) : new Set())}
+              />{" "}
+              Tout sélectionner
+            </label>
+            <button type="button" className="primary" disabled={busyId !== null || chosen.length === 0} onClick={() => void decideMany(chosen.map((f) => f.id), "validate")}>
+              Valider la sélection ({chosen.length})
+            </button>
+            <button type="button" disabled={busyId !== null || chosen.length === 0} onClick={() => void decideMany(chosen.map((f) => f.id), "reject")}>
+              Rejeter la sélection ({chosen.length})
+            </button>
+            <button type="button" disabled={busyId !== null} onClick={() => void decideMany(proposed.map((f) => f.id), "validate")}>
+              Tout valider
+            </button>
+            <button type="button" disabled={busyId !== null} onClick={() => setConfirmingRejectAll(true)}>
+              Tout rejeter
+            </button>
+          </div>
           <ul className="facts">
             {proposed.map((fact) => (
               <li key={fact.id}>
+                <input type="checkbox" checked={selected.has(fact.id)} onChange={() => toggle(fact.id)} aria-label={`Sélectionner : ${short(fact.text)}`} />{" "}
                 <span className="chip">{kindLabel(fact.kind)}</span> <span>{fact.text}</span>
                 <span className="muted">
                   {(fact.start_date || fact.end_date) && ` · ${fact.start_date ?? "?"}${fact.end_date ? ` → ${fact.end_date}` : ""}`}
@@ -299,6 +346,19 @@ export function ProfilePage() {
       <p className="visually-hidden" role="status" aria-live="polite">
         {announcement}
       </p>
+      {confirmingRejectAll && (
+        <Dialog title={`Rejeter les ${proposed.length} faits à valider ?`} onClose={() => setConfirmingRejectAll(false)}>
+          <p>Ces faits seront supprimés. Les faits déjà validés ne sont pas touchés.</p>
+          <div className="actions">
+            <button type="button" onClick={() => setConfirmingRejectAll(false)}>
+              Annuler
+            </button>
+            <button type="button" className="primary" onClick={() => void decideMany(proposed.map((f) => f.id), "reject")}>
+              Tout rejeter
+            </button>
+          </div>
+        </Dialog>
+      )}
       {editing && <FactDialog fact={editing === "new" ? null : editing} onSave={save} onClose={() => setEditing(null)} />}
     </section>
   );
