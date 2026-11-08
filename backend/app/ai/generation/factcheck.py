@@ -35,6 +35,27 @@ INITIAL_WORDS = frozenset({
     "par", "et", "ou", "ce", "cette", "ces", "ainsi", "depuis", "lors", "apres", "avant", "sans",
     "sous", "chez", "comme", "aussi", "tres", "plus",
 })
+# Mots courants (sans accents, au singulier) qu'une ligne de CV commence légitimement par une majuscule :
+# étiquettes de section et noms de rôle ou de fonction. Ce ne sont jamais des employeurs ni des écoles ;
+# toute autre majuscule initiale reste contrôlée (« Capgemini », « Google »). Le mot reste vérifié s'il
+# est suivi d'un nom propre, car chaque autre mot de la ligne passe par ses propres contrôles.
+_COMMON_NOUNS_TEXT = """
+outil competence formation experience projet diplome certification langue langage interet loisir
+profil objectif stage alternance emploi poste mission realisation resultat reference parcours
+cursus atelier cours module methode technologie environnement domaine connaissance savoir
+etudiant etudiante developpeur developpeuse stagiaire alternant alternante apprenti apprentie
+ingenieur ingenieure analyste consultant consultante technicien technicienne chercheur chercheuse
+assistant assistante responsable chef charge gestionnaire administrateur administratrice architecte
+concepteur conceptrice data scientist statisticien statisticienne diplomee diplome
+titulaire laureat laureate membre benevole president tresorier secretaire animateur animatrice
+tuteur tutrice enseignant enseignante formateur formatrice mentor createur creatrice
+logiciel application base donnee systeme reseau cloud web mobile site outils
+anglais francais espagnol allemand italien portugais chinois arabe russe japonais bilingue natif
+sport musique lecture voyage benevolat cinema photographie
+mathematique statistique informatique science sciences gestion finance marketing
+operations production qualite securite sante
+"""
+INITIAL_COMMON_NOUNS = frozenset(_COMMON_NOUNS_TEXT.split())
 INITIAL_VERB_LIKE = re.compile(r"(é|ée|és|ées|u|er|ir|ion|ions)$")
 WORD = re.compile(r"[^\W\d_][\w+#]*(?:[-.][\w+#]+)*")
 NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
@@ -47,6 +68,12 @@ def fold(text: str) -> str:
     """Minuscules, sans accents, apostrophes droites, espaces fines de milliers rassemblés."""
     plain = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", text).replace("’", "'"))
     return THOUSANDS.sub("", "".join(c for c in plain if not unicodedata.combining(c)).lower())
+
+
+def _is_common_noun(low: str) -> bool:
+    """Mot courant (pluriel, féminin ou accord compris) du début de ligne : voir INITIAL_COMMON_NOUNS."""
+    return low in INITIAL_COMMON_NOUNS or any(
+        low.endswith(end) and low[: -len(end)] in INITIAL_COMMON_NOUNS for end in ("s", "x", "e", "es", "ne", "se"))
 
 
 def _month(word: str) -> int | None:
@@ -172,7 +199,7 @@ def _check_line(line: str, evidence: _Evidence, lexicon: frozenset[str], other_w
             if not evidence.has_word(low) and not set(re.findall(r"[a-z0-9]+", low)) <= evidence.names:
                 problems.append(("name_not_in_facts", f"Le nom « {word} » n'apparaît dans aucun fait cité."))
         elif word[0].isupper() and initial and not is_acronym:
-            if low in INITIAL_WORDS:
+            if low in INITIAL_WORDS or _is_common_noun(low):
                 continue
             if not evidence.has_word(low) and (low in other_words or not INITIAL_VERB_LIKE.search(word.lower())):
                 problems.append(("name_not_in_facts", f"Le mot « {word} » en début de ligne ressemble à un nom "
