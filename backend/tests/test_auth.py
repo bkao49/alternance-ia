@@ -166,7 +166,7 @@ def test_email_is_normalised_at_login(client, alice):
     assert login(client, email="  ALICE@Example.TEST ").status_code == 200
 
 
-@pytest.mark.parametrize(("method", "path"), [("GET", "/auth/me"), ("POST", "/auth/logout")])
+@pytest.mark.parametrize(("method", "path"), [("GET", "/auth/me")])
 def test_protected_routes_reject_missing_and_forged_cookies(client, alice, method, path):
     assert client.request(method, path).status_code == 401
     client.cookies.set("session", "falsifie.cookie.jeton")
@@ -179,20 +179,33 @@ def test_me_returns_only_the_signed_in_user(client, alice):
     assert client.get("/auth/me").json()["email"] == "bob@example.test"
 
 
-def test_logout_requires_csrf_then_clears_the_session(client, alice):
+def test_logout_works_even_with_a_wrong_csrf_token_and_clears_the_cookies(client, alice):
     login(client)
-    assert client.post("/auth/logout").status_code == 403
-    assert client.post("/auth/logout", headers={"X-CSRF-Token": "faux"}).status_code == 403
-    assert client.get("/auth/me").status_code == 200  # toujours connecté
-    token = client.cookies.get("csrf_token")
-    assert client.post("/auth/logout", headers={"X-CSRF-Token": token}).status_code == 204
+    response = client.post("/auth/logout", headers={"X-CSRF-Token": "faux"})  # jeton désynchronisé
+    assert response.status_code == 204
+    cleared = " ".join(response.headers.get_list("set-cookie")).lower()
+    assert "session=" in cleared and "csrf_token=" in cleared and "max-age=0" in cleared
     assert client.get("/auth/me").status_code == 401
+
+
+def test_logout_without_any_session_still_answers_204(client, alice):
+    assert client.post("/auth/logout").status_code == 204
+
+
+def test_me_reissues_the_csrf_cookie_of_a_valid_session(client, alice):
+    login(client)
+    good = client.cookies.get("csrf_token")
+    client.cookies.set("csrf_token", "perime")  # cookie désynchronisé
+    assert client.post("/statuses", json={"name": "X"}, headers={"X-CSRF-Token": "perime"}).status_code == 403
+    response = client.get("/auth/me")
+    assert response.status_code == 200
+    assert f"csrf_token={good}" in " ".join(response.headers.get_list("set-cookie"))
 
 
 def test_csrf_token_of_another_session_is_refused(client, alice):
     login(client)
     other = security.csrf_token(secrets.token_hex(32), "autre-session")
-    assert client.post("/auth/logout", headers={"X-CSRF-Token": other}).status_code == 403
+    assert client.post("/statuses", json={"name": "X"}, headers={"X-CSRF-Token": other}).status_code == 403
 
 
 def test_session_of_a_deleted_account_is_refused(client, alice, migrated_db):
@@ -245,7 +258,7 @@ def test_expired_session_is_refused(client, alice, monkeypatch):
 
 def test_non_ascii_csrf_header_returns_403_not_500(client, alice):
     login(client)
-    response = client.post("/auth/logout", headers={"X-CSRF-Token": b"\xe9\xe9"})
+    response = client.post("/statuses", json={"name": "X"}, headers={"X-CSRF-Token": b"\xe9\xe9"})
     assert response.status_code == 403
 
 

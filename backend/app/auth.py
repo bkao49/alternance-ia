@@ -101,16 +101,24 @@ def login(body: LoginRequest, request: Request, response: Response) -> Me:
 
 
 @router.post("/auth/logout", status_code=204, tags=["auth"])
-def logout(response: Response, _: Session = Depends(require_csrf)) -> None:
+def logout(response: Response) -> None:
+    """Efface toujours les cookies, même avec un jeton CSRF faux ou une session périmée : un utilisateur dont
+    le jeton est désynchronisé doit pouvoir se déconnecter. Sans risque : fermer une session ne donne rien à
+    un tiers, et les cookies sont SameSite=Strict."""
     secure = get_settings().cookie_secure
     response.delete_cookie(SESSION_COOKIE, httponly=True, secure=secure, samesite="strict")
     response.delete_cookie(CSRF_COOKIE, secure=secure, samesite="strict")
 
 
 @router.get("/auth/me", response_model=Me, tags=["auth"])
-def me(session: Session = Depends(current_session)) -> Me:
+def me(response: Response, session: Session = Depends(current_session)) -> Me:
     with user_scope(session.user_id) as conn:
         row = conn.execute(text("SELECT id, email FROM users")).first()
     if row is None:  # compte supprimé alors que le cookie est encore valide
         raise ApiError(401, "unauthorized", "Non connecté")
+    # Session valide : on renvoie le jeton CSRF qui lui correspond, ce qui répare un cookie perdu ou périmé
+    # (clé secrète changée, cookie effacé) au prochain chargement de l'application.
+    settings = get_settings()
+    response.set_cookie(CSRF_COOKIE, security.csrf_token(settings.secret_key, session.sid), httponly=False,
+                        max_age=settings.session_max_age, secure=settings.cookie_secure, samesite="strict")
     return Me(id=row.id, email=row.email)

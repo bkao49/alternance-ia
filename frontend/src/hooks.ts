@@ -2,16 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { Middleware } from "openapi-fetch";
 
-import { ApiFailure, unwrap, type Api } from "./api/client";
+import { clearCsrfCookie, unwrap, type Api } from "./api/client";
 import { useApi } from "./api/context";
 import type { Application, BotStatus, DashboardStats, Me, Offer, Status } from "./api/types";
 
-export type SessionState = { user: Me | null | undefined; login: (email: string, password: string) => Promise<void>; logout: () => Promise<void> };
+export type SessionState = { user: Me | null | undefined; login: (email: string, password: string) => Promise<void>; logout: () => Promise<void>; notice: string | null };
 
 /** `user` vaut `undefined` pendant la vérification de la session, `null` si non connecté. */
 export function useSession(): SessionState {
   const api = useApi();
   const [user, setUser] = useState<Me | null | undefined>(undefined);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -25,6 +26,21 @@ export function useSession(): SessionState {
       onResponse({ request, response }) {
         const path = new URL(request.url).pathname;
         if (response.status === 401 && !path.endsWith("/auth/login") && !path.endsWith("/auth/me")) setUser(null);
+        // Jeton CSRF désynchronisé (clé du serveur changée, cookie perdu) : toute action échouerait. On ferme
+        // la session des deux côtés et on renvoie à la connexion, plutôt que de laisser une application inerte.
+        if (response.status === 403 && !path.endsWith("/auth/login") && !path.endsWith("/auth/logout")) {
+          void response
+            .clone()
+            .json()
+            .then(async (body: { code?: string }) => {
+              if (body.code !== "csrf_invalid") return;
+              clearCsrfCookie();
+              await api.POST("/auth/logout").catch(() => undefined);
+              setNotice("Votre session n'est plus valide. Reconnectez-vous.");
+              setUser(null);
+            })
+            .catch(() => undefined);
+        }
       },
     };
     api.use(onExpiredSession);
@@ -41,15 +57,15 @@ export function useSession(): SessionState {
     [api],
   );
   const logout = useCallback(async () => {
-    const result = await api.POST("/auth/logout");
-    // 401 : la session n'existait déjà plus. Toute autre erreur : on ne prétend pas être déconnecté.
-    if (result.error !== undefined && result.response.status !== 401) {
-      throw new ApiFailure(result.response.status, "logout_failed", "Déconnexion impossible, réessayez.");
-    }
+    // Le serveur efface les cookies même si le jeton est faux ; si lui est injoignable, on se déconnecte
+    // quand même de l'interface : l'utilisateur ne doit jamais rester bloqué.
+    clearCsrfCookie();
+    await api.POST("/auth/logout").catch(() => undefined);
+    setNotice(null);
     setUser(null);
   }, [api]);
 
-  return { user, login, logout };
+  return { user, login, logout, notice };
 }
 
 /** Score de chaque offre qui en a un, par identifiant d'offre : une candidature liée à une offre en hérite. */
