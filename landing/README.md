@@ -1,21 +1,21 @@
 # Landing page
 
-Page statique de présentation du projet, séparée de l'application (`frontend/`). Direction I : noir et rouge,
-Instrument Serif, Geist, JetBrains Mono (polices auto-hébergées, aucun appel externe, aucun traceur).
-Les chiffres et l'aperçu du tableau de bord sont fictifs.
+Page de présentation d'Ereuna, séparée de l'application (`frontend/`). Une seule police, Inter, auto-hébergée :
+aucun appel externe, aucun traceur. Les exemples d'écran sont fictifs.
 
 ```powershell
 cd landing
 npm install
-npm run dev      # http://localhost:5173
+npm run dev      # http://localhost:5173 (ou le port affiché si 5173 est pris)
 npm run build    # types + build dans dist/
 npm run size     # vérifie < 500 Ko de JavaScript compressé
 npm test
 ```
 
 - **Changer le nom** : `src/brand.ts` (`APP_NAME`), plus le logo SVG dans `index.html` (en-tête).
-- **Animations** : une scène three.js (`src/scene.ts`) liée au défilement, chargée à la demande ; graphiques SVG
-  tracés à l'apparition (`src/charts.ts`) ; révélations (`data-reveal`).
-- **Sans animation** : avec `prefers-reduced-motion` ou sans WebGL, la scène 3D n'est pas chargée et un dessin 2D
-  statique la remplace ; tout le contenu reste visible.
+- **Thème** : clair par défaut, sombre si le système le demande ; le bouton « Mode sombre / Mode clair » mémorise
+  le choix (`src/theme.ts`, repris dans le `<head>` d'`index.html` pour éviter un flash).
+- **Animations** : la vague de particules (`src/wave.ts`, dessinée en 2D, sans bibliothèque) est poussée par le
+  défilement ; chaque étape « déferle » (variable CSS `--p` posée par `src/main.ts`).
+- **Sans animation** : avec `prefers-reduced-motion`, la vague est une image fixe et tout le contenu est affiché.
 - **Publication** : non activée (décision à prendre avec le PO). Les chemins sont relatifs (`base: "./"`).

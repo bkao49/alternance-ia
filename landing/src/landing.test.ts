@@ -1,66 +1,63 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { linePath } from "./charts";
-import { COLLECTED, SCORE_BINS, SCORE_FROM, SCORE_STEP, total } from "./data";
-import { activeStep, storyProgress } from "./story";
+import { initialTheme } from "./theme";
+import { redEvery, waveHeight } from "./wave";
 
 const html = readFileSync(resolve(process.cwd(), "index.html"), "utf-8");
-
-describe("chiffres fictifs", () => {
-  it("le total affiché correspond aux données du graphique", () => {
-    expect(total(COLLECTED)).toBe(1204);
-    expect(COLLECTED).toHaveLength(30);
-    expect(html).toContain("1&nbsp;204</span> offres collectées en 30 jours");
-  });
-
-  it("le nombre d'offres au-dessus de 4 correspond aux tranches", () => {
-    const high = SCORE_BINS.filter((_, i) => SCORE_FROM + i * SCORE_STEP >= 4);
-    expect(total(high)).toBe(14);
-    expect(html).toContain("14</span> offres au-dessus de 4 sur 5");
-  });
-});
-
-describe("linePath", () => {
-  it("place le maximum en haut et occupe toute la largeur", () => {
-    expect(linePath([0, 5, 10], 100, 50)).toBe("M0.0 50.0 L50.0 25.0 L100.0 0.0");
-  });
-});
-
-describe("storyProgress", () => {
-  const steps = (tops: number[]) => tops.map((top) => ({ top, height: 500 }));
-
-  it("vaut 0 tant qu'aucune étape n'a atteint la ligne de lecture", () => {
-    expect(storyProgress(steps([900, 1400, 1900, 2400]), 1000)).toBe(0);
-    expect(activeStep(0, 4)).toBe(-1);
-  });
-
-  it("compte les étapes franchies et la fraction de l'étape en cours", () => {
-    // Ligne de lecture à 800 px, étape franchie sur 175 px : la 1re est passée, la 2e à moitié.
-    expect(storyProgress(steps([-500, 712.5, 900, 1400]), 1000)).toBe(1.5);
-    expect(activeStep(1.5, 4)).toBe(1);
-  });
-
-  it("plafonne à la dernière étape", () => {
-    expect(storyProgress(steps([-3000, -2500, -2000, -1500]), 1000)).toBe(4);
-    expect(activeStep(4, 4)).toBe(3);
-  });
-});
+const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf-8");
 
 describe("contenu", () => {
   it("raconte les six étapes, pour tous les métiers", () => {
     expect(html.match(/data-step/g)).toHaveLength(6);
+    expect(html).toContain("Pour tous les métiers et tous les contrats");
     expect(html).not.toMatch(/Data et IA|Data \/ IA|Piste/);
   });
 
   it("ne promet aucun envoi automatique", () => {
-    expect(html).toContain("n'envoie jamais rien");
-    expect(html).not.toMatch(/envoi automatique de candidatures? (est|:)/i);
+    expect(html).toContain("n'envoie jamais rien à ta place");
+    expect(html).toContain("Aucun envoi automatique");
+  });
+
+  it("n'utilise pas de point-virgule dans les textes", () => {
+    const text = html.replace(/<script[\s\S]*?<\/script>/g, "").replace(/<[^>]+>/g, " ");
+    expect(text).not.toContain(" ;");
   });
 });
 
 describe("page", () => {
   it("ne charge aucune ressource externe ni traceur", () => {
-    expect(html).not.toMatch(/fonts\.googleapis|googletagmanager|analytics|<iframe/i);
+    expect(html).not.toMatch(/fonts\.googleapis|googletagmanager|analytics|<iframe|<video|cloudfront/i);
+    expect(css).not.toMatch(/url\(["']?https?:/);
+  });
+
+  it("prévoit le mouvement réduit et le thème sombre du système", () => {
+    expect(css).toContain("prefers-reduced-motion: reduce");
+    expect(css).toContain("prefers-color-scheme: dark");
+  });
+});
+
+describe("initialTheme", () => {
+  it("garde le choix mémorisé", () => {
+    expect(initialTheme("dark", false)).toBe("dark");
+    expect(initialTheme("light", true)).toBe("light");
+  });
+
+  it("suit le système, sinon clair", () => {
+    expect(initialTheme(null, true)).toBe("dark");
+    expect(initialTheme(null, false)).toBe("light");
+    expect(initialTheme("bleu", false)).toBe("light");
+  });
+});
+
+describe("vague", () => {
+  it("reste dans une amplitude bornée", () => {
+    for (let x = -2; x <= 2; x += 0.25) for (let t = 0; t < 20; t += 1.5) expect(Math.abs(waveHeight(x, 0.5, t))).toBeLessThanOrEqual(1.15);
+  });
+
+  it("a de plus en plus de points rouges vers le bas de la page", () => {
+    expect(redEvery(0)).toBe(97);
+    expect(redEvery(1)).toBe(23);
+    expect(redEvery(0.5)).toBeLessThan(redEvery(0));
   });
 });

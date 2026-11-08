@@ -2,164 +2,114 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>__APP_NAME__ · trouve ton prochain poste, sans rien envoyer à ta place</title>
-<meta name="description" content="__APP_NAME__ rassemble les offres de stage, d'alternance, de CDD et de CDI pour tous les métiers, les note sur 5 et prépare des candidatures sans rien inventer ni rien envoyer sans ton accord.">
-<meta name="color-scheme" content="dark">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>__APP_NAME__ · les bonnes offres d'emploi, sans rien envoyer à ta place</title>
+<meta name="description" content="__APP_NAME__ rassemble les offres de stage, d'alternance, de CDD et de CDI pour tous les métiers, les note sur 5 et prépare tes candidatures sans rien inventer. Rien ne part sans ton accord.">
+<meta name="color-scheme" content="light dark">
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-<script>document.documentElement.classList.add("js", ...(matchMedia("(prefers-reduced-motion: reduce)").matches ? [] : ["motion"]))</script>
+<!-- Thème posé avant l'affichage (pas de flash) : choix mémorisé, sinon réglage du système, sinon clair. -->
+<script>(function () { var t = null; try { t = localStorage.getItem("ereuna-theme"); } catch (e) {} if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; document.documentElement.dataset.theme = t; document.documentElement.classList.add("js"); })();</script>
 <script type="module" src="/src/main.ts"></script>
 </head>
 <body>
 <a class="skip" href="#contenu">Aller au contenu</a>
+<canvas class="wave" aria-hidden="true"></canvas>
+<div class="veil" aria-hidden="true"></div>
 
-<header class="top">
-  <a class="brand" href="#haut">
-    <svg viewBox="0 0 40 40" aria-hidden="true"><circle class="fill" cx="20" cy="20" r="20"/><path class="stroke" d="M20 33V24M20 24L12 17L9 10M20 24L28 15"/><circle class="fill ring" cx="28" cy="15" r="4.4"/><g class="ink"><circle cx="20" cy="33" r="2.4"/><circle cx="20" cy="24" r="2.4"/><circle cx="12" cy="17" r="2.4"/><circle cx="9" cy="10" r="2.2"/><circle cx="28" cy="15" r="1.6"/></g></svg>
-    <span>__APP_NAME__</span>
+<header class="bar">
+  <a class="logo" href="#haut" aria-label="__APP_NAME__, accueil">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 35V25M20 25L11 17L8 8M20 25L29 15"/><circle cx="29" cy="15" r="5" stroke="var(--red-text)"/></g><g fill="currentColor"><circle cx="20" cy="35" r="2.8"/><circle cx="20" cy="25" r="2.8"/><circle cx="11" cy="17" r="2.8"/><circle cx="8" cy="8" r="2.5"/></g><circle cx="29" cy="15" r="1.8" fill="var(--red-text)"/></svg>
+    __APP_NAME__
   </a>
-  <nav aria-label="Sections">
+  <nav class="links" id="liens" aria-label="Sections">
     <a href="#etapes">Comment ça marche</a>
-    <a href="#apercu">Aperçu</a>
     <a href="#garanties">Garanties</a>
+    <a href="#questions">Questions</a>
+    <a href="__APP_URL__">Se connecter</a>
   </nav>
-  <a class="btn btn-line login" href="__APP_URL__">Se connecter</a>
-  <a class="btn btn-fill" href="__APP_URL__">Créer un compte</a>
+  <button class="theme" type="button" aria-pressed="false">Mode sombre</button>
+  <a class="pill sm" href="__APP_URL__">Créer un compte</a>
+  <button class="burger" type="button" aria-controls="liens" aria-expanded="false" aria-label="Ouvrir le menu"><span></span><span></span></button>
 </header>
 
 <main id="contenu">
-  <div class="story">
-    <div class="story-text">
-      <section class="hero" id="haut" aria-labelledby="hero-t">
-        <h1 id="hero-t">Les offres viennent à toi. <em>Tu</em> gardes la main.</h1>
-        <p class="lede">__APP_NAME__ rassemble les offres de stage, d'alternance, de CDD et de CDI, pour tous les métiers, les note sur 5 et prépare tes candidatures. Sans rien inventer, et sans rien envoyer sans ton accord.</p>
-        <ul class="chips" aria-label="Contrats couverts"><li>Stage</li><li>Alternance</li><li>CDD</li><li>CDI</li><li>Tous métiers</li></ul>
-        <div class="actions">
-          <a class="btn btn-fill" href="__APP_URL__">Créer mon compte</a>
-          <a class="btn btn-line" href="#etapes">Comment ça marche</a>
-        </div>
-        <p class="assure">Aucun envoi automatique : rien ne part sans ton accord.</p>
-      </section>
+  <section class="hero" id="haut" aria-labelledby="t">
+    <h1 id="t" style="--d:.1s">Les bonnes offres d'emploi. <span>Et c'est toi qui décides.</span></h1>
+    <p class="lede" style="--d:.25s">Pour tous les métiers et tous les contrats, __APP_NAME__ rassemble les offres, les note sur 5 et prépare un CV et une lettre à partir de ton profil, sans rien inventer. Rien ne part sans ton accord.</p>
+    <div class="ctas" style="--d:.4s"><a class="pill" href="__APP_URL__">Créer mon compte</a><a class="more" href="#etapes">Voir comment ça marche</a></div>
+  </section>
 
-      <section id="etapes" aria-labelledby="etapes-t">
-        <h2 id="etapes-t" class="h2">Comment ça marche</h2>
-        <ol class="steps">
-          <li class="step" data-step>
-            <span class="step-n">01</span>
-            <h3>Collecte</h3>
-            <p>Régulièrement, __APP_NAME__ lit les offres de sources autorisées, comme France Travail ou Adzuna, dans le respect de leurs conditions d'utilisation. Les doublons sont écartés.</p>
-          </li>
-          <li class="step" data-step>
-            <span class="step-n">02</span>
-            <h3>Analyse</h3>
-            <p>Chaque offre est lue et résumée : poste, lieu, contrat, compétences demandées. Le texte d'une annonce reste une simple donnée : il n'est jamais pris pour une consigne.</p>
-          </li>
-          <li class="step" data-step>
-            <span class="step-n">03</span>
-            <h3>Note sur 5</h3>
-            <p>Chaque offre est comparée à ton profil : des règles simples, une proximité de sens, puis un avis argumenté. Tu vois pourquoi une offre obtient 4,4 et ce qui lui manque.</p>
-          </li>
-          <li class="step" data-step>
-            <span class="step-n">04</span>
-            <h3>CV et lettre adaptés</h3>
-            <p>Pour les offres que tu retiens, un CV et une lettre sont préparés à partir de ton profil, uniquement avec des faits que tu as déclarés. Rien n'est inventé.</p>
-          </li>
-          <li class="step" data-step>
-            <span class="step-n">05</span>
-            <h3>Validation humaine</h3>
-            <p>Tu relis, tu corriges, tu décides. __APP_NAME__ n'envoie jamais rien : la candidature part de ta main, quand tu le veux.</p>
-          </li>
-          <li class="step" data-step>
-            <span class="step-n">06</span>
-            <h3>Suivi des candidatures</h3>
-            <p>Chaque candidature a son statut, dans un tableau ou un Kanban. Elle ne passe « Envoyée » qu'après ta confirmation, et tu vois où tu en es d'un coup d'œil.</p>
-          </li>
-        </ol>
-      </section>
-    </div>
-
-    <div class="story-visual" aria-hidden="true">
-      <!-- Version 2D statique : affichée sans WebGL ou quand le mouvement est réduit. -->
-      <svg class="still" viewBox="0 0 320 320">
-        <g class="card pick"><rect x="12" y="20" width="296" height="64" rx="14"/><text class="t" x="28" y="46">Responsable de magasin</text><text class="s" x="28" y="66">Maison Verdier · CDI</text><text class="n" x="292" y="56" text-anchor="end">4,6</text></g>
-        <g class="card"><rect x="12" y="96" width="296" height="64" rx="14"/><text class="t" x="28" y="122">Chargé de communication</text><text class="s" x="28" y="142">Atelier Lumen · Alternance</text><text class="n" x="292" y="132" text-anchor="end">4,4</text></g>
-        <g class="card"><rect x="12" y="172" width="296" height="64" rx="14"/><text class="t" x="28" y="198">Technicien de maintenance</text><text class="s" x="28" y="218">Forges du Nord · CDD</text><text class="n" x="292" y="208" text-anchor="end">4,2</text></g>
-        <g class="card dim"><rect x="12" y="248" width="296" height="64" rx="14"/><text class="t" x="28" y="274">Magasinier</text><text class="s" x="28" y="294">Logistique Sud · CDD</text><text class="n" x="292" y="284" text-anchor="end">1,9</text></g>
-      </svg>
-      <canvas id="scene"></canvas>
-    </div>
+  <div class="promises wrap reveal" aria-label="Garanties en bref">
+    <p><b>Aucun envoi automatique</b>Tu valides, tu envoies.</p>
+    <p><b>Rien d'inventé</b>Ton CV ne dit que ce qui est vrai.</p>
+    <p><b>Données protégées</b>Isolées, jamais revendues.</p>
   </div>
 
-  <section class="band" id="apercu" aria-labelledby="apercu-t">
-    <h2 id="apercu-t" class="h2" data-reveal>Tout ton suivi sur une page</h2>
-    <p class="lede" data-reveal>Les offres qui valent le coup, ce que fait __APP_NAME__, et où en est chaque candidature.</p>
+  <section id="etapes" aria-labelledby="e-t">
+    <div class="head wrap reveal"><span class="eyebrow">Comment ça marche</span><h2 id="e-t">Six étapes. <span>Une seule décision : la tienne.</span></h2></div>
+    <!-- Les panneaux sont des exemples fictifs, décoratifs pour un lecteur d'écran : le texte de chaque étape porte l'information. -->
+    <ol class="wrap scenes">
+      <li class="scene" data-step><div class="txt"><span class="n">01</span><h3>__APP_NAME__ cherche partout pour toi.</h3><p>Sites d'emploi, pages carrières des entreprises, France Travail, et les alertes emploi que tu reçois par e-mail. Chaque site est lu dans le respect de ses règles. Les doublons sont écartés.</p></div>
+        <div class="panel" aria-hidden="true"><p class="cap" style="--i:0">Offres du jour</p><ul class="list">
+          <li style="--i:1"><div><b>Responsable de magasin</b><span>Maison Verdier, Nantes</span></div><em>CDI</em></li>
+          <li style="--i:2"><div><b>Chargé de communication</b><span>Atelier Lumen, Lyon</span></div><em>Alternance</em></li>
+          <li style="--i:3"><div><b>Infirmier ou infirmière</b><span>Clinique des Pins, Rennes</span></div><em>CDI</em></li>
+          <li style="--i:4"><div><b>Technicien de maintenance</b><span>Forges du Nord, Lille</span></div><em>CDD</em></li></ul></div></li>
 
-    <figure class="window" data-reveal aria-label="Aperçu du tableau de bord">
-      <div class="win-bar" aria-hidden="true"><i></i><i></i><i></i></div>
-      <div class="win-body" aria-hidden="true">
-        <p class="win-hello">Bonjour Léo.</p>
-        <div class="win-stage">
-          <div class="win-offers"><span class="big num">14</span><span>offres pertinentes</span></div>
-          <div class="win-bot">
-            <b>__APP_NAME__ travaille</b>
-            <ul>
-              <li><time>14:03</time>Analyse de Chargé de communication, Atelier Lumen</li>
-              <li><time>14:03</time>Score 4,4 sur 5, confiance élevée</li>
-              <li><time>14:04</time>Nouvelle offre pertinente</li>
-            </ul>
-          </div>
-        </div>
-        <div class="win-rows">
-          <div><b>Maison Verdier</b><span>Responsable de magasin</span><em>CDI</em><span class="st">À préparer</span><span class="num">4,6</span></div>
-          <div><b>Atelier Lumen</b><span>Chargé de communication</span><em>Alternance</em><span class="st hot">À valider</span><span class="num">4,4</span></div>
-          <div><b>Forges du Nord</b><span>Technicien de maintenance</span><em>CDD</em><span class="st">Analysée</span><span class="num">4,2</span></div>
-          <div><b>Clinique des Pins</b><span>Infirmier / infirmière</span><em>CDI</em><span class="st">Entretien</span><span class="num">4,1</span></div>
-        </div>
-      </div>
-    </figure>
+      <li class="scene" data-step><div class="txt"><span class="n">02</span><h3>Chaque annonce est lue et résumée.</h3><p>Poste, lieu, contrat, compétences. Le texte d'une annonce reste une donnée, jamais une consigne.</p></div>
+        <div class="panel" aria-hidden="true"><p class="cap" style="--i:0">Résumé de l'annonce</p><p class="title" style="--i:1">Chargé de communication</p><ul class="list">
+          <li style="--i:2"><span>Entreprise</span><b>Atelier Lumen</b></li>
+          <li style="--i:3"><span>Contrat</span><b>Alternance, 24 mois</b></li>
+          <li style="--i:4"><span>Lieu</span><b>Lyon</b></li>
+          <li style="--i:5"><span>Compétences</span><b>Réseaux sociaux, rédaction</b></li></ul></div></li>
 
-    <div class="charts">
-      <figure class="chart" data-reveal data-chart="collected">
-        <figcaption><span class="big num">1&nbsp;204</span> offres collectées en 30 jours</figcaption>
-      </figure>
-      <figure class="chart" data-reveal data-chart="scores">
-        <figcaption><span class="big num">14</span> offres au-dessus de 4 sur 5</figcaption>
-      </figure>
+      <li class="scene" data-step><div class="txt"><span class="n">03</span><h3>Tu sais pourquoi une offre vaut 4,4.</h3><p>Elle est comparée à ton profil, avec les raisons de la note et ce qui lui manque.</p></div>
+        <div class="panel" aria-hidden="true"><p class="cap" style="--i:0">Chargé de communication, Atelier Lumen</p><p class="big" style="--i:1">4,4<small>sur 5</small></p><ul class="list">
+          <li style="--i:2"><span>Rédaction</span><b>Dans ton profil</b></li>
+          <li style="--i:3"><span>Lyon</span><b>Dans ta zone</b></li>
+          <li class="miss" style="--i:4"><span>Permis B</span><b>Absent de ton profil</b></li></ul></div></li>
+
+      <li class="scene" data-step><div class="txt"><span class="n">04</span><h3>CV et lettre adaptés, sans rien inventer.</h3><p>Chaque ligne renvoie à un fait de ton profil. Une compétence que tu n'as pas déclarée n'apparaît pas.</p></div>
+        <div class="panel" aria-hidden="true"><p class="cap" style="--i:0">CV pour Atelier Lumen</p><ul class="list">
+          <li style="--i:1"><div><b>Community manager</b><span>Studio Orme, 2025</span></div><em>Ton profil</em></li>
+          <li style="--i:2"><div><b>Licence information-communication</b><span>Université de Lyon, 2024</span></div><em>Ton profil</em></li>
+          <li class="miss" style="--i:3"><div><b>Permis B</b><span>Demandé par l'offre</span></div><em>Non ajouté</em></li></ul></div></li>
+
+      <li class="scene" data-step><div class="txt"><span class="n">05</span><h3>Tu relis. Tu décides. Tu envoies.</h3><p>__APP_NAME__ n'envoie jamais rien à ta place. La candidature part de ta main, quand tu le veux.</p></div>
+        <div class="panel" aria-hidden="true"><p class="cap" style="--i:0">Prête à relire</p><p class="title" style="--i:1">Candidature pour Atelier Lumen</p><p class="note" style="--i:2">CV et lettre préparés. Rien n'a été envoyé.</p>
+          <div class="acts" style="--i:3"><span class="pill">Je l'ai envoyée moi-même</span><span class="ghost">Modifier</span></div></div></li>
+
+      <li class="scene" data-step><div class="txt"><span class="n">06</span><h3>Tout ton suivi sur une page.</h3><p>Chaque candidature a son statut. Elle ne passe « Envoyée » qu'après ta confirmation.</p></div>
+        <div class="panel" aria-hidden="true"><p class="cap" style="--i:0">Candidatures</p><div class="stats3" style="--i:1">
+          <div><b>2</b><span>À préparer</span></div><div><b>1</b><span>Envoyée</span></div><div><b>1</b><span>Entretien</span></div></div>
+          <ul class="list" style="--i:2"><li><div><b>Clinique des Pins</b><span>Infirmier ou infirmière</span></div><em>Entretien</em></li><li><div><b>Atelier Lumen</b><span>Chargé de communication</span></div><em>Envoyée</em></li></ul></div></li>
+    </ol>
+  </section>
+
+  <section id="garanties" class="wrap" aria-labelledby="g-t">
+    <div class="head reveal"><span class="eyebrow">Garanties</span><h2 id="g-t">Trois promesses. <span>Écrites dans le code.</span></h2></div>
+    <div class="cards">
+      <article class="card reveal"><span class="n">01</span><h3>Aucun envoi automatique</h3><p>__APP_NAME__ prépare, il n'envoie jamais. Une candidature ne passe « Envoyée » qu'après ta confirmation.</p></article>
+      <article class="card reveal"><span class="n">02</span><h3>Rien d'inventé</h3><p>Un CV ne contient que des faits présents dans ton profil. Une compétence non déclarée n'y apparaît pas.</p></article>
+      <article class="card reveal"><span class="n">03</span><h3>Données protégées</h3><p>Tes données sont isolées des autres comptes et rien n'est revendu. Tu peux tout supprimer à tout moment.</p></article>
     </div>
   </section>
 
-  <section class="band" id="garanties" aria-labelledby="garanties-t">
-    <h2 id="garanties-t" class="h2" data-reveal>Trois promesses, écrites dans le code</h2>
-    <div class="promises">
-      <article class="promise promise-red" data-reveal>
-        <h3>Aucun envoi automatique</h3>
-        <p>__APP_NAME__ prépare, il n'envoie jamais. Chaque candidature part de ta main, après relecture.</p>
-      </article>
-      <article class="promise" data-reveal>
-        <h3>Aucune invention</h3>
-        <p>Un CV ne contient que des faits présents dans ton profil. Une compétence que tu n'as pas déclarée n'y apparaît pas.</p>
-      </article>
-      <article class="promise" data-reveal>
-        <h3>Données protégées</h3>
-        <p>Tes données sont isolées des autres comptes, tes mots de passe sont protégés et rien n'est revendu.</p>
-      </article>
+  <section id="questions" class="wrap" aria-labelledby="q-t">
+    <div class="head reveal"><span class="eyebrow">Questions</span><h2 id="q-t">Les réponses, simplement.</h2></div>
+    <div class="faq reveal">
+      <details><summary>__APP_NAME__ postule-t-il à ma place ?</summary><p>Non, jamais. __APP_NAME__ trouve les offres et prépare CV et lettre. C'est toi qui relis et qui envoies.</p></details>
+      <details><summary>Pour quels métiers et quels contrats ?</summary><p>Tous les métiers, et les stages, alternances, CDD et CDI.</p></details>
+      <details><summary>D'où viennent les offres ?</summary><p>__APP_NAME__ parcourt le web : sites d'emploi, pages carrières des entreprises, France Travail et d'autres sources publiques. Il lit aussi les alertes emploi que tu reçois par e-mail, si tu le souhaites. Chaque site est lu dans le respect de ses règles, sans jamais utiliser ton compte personnel.</p></details>
+      <details><summary>Mon CV peut-il contenir des choses fausses ?</summary><p>Non. Chaque ligne vient d'un fait de ton profil. Si une offre demande une compétence que tu n'as pas déclarée, elle n'est pas ajoutée.</p></details>
     </div>
   </section>
 
-  <section class="band cta" aria-labelledby="cta-t">
-    <h2 id="cta-t" class="h2" data-reveal>Prêt à trouver ta prochaine offre ?</h2>
-    <p class="lede" data-reveal>Crée ton compte, renseigne ton profil, __APP_NAME__ s'occupe de la veille.</p>
-    <div class="actions" data-reveal>
-      <a class="btn btn-fill" href="__APP_URL__">Créer mon compte</a>
-      <a class="btn btn-line" href="__APP_URL__">Se connecter</a>
-    </div>
+  <section id="inscription" class="wrap end" aria-labelledby="i-t">
+    <div class="head reveal"><h2 id="i-t">Ta prochaine offre commence ici.</h2><p>Crée ton compte, renseigne ton profil. __APP_NAME__ s'occupe de la veille.</p></div>
+    <div class="ctas reveal"><a class="pill" href="__APP_URL__">Créer mon compte</a><a class="more" href="__APP_URL__">Se connecter</a></div>
   </section>
 </main>
-
-<footer class="foot">
-  <p class="foot-name">__APP_NAME__</p>
-  <p>© 2026 __APP_NAME__. Aucun traceur, aucun cookie.</p>
-  <a class="foot-link" href="__REPO_URL__">GitHub</a>
-</footer>
+<footer class="foot wrap"><span>© 2026 __APP_NAME__. Aucun traceur, aucun cookie. Exemples d'écran fictifs.</span><a href="__REPO_URL__">GitHub</a></footer>
 </body>
 </html>
