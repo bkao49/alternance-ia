@@ -33,6 +33,7 @@ from app.collectors.base import (
 )
 from app.collectors.detection import LogNotifier, Notifier
 from app.collectors.expiry import mark_expired
+from app.collectors.france_travail import FranceTravailCollector
 from app.collectors.lba import LbaCollector
 from app.collectors.web import WebCollector, load_sites
 from app.config import WorkerSettings, get_worker_settings
@@ -59,7 +60,9 @@ UPSERT = text(
 
 
 def default_registry(settings: WorkerSettings) -> Registry:
-    registry: Registry = {"lba": LbaCollector, "adzuna": AdzunaCollector}
+    registry: Registry = {
+        "lba": LbaCollector, "adzuna": AdzunaCollector, "france_travail": FranceTravailCollector,
+    }
     if settings.web_sites_file:
         for site in load_sites(Path(settings.web_sites_file)):
             registry[site.source] = lambda site=site: WebCollector(site)

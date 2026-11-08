@@ -95,6 +95,20 @@ class ApiClient:
         host: str | None = None,
     ) -> Any:
         """JSON de la réponse (None si vide). `host` permet un second hôte fixe (OAuth2)."""
+        return self.request_full(
+            method, path, params=params, data=data, headers=headers, host=host)[0]
+
+    def request_full(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        data: Mapping[str, str] | None = None,
+        headers: Mapping[str, str] | None = None,
+        host: str | None = None,
+    ) -> tuple[Any, httpx.Headers]:
+        """Comme `request_json`, avec les en-têtes de la réponse (ex. `Content-Range`)."""
         host = host or self.host
         if not path.startswith("/"):  # « @autre-hôte » ne doit jamais changer la destination
             raise ValueError("chemin absolu attendu")
@@ -116,7 +130,7 @@ class ApiClient:
             self.throttle.done(key)
         if failure is not None:
             raise NetworkError(self.source, f"échec réseau ({failure})")
-        return self._parse(status, found, body)
+        return self._parse(status, found, body), found
 
     def _parse(self, status: int, headers: httpx.Headers, body: bytes) -> Any:
         if status in (401, 403):
