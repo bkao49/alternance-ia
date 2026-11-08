@@ -38,7 +38,7 @@ IDP_HOST = "entreprise.francetravail.fr"
 TOKEN_PATH = "/connexion/oauth2/access_token"
 TOKEN_PARAMS = {"realm": "/partenaire"}
 # Scope : « application_<client_id> » s'ajoute au scope de l'API (format du wrapper et des guides).
-OFFERS_SCOPE = "api_offresdemploiv2 o2dsoffre"
+OFFERS_SCOPE = "api_offresdemploiv2 o2dsoffre"  # gitleaks:allow
 OFFERS_HOST = "api.francetravail.io"
 SEARCH_PATH = "/partenaire/offresdemploi/v2/offres/search"
 # typeContrat de l'API → contrat Ereuna (les autres valeurs : MIS intérim, SAI, LIB… → OTHER).
