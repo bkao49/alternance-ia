@@ -156,3 +156,27 @@ def test_deterministic_rejection_cannot_be_lifted_by_the_verifier(users):  # noq
     result = full_check(LLMGateway(provider, daily_cap_eur=1.0), alice, doc("Maîtrise de Kubernetes"), FACTS, [])
     assert not result.ok and provider.received == []
     assert full_check(LLMGateway(provider, daily_cap_eur=1.0), alice, doc("Stage chez Acme"), FACTS, []).ok
+
+
+@pytest.mark.parametrize("line", [
+    "Étudiant en Master Data Science",
+    "Étudiante en Master Data Science",
+    "Projets de développement en Python",
+    "Outils : Python, SQL",
+    "Développeur Python en stage chez Acme",
+    "Stagiaire data analyst chez Acme",
+    "Compétences : Python et SQL",
+])
+def test_common_nouns_at_line_start_are_not_mistaken_for_names(line):
+    assert "name_not_in_facts" not in codes(doc(line, ids=(STAGE, MASTER, SPARK))), line
+
+
+@pytest.mark.parametrize("line", [
+    "Capgemini : mission de data analyst",
+    "Google a recruté un data analyst",
+    "Étudiant chez Google",  # le nom propre reste rejeté même derrière un mot courant
+    "Webex pour les réunions",  # ressemble à « web » sans en être un
+    "Projets chez Globex",
+])
+def test_invented_names_at_line_start_are_still_rejected(line):
+    assert "name_not_in_facts" in codes(doc(line, ids=(STAGE, MASTER, SPARK))), line
