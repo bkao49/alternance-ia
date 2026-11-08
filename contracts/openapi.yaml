@@ -115,6 +115,51 @@ paths:
               schema: { $ref: "#/components/schemas/BotStatus" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /sources:
+    get:
+      tags: [sources]
+      operationId: listSources
+      summary: Les sources disponibles et leur état pour l'utilisateur
+      description: |
+        Une entrée par source du catalogue, même jamais activée. `configured` dit si la clé de service est
+        présente sur le serveur (jamais sa valeur). Réglages et état propres à l'utilisateur connecté.
+      responses:
+        "200":
+          description: Sources
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Source" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /sources/{source}:
+    put:
+      tags: [sources]
+      operationId: updateSource
+      summary: Activer, désactiver ou régler l'intervalle d'une source
+      description: |
+        Remplacement complet. Désactiver est toujours permis. Activer exige la clé de service
+        (`source_not_configured`). Une source bloquée (`blocked`) ne se réactive qu'avec
+        `confirm_unblock: true`, sinon 409 `source_blocked` avec la cause.
+      parameters:
+        - { name: source, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SourceInput" }
+      responses:
+        "200":
+          description: Source enregistrée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Source" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
   /offers/{offerId}:
     get:
       tags: [offers]
@@ -922,7 +967,7 @@ components:
     Conflict:
       description: |
         Règle métier violée. Codes : `confirmation_required`, `already_sent`, `status_name_taken`,
-        `status_missing`.
+        `status_missing`, `source_blocked`, `source_not_configured`.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -1071,6 +1116,31 @@ components:
           enum: [done, error, blocked]
           description: done pour une tâche réussie, blocked pour une tâche arrêtée par un blocage, error pour les autres échecs (failed, dead).
         message: { type: string, maxLength: 200, description: "Texte fixe, sans contenu d'annonce" }
+    Source:
+      type: object
+      required: [source, label, description, key_env, configured, enabled, interval_minutes, default_interval_minutes, blocked, blocked_cause, blocked_at, last_run_at, last_success_at]
+      properties:
+        source: { type: string, examples: [france_travail] }
+        label: { type: string }
+        description: { type: string }
+        key_env: { type: array, items: { type: string }, description: "Variables d'environnement du serveur qui portent la clé (noms seulement)" }
+        configured: { type: boolean, description: "Toutes les clés de service sont présentes sur le serveur" }
+        enabled: { type: boolean, description: "Activée et non bloquée" }
+        interval_minutes: { type: [integer, "null"], minimum: 60, description: "Choix de l'utilisateur ; null = intervalle par défaut" }
+        default_interval_minutes: { type: integer, minimum: 60 }
+        blocked: { type: boolean }
+        blocked_cause: { type: [string, "null"], maxLength: 200, description: "Texte fixe écrit par le worker" }
+        blocked_at: { type: [string, "null"], format: date-time }
+        last_run_at: { type: [string, "null"], format: date-time }
+        last_success_at: { type: [string, "null"], format: date-time }
+    SourceInput:
+      type: object
+      additionalProperties: false
+      required: [enabled, interval_minutes]
+      properties:
+        enabled: { type: boolean }
+        interval_minutes: { type: [integer, "null"], minimum: 60, maximum: 10080 }
+        confirm_unblock: { type: boolean, description: "Obligatoire pour réactiver une source bloquée" }
     OfferDetail:
       allOf:
         - { $ref: "#/components/schemas/Offer" }

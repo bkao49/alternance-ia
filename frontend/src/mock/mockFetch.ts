@@ -1,4 +1,4 @@
-import type { Application, ApplicationEvent, DashboardStats, ProfileCv, ProfileFact, SearchPreferences, Status } from "../api/types";
+import type { Application, ApplicationEvent, DashboardStats, ProfileCv, ProfileFact, SearchPreferences, Source, Status } from "../api/types";
 import { createDocumentsMock } from "./documentsMock";
 import { seedApplications, seedOffers, seedStatuses } from "./data";
 import { DEMO } from "./demoInfo";
@@ -27,6 +27,12 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
     duration_months: null, alternance_rhythm: null, education_level: null, min_salary_eur: null,
     excluded_keywords: [], updated_at: null,
   };
+  const base = { enabled: false, interval_minutes: null, default_interval_minutes: 120, blocked: false, blocked_cause: null, blocked_at: null, last_run_at: null, last_success_at: null };
+  const sources: Source[] = [
+    { ...base, source: "france_travail", label: "France Travail", description: "L'API officielle de l'État : offres de tous contrats et de tous métiers.", key_env: ["FRANCE_TRAVAIL_CLIENT_ID", "FRANCE_TRAVAIL_CLIENT_SECRET"], configured: false },
+    { ...base, source: "lba", label: "La Bonne Alternance", description: "L'API officielle des offres en alternance et des entreprises qui recrutent.", key_env: ["LBA_API_TOKEN"], configured: true, enabled: true, last_run_at: new Date(Date.now() - 46 * 60_000).toISOString() },
+    { ...base, source: "adzuna", label: "Adzuna", description: "Un agrégateur d'annonces avec une API gratuite : stages, CDD, CDI et alternance.", key_env: ["ADZUNA_APP_ID", "ADZUNA_APP_KEY"], configured: true, blocked: true, blocked_cause: "blocage détecté (403)", blocked_at: new Date(Date.now() - 300 * 60_000).toISOString() },
+  ];
   let nextId = applications.length + 1;
   const documents = createDocumentsMock(() => ({ facts, offers, nextId: () => nextId++ }));
 
@@ -179,6 +185,24 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
         facts = facts.filter((f) => f.id !== id);
         return new Response(null, { status: 204 });
       }
+    }
+    if (method === "GET" && path === "/sources") return json(sources);
+    const sourceMatch = /^\/sources\/([a-z_]+)$/.exec(path);
+    if (method === "PUT" && sourceMatch) {
+      const index = sources.findIndex((s) => s.source === sourceMatch[1]);
+      const current = sources[index];
+      if (!current) return error(404, "not_found", "Source inconnue");
+      const { enabled, interval_minutes, confirm_unblock } = body as { enabled: boolean; interval_minutes: number | null; confirm_unblock?: boolean };
+      if (enabled && current.blocked && !confirm_unblock) {
+        return error(409, "source_blocked", `Cette source a été arrêtée : ${current.blocked_cause}. La réactiver peut aggraver le blocage ; confirmez pour continuer.`);
+      }
+      if (enabled && !current.configured) return error(409, "source_not_configured", "La clé de cette source n'est pas configurée sur le serveur.");
+      const unblock = enabled && current.blocked;
+      sources[index] = {
+        ...current, enabled, interval_minutes,
+        ...(unblock ? { blocked: false, blocked_cause: null, blocked_at: null } : {}),
+      };
+      return json(sources[index]);
     }
     if (method === "PUT" && path === "/preferences") {
       preferences = { ...(body as Omit<SearchPreferences, "updated_at">), updated_at: new Date().toISOString() };

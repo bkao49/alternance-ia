@@ -7,6 +7,7 @@ export type DashboardStats = Schemas["DashboardStats"];
 export type ApplicationEvent = Schemas["Event"];
 export type Offer = Schemas["Offer"];
 export type ContractType = Schemas["ContractType"];
+export type Source = Schemas["Source"];
 export type BotStatus = Schemas["BotStatus"];
 export type Me = Schemas["Me"];
 export type SearchPreferences = Schemas["SearchPreferences"];
