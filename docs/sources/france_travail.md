@@ -20,7 +20,7 @@
 
 La documentation officielle étant illisible, ces valeurs viennent de sources tierces (wrapper Python `api-offres-emploi`, guides d'intégration). Elles sont regroupées en haut de `backend/app/collectors/france_travail.py`, sous le titre « À VALIDER » :
 
-- **Scope** : `application_<client_id> api_offresdemploiv2 o2dsoffre`. Un guide dit que ces valeurs « peuvent être différentes » ; le scope exact est affiché dans l'application de l'espace francetravail.io.
+- **Scope** : `application_<client_id> api_offresdemploiv2 o2dsoffre`. Un guide dit que ces valeurs « peuvent être différentes » ; le scope exact est affiché dans l'application de l'espace francetravail.io. <!-- gitleaks:allow -->
 - **`typeContrat`** : `CDI` → CDI, `CDD` → CDD ; les autres valeurs (`MIS` intérim, `SAI`, `LIB`…) → « autre ».
 - **`natureContrat`** : `E1` (contrat d'apprentissage) et `E2` (contrat de professionnalisation) → alternance. Seul `E1` a été vu dans un exemple.
 - **Stage** : aucune valeur de contrat connue ; détecté par le mot « stage » dans l'intitulé.
