@@ -73,13 +73,29 @@ describe("session et erreurs", () => {
     expect(within(form).getByLabelText("Entreprise")).toHaveValue("Zorg");
   });
 
-  it("n'annonce pas une déconnexion qui a échoué", async () => {
+  it("se déconnecte même si le serveur refuse le jeton CSRF", async () => {
     const user = await signedInApp((request) =>
       request.url.endsWith("/auth/logout") ? failure(403, "csrf_invalid", "Jeton CSRF invalide") : undefined,
     );
     await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Déconnexion impossible");
-    expect(screen.getByRole("heading", { name: "Candidatures" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Se connecter" })).toBeInTheDocument();
+  });
+
+  it("renvoie à la connexion quand une action reçoit csrf_invalid", async () => {
+    document.cookie = "csrf_token=perime; path=/";
+    const user = await signedInApp((request) =>
+      request.method === "POST" && request.url.endsWith("/applications")
+        ? failure(403, "csrf_invalid", "Jeton CSRF invalide")
+        : undefined,
+    );
+    await user.click(screen.getByRole("button", { name: "Nouvelle candidature" }));
+    const form = screen.getByRole("dialog", { name: "Nouvelle candidature" });
+    await user.type(within(form).getByLabelText("Entreprise"), "Zorg");
+    await user.type(within(form).getByLabelText("Poste"), "Alternant");
+    await user.click(within(form).getByRole("button", { name: "Ajouter" }));
+    expect(await screen.findByRole("button", { name: "Se connecter" })).toBeInTheDocument();
+    expect(screen.getByText("Votre session n'est plus valide. Reconnectez-vous.")).toBeInTheDocument();
+    expect(document.cookie).not.toContain("csrf_token=perime");
   });
 
   it("distingue une panne d'un mauvais mot de passe à la connexion", async () => {
