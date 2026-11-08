@@ -91,4 +91,34 @@ describe("Mes sources", () => {
     await user.click(web.getByLabelText("Activer cette source"));
     expect(await web.findByText("Activée")).toBeInTheDocument();
   });
+
+  it("branche la boîte e-mail dédiée sans jamais réafficher le mot de passe", async () => {
+    const user = await openSources();
+    await screen.findByText("Alertes e-mail (LinkedIn, Indeed…)");
+    const mail = card("Alertes e-mail (LinkedIn, Indeed…)");
+    expect(mail.getByLabelText("Activer cette source")).toBeDisabled();
+    expect(await mail.findByText(/créez vous-même l'alerte emploi/i)).toBeInTheDocument();
+    expect(mail.getByText(/ne se connecte jamais à votre compte LinkedIn/)).toBeInTheDocument();
+    const password = mail.getByLabelText("Mot de passe d'application");
+    expect(password).toHaveAttribute("type", "password");
+    await user.type(mail.getByLabelText("Serveur IMAP"), "127.0.0.1");
+    await user.type(mail.getByLabelText("Adresse de la boîte dédiée"), "alertes@exemple.test");
+    await user.type(password, "secret-fictif");
+    await user.click(mail.getByRole("button", { name: "Enregistrer la boîte" }));
+    expect(await mail.findByRole("alert")).toHaveTextContent("refusé");
+    await user.clear(mail.getByLabelText("Serveur IMAP"));
+    await user.type(mail.getByLabelText("Serveur IMAP"), "imap.exemple.test");
+    await user.click(mail.getByRole("button", { name: "Enregistrer la boîte" }));
+    expect(await mail.findByText(/Boîte enregistrée/)).toBeInTheDocument();
+    const put = requests.filter((r) => r.method === "PUT" && r.url.endsWith("/sources/email/mailbox")).at(-1);
+    expect(await put?.clone().json()).toEqual({ host: "imap.exemple.test", port: 993, username: "alertes@exemple.test", folder: "INBOX", password: "secret-fictif" });
+    expect(mail.getByLabelText("Mot de passe d'application")).toHaveValue(""); // jamais réaffiché
+    await user.click(mail.getByRole("button", { name: "Tester la connexion" }));
+    expect(await mail.findByText(/Connexion réussie/)).toBeInTheDocument();
+    expect(mail.getByLabelText("Activer cette source")).toBeEnabled();
+    await user.click(mail.getByLabelText("Activer cette source"));
+    expect(await mail.findByText("Activée")).toBeInTheDocument();
+    await user.click(mail.getByRole("button", { name: "Supprimer la boîte" }));
+    expect(await mail.findByText("À configurer")).toBeInTheDocument();
+  });
 });

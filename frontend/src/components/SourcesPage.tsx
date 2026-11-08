@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { unwrap } from "../api/client";
 import { useApi } from "../api/context";
 import type { Source } from "../api/types";
+import { EmailBoxEditor } from "./EmailBoxEditor";
 import { WebPagesEditor } from "./WebPagesEditor";
 
 const INTERVALS: [number, string][] = [
@@ -21,7 +22,7 @@ const when = (iso: string | null) =>
 
 function stateOf(source: Source): { label: string; note?: string } {
   if (source.blocked) return { label: "Bloquée", note: source.blocked_cause ?? undefined };
-  if (!source.configured) return { label: "Clé manquante" };
+  if (!source.configured) return { label: source.key_env.length ? "Clé manquante" : "À configurer" };
   return { label: source.enabled ? "Activée" : "Désactivée" };
 }
 
@@ -74,11 +75,15 @@ function SourceCard({ source, onSave, onPagesSaved }: { source: Source; onSave: 
       )}
 
       {source.source === "web" && <WebPagesEditor onSaved={onPagesSaved} />}
+      {source.source === "email" && <EmailBoxEditor onChanged={onPagesSaved} />}
 
       {!source.blocked && !source.configured && source.source === "web" && (
         <p className="hint">Ajoutez au moins une page ci-dessus pour pouvoir activer cette source.</p>
       )}
-      {!source.blocked && !source.configured && source.source !== "web" && (
+      {!source.blocked && !source.configured && source.source === "email" && (
+        <p className="hint">Enregistrez d'abord votre boîte dédiée ci-dessus pour pouvoir activer cette source.</p>
+      )}
+      {!source.blocked && !source.configured && source.source !== "web" && source.source !== "email" && (
         <p className="hint">
           La clé de cette source n'est pas encore installée sur le serveur ({source.key_env.join(", ")}). Demandez à la personne qui
           gère l'installation de l'ajouter.

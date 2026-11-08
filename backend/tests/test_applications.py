@@ -371,9 +371,12 @@ WRITES = [
     ("PATCH", "/statuses/00000000-0000-0000-0000-000000000000", {"name": "x"}),
     ("PUT", "/sources/lba", {"enabled": False, "interval_minutes": None}),
     ("PUT", "/sources/web/pages", {"urls": []}),
+    ("PUT", "/sources/email/mailbox", {"host": "imap.example.test", "username": "a@example.test", "password": "x"}),
+    ("DELETE", "/sources/email/mailbox", None),
+    ("POST", "/sources/email/mailbox/test", None),
 ]
 READS = ["/applications", "/applications/00000000-0000-0000-0000-000000000000",
-         "/applications/00000000-0000-0000-0000-000000000000/events", "/statuses", "/sources", "/sources/web/pages"]
+         "/applications/00000000-0000-0000-0000-000000000000/events", "/statuses", "/sources", "/sources/web/pages", "/sources/email/mailbox"]
 
 
 @pytest.mark.parametrize("path", READS)

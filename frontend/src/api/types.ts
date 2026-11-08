@@ -8,6 +8,7 @@ export type ApplicationEvent = Schemas["Event"];
 export type Offer = Schemas["Offer"];
 export type ContractType = Schemas["ContractType"];
 export type Source = Schemas["Source"];
+export type Mailbox = Schemas["Mailbox"];
 export type BotStatus = Schemas["BotStatus"];
 export type Me = Schemas["Me"];
 export type SearchPreferences = Schemas["SearchPreferences"];

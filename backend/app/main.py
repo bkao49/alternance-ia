@@ -7,6 +7,7 @@ from app import (
     bot,
     dashboard,
     documents,
+    mailbox,
     offers,
     preferences,
     profile,
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
     application.include_router(documents.router)
     application.include_router(sources.router)
     application.include_router(web_pages.router)
+    application.include_router(mailbox.router)
 
     @application.get("/health")
     def health() -> dict[str, str]:
