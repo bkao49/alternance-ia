@@ -123,6 +123,43 @@ def validate_fact(fact_id: uuid.UUID, session: Session = Depends(require_csrf)):
     return dict(row)
 
 
+class BulkIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["validate", "reject"]
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=MAX_FACTS)
+
+    @field_validator("ids")
+    @classmethod
+    def _unique(cls, value: list[uuid.UUID]) -> list[uuid.UUID]:
+        if len(set(value)) != len(value):
+            raise ValueError("valeurs en double")
+        return value
+
+
+class BulkOut(BaseModel):
+    processed: int
+
+
+@router.post("/profile/facts/bulk", response_model=BulkOut, operation_id="bulkProfileFacts")
+def bulk_facts(body: BulkIn, session: Session = Depends(require_csrf)):
+    ids = [str(i) for i in body.ids]
+    with user_scope(session.user_id) as conn:
+        conn.execute(text("SELECT pg_advisory_xact_lock(hashtextextended('facts:' || :uid, 0))"), {"uid": session.user_id})
+        if body.action == "reject":
+            done = conn.execute(text("DELETE FROM profile_facts WHERE status = 'proposed' AND id = ANY(CAST(:ids AS uuid[]))"),
+                                {"ids": ids}).rowcount
+            return {"processed": done}
+        pending = conn.execute(text("SELECT count(*) FROM profile_facts WHERE status = 'proposed' "
+                                    "AND id = ANY(CAST(:ids AS uuid[]))"), {"ids": ids}).scalar_one()
+        validated = conn.execute(text("SELECT count(*) FROM profile_facts WHERE status = 'validated'")).scalar_one()
+        if validated + pending > MAX_FACTS:  # tout ou rien : jamais une validation à moitié
+            raise ApiError(409, "too_many_facts", f"{MAX_FACTS} faits au plus")
+        done = conn.execute(text("UPDATE profile_facts SET status = 'validated' WHERE status = 'proposed' "
+                                 "AND id = ANY(CAST(:ids AS uuid[]))"), {"ids": ids}).rowcount
+    return {"processed": done}
+
+
 @router.post("/profile/facts/{fact_id}/reject", status_code=204, operation_id="rejectProfileFact")
 def reject_fact(fact_id: uuid.UUID, session: Session = Depends(require_csrf)) -> None:
     with user_scope(session.user_id) as conn:

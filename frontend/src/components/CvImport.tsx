@@ -25,7 +25,7 @@ export function checkCvFile(file: { name: string; size: number }): string | null
   return null;
 }
 
-export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
+export function CvImport({ onFactsChanged, proposedCount }: { onFactsChanged: () => void; proposedCount: number }) {
   const api = useApi();
   const [cv, setCv] = useState<ProfileCv | null | undefined>(undefined); // undefined : chargement, null : aucun CV
   const [problem, setProblem] = useState<string | null>(null);
@@ -35,6 +35,10 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
   const [announcement, setAnnouncement] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const wasProcessing = useRef(false);
+  const proposedCountRef = useRef(proposedCount);
+  useEffect(() => {
+    proposedCountRef.current = proposedCount;
+  }, [proposedCount]);
   const title = useRef<HTMLHeadingElement>(null);
   const announce = (message: string) => {
     setAnnouncement(""); // vider puis réécrire : deux messages identiques sont relus
@@ -62,7 +66,7 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
   useEffect(() => {
     if (!processing) {
       if (wasProcessing.current && cv?.status === "done") {
-        announce(`${cv.facts_proposed} fait(s) proposé(s) à relire.`);
+        announce(`${proposedCountRef.current} fait(s) proposé(s) à relire.`);
         onFactsChanged();
       }
       wasProcessing.current = false;
@@ -79,7 +83,7 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
       refresh().then(setCv, () => undefined);
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [processing, cv?.status, cv?.facts_proposed, refresh, onFactsChanged]);
+  }, [processing, cv?.status, refresh, onFactsChanged]);
 
   async function send(file: File) {
     const refused = checkCvFile(file);
@@ -96,7 +100,6 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
         },
       });
       setCv(unwrap(result));
-      onFactsChanged(); // l'ancien CV a pu retirer ses faits à relire
     } catch (failure) {
       setProblem(failure instanceof Error ? failure.message : "Dépôt impossible");
     }
@@ -150,7 +153,8 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
       </h2>
       <p className="muted">
         Déposez votre CV (PDF ou DOCX, 5 Mo au plus). L'application en tire des faits à relire : rien n'est utilisé tant
-        que vous ne l'avez pas validé. Le texte du CV reste sur cette application.
+        que vous ne l'avez pas validé. Vous pouvez déposer plusieurs CV l'un après l'autre : les faits s'ajoutent, sans
+        doublons. Le texte du CV reste sur cette application.
       </p>
       <div
         className={`dropzone${dragging ? " is-dragging" : ""}`}
@@ -198,7 +202,7 @@ export function CvImport({ onFactsChanged }: { onFactsChanged: () => void }) {
             </p>
           )}
           {cv.status === "done" && (
-            <p>{cv.facts_proposed > 0 ? `${cv.facts_proposed} fait(s) proposé(s) à relire ci-dessous.` : "Aucun fait nouveau trouvé."}</p>
+            <p>{proposedCount > 0 ? `${proposedCount} fait(s) proposé(s) à relire ci-dessous.` : "Aucun fait à relire."}</p>
           )}
           {cv.status === "failed" && (
             <p role="alert" className="error">

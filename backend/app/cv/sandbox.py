@@ -31,7 +31,7 @@ def extract_text(data: bytes, file_type: str) -> str:
     with _SLOTS, tempfile.TemporaryDirectory() as workdir:
         try:
             done = subprocess.run(
-                [sys.executable, "-I", str(WORKER), file_type],
+                [sys.executable, "-I", "-X", "utf8", str(WORKER), file_type],
                 input=data, capture_output=True, timeout=TIMEOUT_SECONDS, cwd=workdir, env=env, check=False,
             )
         except subprocess.TimeoutExpired:

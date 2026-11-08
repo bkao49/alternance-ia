@@ -147,6 +147,12 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
       }
       if (method === "POST" && link) return json({ url: "/profile/cv/file/demo", expires_at: new Date(Date.now() + 60000).toISOString() });
     }
+    if (path === "/profile/facts/bulk" && method === "POST") {
+      const { action, ids } = body as { action: "validate" | "reject"; ids: string[] };
+      const targets = facts.filter((f) => f.status === "proposed" && ids.includes(f.id));
+      facts = action === "reject" ? facts.filter((f) => !targets.includes(f)) : facts.map((f) => (targets.includes(f) ? { ...f, status: "validated" as const } : f));
+      return json({ processed: targets.length });
+    }
     const decision = /^\/profile\/facts\/([^/]+)\/(validate|reject)$/.exec(path);
     if (decision && method === "POST") {
       const target = facts.find((f) => f.id === decision[1]);
