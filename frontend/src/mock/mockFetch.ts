@@ -1,4 +1,4 @@
-import type { Application, ApplicationEvent, DashboardStats, ProfileCv, ProfileFact, SearchPreferences, Status } from "../api/types";
+import type { Application, ApplicationEvent, DashboardStats, ProfileCv, ProfileFact, Mailbox, SearchPreferences, Source, Status } from "../api/types";
 import { createDocumentsMock } from "./documentsMock";
 import { seedApplications, seedOffers, seedStatuses } from "./data";
 import { DEMO } from "./demoInfo";
@@ -27,6 +27,16 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
     duration_months: null, alternance_rhythm: null, education_level: null, min_salary_eur: null,
     excluded_keywords: [], updated_at: null,
   };
+  const base = { enabled: false, interval_minutes: null, default_interval_minutes: 120, blocked: false, blocked_cause: null, blocked_at: null, last_run_at: null, last_success_at: null };
+  const sources: Source[] = [
+    { ...base, source: "france_travail", label: "France Travail", description: "L'API officielle de l'État : offres de tous contrats et de tous métiers.", key_env: ["FRANCE_TRAVAIL_CLIENT_ID", "FRANCE_TRAVAIL_CLIENT_SECRET"], configured: false },
+    { ...base, source: "lba", label: "La Bonne Alternance", description: "L'API officielle des offres en alternance et des entreprises qui recrutent.", key_env: ["LBA_API_TOKEN"], configured: true, enabled: true, last_run_at: new Date(Date.now() - 46 * 60_000).toISOString() },
+    { ...base, source: "adzuna", label: "Adzuna", description: "Un agrégateur d'annonces avec une API gratuite : stages, CDD, CDI et alternance.", key_env: ["ADZUNA_APP_ID", "ADZUNA_APP_KEY"], configured: true, blocked: true, blocked_cause: "blocage détecté (403)", blocked_at: new Date(Date.now() - 300 * 60_000).toISOString() },
+    { ...base, source: "web", label: "Pages carrières (robot web)", description: "Les pages emploi des entreprises que vous indiquez : le robot lit les offres qu'elles publient.", key_env: [], configured: false },
+    { ...base, source: "email", label: "Alertes e-mail (LinkedIn, Indeed…)", description: "Les alertes emploi que vous créez vous-même, reçues dans une boîte e-mail dédiée que le robot lit.", key_env: [], configured: false },
+  ];
+  let mailbox: Mailbox = { configured: false };
+  let webPages: string[] = [];
   let nextId = applications.length + 1;
   const documents = createDocumentsMock(() => ({ facts, offers, nextId: () => nextId++ }));
 
@@ -147,6 +157,12 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
       }
       if (method === "POST" && link) return json({ url: "/profile/cv/file/demo", expires_at: new Date(Date.now() + 60000).toISOString() });
     }
+    if (path === "/profile/facts/bulk" && method === "POST") {
+      const { action, ids } = body as { action: "validate" | "reject"; ids: string[] };
+      const targets = facts.filter((f) => f.status === "proposed" && ids.includes(f.id));
+      facts = action === "reject" ? facts.filter((f) => !targets.includes(f)) : facts.map((f) => (targets.includes(f) ? { ...f, status: "validated" as const } : f));
+      return json({ processed: targets.length });
+    }
     const decision = /^\/profile\/facts\/([^/]+)\/(validate|reject)$/.exec(path);
     if (decision && method === "POST") {
       const target = facts.find((f) => f.id === decision[1]);
@@ -179,6 +195,68 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
         facts = facts.filter((f) => f.id !== id);
         return new Response(null, { status: 204 });
       }
+    }
+    if (method === "GET" && path === "/sources") return json(sources);
+    if (path === "/sources/email/mailbox" && method === "GET") return json(mailbox);
+    if (path === "/sources/email/mailbox" && method === "PUT") {
+      const input = body as { host: string; username: string; password?: string; folder?: string };
+      if (/^(localhost|[\d.]+|[^.]+)$/i.test(input.host) || /\.(local|internal)$/i.test(input.host)) {
+        return error(422, "validation_error", "Serveur refusé : adresse locale ou interne refusée.");
+      }
+      if (!input.password && !mailbox.configured) return error(422, "validation_error", "Le mot de passe d'application est obligatoire.");
+      mailbox = { configured: true, host: input.host, port: 993, username: input.username, folder: input.folder ?? "INBOX", updated_at: new Date().toISOString() };
+      const email = sources.findIndex((s) => s.source === "email");
+      sources[email] = { ...sources[email]!, configured: true };
+      return json(mailbox);
+    }
+    if (path === "/sources/email/mailbox" && method === "DELETE") {
+      mailbox = { configured: false };
+      const email = sources.findIndex((s) => s.source === "email");
+      sources[email] = { ...sources[email]!, configured: false, enabled: false };
+      return new Response(null, { status: 204 });
+    }
+    if (path === "/sources/email/mailbox/test" && method === "POST") {
+      if (!mailbox.configured) return error(404, "not_found", "Aucune boîte enregistrée.");
+      const tested_at = new Date().toISOString();
+      mailbox = { ...mailbox, last_test_at: tested_at, last_test_ok: true };
+      return json({ ok: true, message: "Connexion réussie : la boîte et le dossier sont lisibles.", tested_at });
+    }
+    if (path === "/sources/web/pages" && method === "GET") return json({ urls: webPages, max: 10 });
+    if (path === "/sources/web/pages" && method === "PUT") {
+      const urls: string[] = [];
+      for (const [index, raw] of ((body as { urls: string[] }).urls).entries()) {
+        const clean = raw.trim().split("#")[0] ?? "";
+        const local = /^https?:\/\/(localhost|[\d.]+|\[.*\]|[^./]+)([:/]|$)/i.test(clean);
+        if (!/^https?:\/\/[^\s/]+\.[a-z]{2,}(\/|$)/i.test(clean) || local) {
+          return error(422, "validation_error", `Page ${index + 1} : adresse invalide ou locale refusée.`);
+        }
+        if (/linkedin\.com|indeed\./i.test(clean)) {
+          return error(422, "validation_error", `Page ${index + 1} : site fermé aux robots : créez plutôt une alerte e-mail (écran « Mes sources »).`);
+        }
+        if (!urls.includes(clean)) urls.push(clean);
+      }
+      if (urls.length > 10) return error(422, "validation_error", "10 pages au plus.");
+      webPages = urls;
+      const web = sources.findIndex((s) => s.source === "web");
+      sources[web] = { ...sources[web]!, configured: urls.length > 0, enabled: urls.length > 0 && sources[web]!.enabled };
+      return json({ urls: webPages, max: 10 });
+    }
+    const sourceMatch = /^\/sources\/([a-z_]+)$/.exec(path);
+    if (method === "PUT" && sourceMatch) {
+      const index = sources.findIndex((s) => s.source === sourceMatch[1]);
+      const current = sources[index];
+      if (!current) return error(404, "not_found", "Source inconnue");
+      const { enabled, interval_minutes, confirm_unblock } = body as { enabled: boolean; interval_minutes: number | null; confirm_unblock?: boolean };
+      if (enabled && current.blocked && !confirm_unblock) {
+        return error(409, "source_blocked", `Cette source a été arrêtée : ${current.blocked_cause}. La réactiver peut aggraver le blocage ; confirmez pour continuer.`);
+      }
+      if (enabled && !current.configured) return error(409, "source_not_configured", current.source === "web" ? "Ajoutez d'abord au moins une page à lire." : current.source === "email" ? "Enregistrez d'abord votre boîte e-mail dédiée." : "La clé de cette source n'est pas configurée sur le serveur.");
+      const unblock = enabled && current.blocked;
+      sources[index] = {
+        ...current, enabled, interval_minutes,
+        ...(unblock ? { blocked: false, blocked_cause: null, blocked_at: null } : {}),
+      };
+      return json(sources[index]);
     }
     if (method === "PUT" && path === "/preferences") {
       preferences = { ...(body as Omit<SearchPreferences, "updated_at">), updated_at: new Date().toISOString() };

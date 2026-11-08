@@ -14,6 +14,7 @@ import { CriteriaPage } from "./CriteriaPage";
 import { OffersPage } from "./OffersPage";
 import { PreparePage } from "./PreparePage";
 import { ProfilePage } from "./ProfilePage";
+import { SourcesPage } from "./SourcesPage";
 import { Sidebar, type Page } from "./Sidebar";
 
 type View = "table" | "kanban";
@@ -119,6 +120,11 @@ export function Dashboard({ user, onLogout, page = "home", offerId }: Props) {
       {page === "criteria" && (
         <main className="page">
           <CriteriaPage />
+        </main>
+      )}
+      {page === "sources" && (
+        <main className="page">
+          <SourcesPage />
         </main>
       )}
       {page === "profile" && (

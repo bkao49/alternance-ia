@@ -1,0 +1,12 @@
+{"filtresPossibles": [],
+ "resultats": [
+  {"id": "900AAAA", "intitule": "Data Analyst H/F", "description": "Analyse de données fictives.",
+   "dateCreation": "2026-11-02T09:15:00.000Z",
+   "lieuTravail": {"libelle": "69 - LYON 03", "commune": "69383"},
+   "entreprise": {"nom": "Globex SAS"}, "typeContrat": "CDI", "natureContrat": "Contrat travail",
+   "origineOffre": {"origine": "1", "urlOrigine": "https://exemple.test/offre/900AAAA?utm_source=x"},
+   "contact": {"nom": "Personne Fictive", "courriel": "rh@exemple.test", "telephone": "0100000000"}},
+  {"id": "900BBBB", "intitule": "Ingénieur IA en alternance", "description": "Alternance fictive.",
+   "dateCreation": "2026-11-03T08:00:00.000Z", "lieuTravail": {"libelle": "75 - PARIS 08"},
+   "entreprise": {"nom": "Initech"}, "typeContrat": "CDD", "natureContrat": "E1"}
+ ]}

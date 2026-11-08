@@ -19,6 +19,11 @@ export function readCookie(name: string): string | undefined {
     ?.slice(name.length + 1);
 }
 
+/** Efface le cookie lisible du jeton CSRF (le cookie de session, lui, n'est effaçable que par le serveur). */
+export function clearCsrfCookie(): void {
+  document.cookie = "csrf_token=; max-age=0; path=/";
+}
+
 // Double soumission CSRF : le cookie lisible `csrf_token` est renvoyé en en-tête pour toute écriture.
 export const csrfMiddleware: Middleware = {
   onRequest({ request }) {

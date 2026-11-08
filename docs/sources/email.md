@@ -11,7 +11,9 @@
 
 ## Configuration (variables d'environnement, voir `.env.example`)
 `EMAIL_ALERTS_HOST`, `EMAIL_ALERTS_USER`, `EMAIL_ALERTS_PASSWORD` (mot de passe d'application), et en option `EMAIL_ALERTS_PORT` (993), `EMAIL_ALERTS_FOLDER` (INBOX), `EMAIL_ALERTS_REQUIRE_AUTH` (voir plus bas).
-La saisie de la boîte par utilisateur dans l'application (identifiants chiffrés) demandera une migration : **suite à faire**. Tant que ce n'est pas fait, le collecteur n'est **pas** branché sur le planificateur : une boîte unique lue pour tous les utilisateurs mélangerait leurs offres.
+**Par utilisateur (migration 0013, ADR 0012)** : chaque utilisateur saisit sa propre boîte dédiée dans « Mes sources » (serveur IMAP, adresse, mot de passe d'application, dossier ; port 993 seulement). Le mot de passe est chiffré au repos, jamais renvoyé par l'API ni journalisé, et un bouton « Tester la connexion » vérifie la boîte. Le collecteur est branché sur le planificateur : le worker lit la boîte de l'utilisateur du job, jamais celle d'un autre. Les variables `EMAIL_ALERTS_HOST/USER/PASSWORD` ne servent plus qu'au contrôle `doctor`.
+Le serveur IMAP est une saisie de l'utilisateur : nom public seulement (ni IP, ni adresse locale ou privée, revérifié à chaque connexion), pour qu'on ne puisse pas faire sonder le réseau interne par l'application.
+**LinkedIn** : aucune connexion au compte de l'utilisateur, aucune collecte sur le site. L'utilisateur crée lui-même l'alerte emploi dans LinkedIn avec l'adresse de la boîte dédiée ; seuls les e-mails reçus sont lus.
 
 ## Expéditeurs reconnus (liste blanche)
 | Site | Domaine par défaut | Variable pour le remplacer |

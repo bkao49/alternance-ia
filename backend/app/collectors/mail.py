@@ -179,8 +179,10 @@ def _text(card: Any, selector: str | None) -> str:
 class EmailCollector(Collector):
     source = "email"
 
-    def __init__(self, client: MailClient | None = None, require_auth: bool | None = None):
+    def __init__(self, client: MailClient | None = None, require_auth: bool | None = None,
+                 connect: Callable[[], MailClient] | None = None):
         self._client = client
+        self._connect_fn = connect  # boîte propre à un utilisateur (identifiants lus en base par le worker)
         env = os.environ
         self.require_auth = (env.get("EMAIL_ALERTS_REQUIRE_AUTH", "true").lower() != "false"
                              if require_auth is None else require_auth)
@@ -194,6 +196,8 @@ class EmailCollector(Collector):
     def _connect(self) -> MailClient:
         if self._client:
             return self._client
+        if self._connect_fn:
+            return self._connect_fn()
         host, user, password = (os.environ.get(f"EMAIL_ALERTS_{k}", "") for k in ("HOST", "USER", "PASSWORD"))
         if not (host and user and password):
             raise CollectorError(self.source, "boîte d'alertes non configurée (EMAIL_ALERTS_*)")

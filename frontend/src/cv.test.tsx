@@ -83,6 +83,38 @@ describe("Import du CV", () => {
     expect(screen.getByRole("region", { name: /À valider \(4\)/ })).toBeInTheDocument();
   }, 15000);
 
+  it("valide ou rejette plusieurs faits à la fois, avec le compteur à jour", async () => {
+    const user = await openProfile();
+    await screen.findByText("Aucun CV déposé.");
+    await user.upload(fileInput(), fictionalCv());
+    const section = await screen.findByRole("region", { name: /À valider \(4\)/ }, SLOW);
+
+    await user.click(within(section).getByRole("checkbox", { name: /Sélectionner : Python/ }));
+    await user.click(within(section).getByRole("checkbox", { name: /Sélectionner : Anglais/ }));
+    await user.click(within(section).getByRole("button", { name: "Valider la sélection (2)" }));
+    await screen.findByRole("region", { name: /À valider \(2\)/ });
+    expect(screen.getAllByText(/2 fait\(s\) proposé\(s\) à relire/).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "Tout valider" }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: /À valider/ })).toBeNull());
+    expect(screen.getByText("Aucun fait à relire.")).toBeInTheDocument();
+    expect(requests.filter((r) => r.url.endsWith("/profile/facts/bulk"))).toHaveLength(2);
+  }, 20000);
+
+  it("demande confirmation avant de tout rejeter", async () => {
+    const user = await openProfile();
+    await screen.findByText("Aucun CV déposé.");
+    await user.upload(fileInput(), fictionalCv());
+    await screen.findByRole("region", { name: /À valider \(4\)/ }, SLOW);
+    await user.click(screen.getByRole("button", { name: "Tout rejeter" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Annuler" }));
+    expect(requests.some((r) => r.url.endsWith("/profile/facts/bulk"))).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Tout rejeter" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Tout rejeter" }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: /À valider/ })).toBeNull());
+  }, 20000);
+
   it("supprime le CV et ses faits après confirmation", async () => {
     const user = await openProfile();
     await screen.findByText("Aucun CV déposé.");
