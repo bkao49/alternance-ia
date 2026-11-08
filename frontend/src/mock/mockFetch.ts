@@ -32,7 +32,9 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
     { ...base, source: "france_travail", label: "France Travail", description: "L'API officielle de l'État : offres de tous contrats et de tous métiers.", key_env: ["FRANCE_TRAVAIL_CLIENT_ID", "FRANCE_TRAVAIL_CLIENT_SECRET"], configured: false },
     { ...base, source: "lba", label: "La Bonne Alternance", description: "L'API officielle des offres en alternance et des entreprises qui recrutent.", key_env: ["LBA_API_TOKEN"], configured: true, enabled: true, last_run_at: new Date(Date.now() - 46 * 60_000).toISOString() },
     { ...base, source: "adzuna", label: "Adzuna", description: "Un agrégateur d'annonces avec une API gratuite : stages, CDD, CDI et alternance.", key_env: ["ADZUNA_APP_ID", "ADZUNA_APP_KEY"], configured: true, blocked: true, blocked_cause: "blocage détecté (403)", blocked_at: new Date(Date.now() - 300 * 60_000).toISOString() },
+    { ...base, source: "web", label: "Pages carrières (robot web)", description: "Les pages emploi des entreprises que vous indiquez : le robot lit les offres qu'elles publient.", key_env: [], configured: false },
   ];
+  let webPages: string[] = [];
   let nextId = applications.length + 1;
   const documents = createDocumentsMock(() => ({ facts, offers, nextId: () => nextId++ }));
 
@@ -187,6 +189,26 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
       }
     }
     if (method === "GET" && path === "/sources") return json(sources);
+    if (path === "/sources/web/pages" && method === "GET") return json({ urls: webPages, max: 10 });
+    if (path === "/sources/web/pages" && method === "PUT") {
+      const urls: string[] = [];
+      for (const [index, raw] of ((body as { urls: string[] }).urls).entries()) {
+        const clean = raw.trim().split("#")[0] ?? "";
+        const local = /^https?:\/\/(localhost|[\d.]+|\[.*\]|[^./]+)([:/]|$)/i.test(clean);
+        if (!/^https?:\/\/[^\s/]+\.[a-z]{2,}(\/|$)/i.test(clean) || local) {
+          return error(422, "validation_error", `Page ${index + 1} : adresse invalide ou locale refusée.`);
+        }
+        if (/linkedin\.com|indeed\./i.test(clean)) {
+          return error(422, "validation_error", `Page ${index + 1} : site fermé aux robots : créez plutôt une alerte e-mail (écran « Mes sources »).`);
+        }
+        if (!urls.includes(clean)) urls.push(clean);
+      }
+      if (urls.length > 10) return error(422, "validation_error", "10 pages au plus.");
+      webPages = urls;
+      const web = sources.findIndex((s) => s.source === "web");
+      sources[web] = { ...sources[web]!, configured: urls.length > 0, enabled: urls.length > 0 && sources[web]!.enabled };
+      return json({ urls: webPages, max: 10 });
+    }
     const sourceMatch = /^\/sources\/([a-z_]+)$/.exec(path);
     if (method === "PUT" && sourceMatch) {
       const index = sources.findIndex((s) => s.source === sourceMatch[1]);
@@ -196,7 +218,7 @@ export function createMockFetch(options: { facts?: ProfileFact[] } = {}) {
       if (enabled && current.blocked && !confirm_unblock) {
         return error(409, "source_blocked", `Cette source a été arrêtée : ${current.blocked_cause}. La réactiver peut aggraver le blocage ; confirmez pour continuer.`);
       }
-      if (enabled && !current.configured) return error(409, "source_not_configured", "La clé de cette source n'est pas configurée sur le serveur.");
+      if (enabled && !current.configured) return error(409, "source_not_configured", current.source === "web" ? "Ajoutez d'abord au moins une page à lire." : "La clé de cette source n'est pas configurée sur le serveur.");
       const unblock = enabled && current.blocked;
       sources[index] = {
         ...current, enabled, interval_minutes,

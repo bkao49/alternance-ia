@@ -159,6 +159,41 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
         "422": { $ref: "#/components/responses/ValidationError" }
+  /sources/web/pages:
+    get:
+      tags: [sources]
+      operationId: getWebPages
+      summary: Mes pages carrières lues par le robot web
+      responses:
+        "200":
+          description: Pages de l'utilisateur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebPages" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [sources]
+      operationId: updateWebPages
+      summary: Remplacer mes pages carrières
+      description: |
+        Remplacement complet, 10 pages au plus. Chaque adresse doit être en http ou https, avec un nom de
+        site (ni IP, ni adresse locale ou interne, ni site fermé comme LinkedIn ou Indeed). Rien n'est
+        enregistré si une adresse est refusée (422 avec le numéro de la page). Une liste vide éteint la
+        source `web`. La source `web` ne s'active qu'avec au moins une page (409 `source_not_configured`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebPagesInput" }
+      responses:
+        "200":
+          description: Pages enregistrées (adresses nettoyées, doublons fusionnés)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebPages" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
 
   /offers/{offerId}:
     get:
@@ -1141,6 +1176,18 @@ components:
         enabled: { type: boolean }
         interval_minutes: { type: [integer, "null"], minimum: 60, maximum: 10080 }
         confirm_unblock: { type: boolean, description: "Obligatoire pour réactiver une source bloquée" }
+    WebPages:
+      type: object
+      required: [urls, max]
+      properties:
+        urls: { type: array, items: { type: string, maxLength: 2000 }, maxItems: 10 }
+        max: { type: integer, description: "Nombre de pages au plus" }
+    WebPagesInput:
+      type: object
+      additionalProperties: false
+      required: [urls]
+      properties:
+        urls: { type: array, items: { type: string, maxLength: 2000 } }
     OfferDetail:
       allOf:
         - { $ref: "#/components/schemas/Offer" }

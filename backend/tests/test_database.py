@@ -9,7 +9,7 @@ EXPECTED_TABLES = {
     "users", "profile_facts", "job_postings", "analyses", "scores", "applications",
     "status_definitions", "events", "tasks", "llm_calls", "search_preferences",
     "llm_cache", "source_settings", "jobs", "cv_documents", "cv_uploads",
-    "document_drafts", "document_versions",
+    "document_drafts", "document_versions", "web_pages",
 }
 # Journal du plafond de coût : l'application ne peut pas en supprimer de lignes (migration 0005).
 APPEND_ONLY = {"llm_calls"}
@@ -52,6 +52,8 @@ SEED = [
     ("source_settings", ("INSERT INTO source_settings (user_id, source) "
                         "VALUES (%(uid)s, 'lba') RETURNING user_id")),
     ("jobs", "INSERT INTO jobs (user_id, kind, source) VALUES (%(uid)s, 'collect', 'lba') RETURNING id"),
+    ("web_pages", ("INSERT INTO web_pages (user_id, position, url) "
+                  "VALUES (%(uid)s, 0, 'https://careers.example.test/jobs') RETURNING id")),
 ]
 
 

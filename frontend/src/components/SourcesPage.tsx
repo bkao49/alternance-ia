@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { unwrap } from "../api/client";
 import { useApi } from "../api/context";
 import type { Source } from "../api/types";
+import { WebPagesEditor } from "./WebPagesEditor";
 
 const INTERVALS: [number, string][] = [
   [60, "Toutes les heures"],
@@ -24,7 +25,7 @@ function stateOf(source: Source): { label: string; note?: string } {
   return { label: source.enabled ? "Activée" : "Désactivée" };
 }
 
-function SourceCard({ source, onSave }: { source: Source; onSave: (body: SaveBody) => Promise<string | null> }) {
+function SourceCard({ source, onSave, onPagesSaved }: { source: Source; onSave: (body: SaveBody) => Promise<string | null>; onPagesSaved: () => void }) {
   const [problem, setProblem] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -72,7 +73,12 @@ function SourceCard({ source, onSave }: { source: Source; onSave: (body: SaveBod
         </div>
       )}
 
-      {!source.blocked && !source.configured && (
+      {source.source === "web" && <WebPagesEditor onSaved={onPagesSaved} />}
+
+      {!source.blocked && !source.configured && source.source === "web" && (
+        <p className="hint">Ajoutez au moins une page ci-dessus pour pouvoir activer cette source.</p>
+      )}
+      {!source.blocked && !source.configured && source.source !== "web" && (
         <p className="hint">
           La clé de cette source n'est pas encore installée sur le serveur ({source.key_env.join(", ")}). Demandez à la personne qui
           gère l'installation de l'ajouter.
@@ -125,6 +131,8 @@ export function SourcesPage() {
   const [sources, setSources] = useState<Source[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [version, setVersion] = useState(0);
+
   useEffect(() => {
     let active = true;
     api
@@ -135,7 +143,7 @@ export function SourcesPage() {
     return () => {
       active = false;
     };
-  }, [api]);
+  }, [api, version]);
 
   /** Renvoie `null` si l'enregistrement a réussi, sinon le message à afficher sous la source. */
   async function save(source: string, body: SaveBody): Promise<string | null> {
@@ -164,7 +172,7 @@ export function SourcesPage() {
       {sources && (
         <ul className="source-list" aria-label="Sources disponibles">
           {sources.map((s) => (
-            <SourceCard key={s.source} source={s} onSave={(body) => save(s.source, body)} />
+            <SourceCard key={s.source} source={s} onSave={(body) => save(s.source, body)} onPagesSaved={() => setVersion((v) => v + 1)} />
           ))}
         </ul>
       )}

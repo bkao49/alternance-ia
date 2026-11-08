@@ -12,6 +12,7 @@ from app import (
     profile,
     sources,
     statuses,
+    web_pages,
 )
 from app.cv import routes as cv_routes
 from app.errors import install_error_handlers
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
     application.include_router(cv_routes.router)
     application.include_router(documents.router)
     application.include_router(sources.router)
+    application.include_router(web_pages.router)
 
     @application.get("/health")
     def health() -> dict[str, str]:
