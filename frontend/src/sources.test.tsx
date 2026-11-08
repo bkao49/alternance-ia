@@ -70,4 +70,25 @@ describe("Mes sources", () => {
     await user.click(card("La Bonne Alternance").getByLabelText("Activer cette source"));
     expect(await card("La Bonne Alternance").findByRole("alert")).toHaveTextContent("n'est pas configurée");
   });
+
+  it("enregistre les pages carrières, active le robot web, et refuse une adresse locale", async () => {
+    const user = await openSources();
+    await screen.findByText("Pages carrières (robot web)");
+    const web = card("Pages carrières (robot web)");
+    expect(web.getByLabelText("Activer cette source")).toBeDisabled();
+    const area = await web.findByLabelText(/Pages à lire/);
+    await user.type(area, "http://localhost/admin");
+    await user.click(web.getByRole("button", { name: "Enregistrer les pages" }));
+    expect(await web.findByRole("alert")).toHaveTextContent("Page 1");
+    await user.clear(area);
+    await user.type(area, "https://carrieres.exemple.test/offres{Enter}https://carrieres.exemple.test/offres");
+    await user.click(web.getByRole("button", { name: "Enregistrer les pages" }));
+    expect(await web.findByText("Pages enregistrées.")).toBeInTheDocument();
+    const put = requests.filter((r) => r.method === "PUT" && r.url.endsWith("/sources/web/pages")).at(-1);
+    expect(await put?.clone().json()).toEqual({ urls: ["https://carrieres.exemple.test/offres", "https://carrieres.exemple.test/offres"] });
+    expect(put?.headers.get("X-CSRF-Token")).toBeTruthy();
+    expect(web.getByLabelText("Activer cette source")).toBeEnabled();
+    await user.click(web.getByLabelText("Activer cette source"));
+    expect(await web.findByText("Activée")).toBeInTheDocument();
+  });
 });

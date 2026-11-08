@@ -17,6 +17,7 @@ from app.auth import Session, current_session, require_csrf
 from app.config import get_worker_settings
 from app.db import user_scope
 from app.errors import ApiError
+from app.web_pages import WEB_SOURCE
 
 router = APIRouter(tags=["sources"])
 
@@ -30,6 +31,7 @@ class SourceInfo:
     label: str
     description: str
     key_env: tuple[str, ...] = ()  # variables d'environnement du serveur qui doivent être renseignées
+    needs_pages: bool = False  # source « web » : exige au moins une page saisie par l'utilisateur
 
     @property
     def configured(self) -> bool:
@@ -46,6 +48,9 @@ CATALOG: tuple[SourceInfo, ...] = (
     SourceInfo("adzuna", "Adzuna",
                "Un agrégateur d'annonces avec une API gratuite : stages, CDD, CDI et alternance.",
                ("ADZUNA_APP_ID", "ADZUNA_APP_KEY")),
+    SourceInfo(WEB_SOURCE, "Pages carrières (robot web)",
+               "Les pages emploi des entreprises que vous indiquez : le robot lit les offres qu'elles publient.",
+               needs_pages=True),
 )
 BY_KEY = {s.key: s for s in CATALOG}
 
@@ -79,12 +84,19 @@ class SourceIn(BaseModel):
 COLUMNS = "source, enabled, interval_minutes, blocked_at, blocked_cause, last_run_at, last_success_at"
 
 
-def _out(info: SourceInfo, row, default_minutes: int) -> dict:
+def _ready(conn, info: SourceInfo) -> bool:
+    """Prête à collecter : clés du serveur présentes et, pour le robot web, au moins une page saisie."""
+    if info.needs_pages and not conn.execute(text("SELECT EXISTS (SELECT 1 FROM web_pages)")).scalar_one():
+        return False
+    return info.configured
+
+
+def _out(info: SourceInfo, row, default_minutes: int, configured: bool) -> dict:
     row = row or {}
     blocked_at = row.get("blocked_at")
     return {
         "source": info.key, "label": info.label, "description": info.description,
-        "key_env": list(info.key_env), "configured": info.configured,
+        "key_env": list(info.key_env), "configured": configured,
         "enabled": bool(row.get("enabled", False)) and blocked_at is None,
         "interval_minutes": row.get("interval_minutes"), "default_interval_minutes": default_minutes,
         "blocked": blocked_at is not None,
@@ -99,7 +111,7 @@ def list_sources(session: Session = Depends(current_session)):
     default_minutes = get_worker_settings().collect_interval_minutes
     with user_scope(session.user_id) as conn:
         rows = {r["source"]: r for r in conn.execute(text(f"SELECT {COLUMNS} FROM source_settings")).mappings().all()}
-    return [_out(info, rows.get(info.key), default_minutes) for info in CATALOG]
+        return [_out(info, rows.get(info.key), default_minutes, _ready(conn, info)) for info in CATALOG]
 
 
 @router.put("/sources/{source}", response_model=SourceOut, operation_id="updateSource")
@@ -118,9 +130,11 @@ def update_source(source: str, body: SourceIn, session: Session = Depends(requir
             raise ApiError(409, "source_blocked",
                            f"Cette source a été arrêtée : {current['blocked_cause'] or 'blocage détecté'}. "
                            "La réactiver peut aggraver le blocage ; confirmez pour continuer.")
-        if body.enabled and not info.configured:
+        ready = _ready(conn, info)
+        if body.enabled and not ready:
             raise ApiError(409, "source_not_configured",
-                           "La clé de cette source n'est pas configurée sur le serveur.")
+                           "Ajoutez d'abord au moins une page à lire." if info.needs_pages
+                           else "La clé de cette source n'est pas configurée sur le serveur.")
         row = conn.execute(
             text("INSERT INTO source_settings (user_id, source, enabled, interval_minutes) "
                  "VALUES (:uid, :s, :enabled, :interval) "
@@ -132,4 +146,4 @@ def update_source(source: str, body: SourceIn, session: Session = Depends(requir
             {"uid": session.user_id, "s": source, "enabled": body.enabled, "interval": body.interval_minutes,
              "unblock": body.enabled and blocked},  # blocage levé seulement avec confirmation (vérifiée plus haut)
         ).mappings().one()
-    return _out(info, row, default_minutes)
+    return _out(info, row, default_minutes, ready)

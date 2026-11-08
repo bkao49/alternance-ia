@@ -38,10 +38,14 @@ from app.collectors.web import WebCollector, load_sites
 from app.config import WorkerSettings, get_worker_settings
 from app.db import user_scope
 from app.pipeline import analyse_user_offers
+from app.web_pages import WEB_SOURCE, web_collector
 
 log = logging.getLogger(__name__)
 
 Registry = dict[str, Callable[[], Collector]]
+# Sources dont le collecteur dépend de l'utilisateur (ses pages, sa boîte) : construit sous sa RLS ;
+# None quand il n'a rien configuré.
+UserRegistry = dict[str, Callable[[Connection], Collector | None]]
 UPSERT = text(
     "INSERT INTO job_postings (user_id, source, external_id, url, title, company, location, "
     "description_text, content_hash, contract_type, published_at, fingerprint) "
@@ -64,6 +68,10 @@ def default_registry(settings: WorkerSettings) -> Registry:
         for site in load_sites(Path(settings.web_sites_file)):
             registry[site.source] = lambda site=site: WebCollector(site)
     return registry
+
+
+def default_user_registry() -> UserRegistry:
+    return {WEB_SOURCE: web_collector}
 
 
 def load_query(conn: Connection) -> SearchQuery | None:
@@ -121,8 +129,10 @@ class Heartbeat:
 
 class Worker:
     def __init__(self, registry: Registry, settings: WorkerSettings, notifier: Notifier | None = None,
-                 name: str | None = None, gateway: LLMGateway | None = None):
+                 name: str | None = None, gateway: LLMGateway | None = None,
+                 user_registry: UserRegistry | None = None):
         self.registry, self.settings = registry, settings
+        self.user_registry = default_user_registry() if user_registry is None else user_registry
         self.gateway = gateway  # None : filtres durs seulement, les offres restent en attente d'analyse
         self.notifier = notifier or LogNotifier()
         self.name = name or f"{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:6]}"
@@ -145,16 +155,18 @@ class Worker:
 
     def _collect(self, job: jobs.Job) -> None:
         factory = self.registry.get(job.source)
-        if factory is None:
+        user_factory = self.user_registry.get(job.source)
+        if factory is None and user_factory is None:
             jobs.fail(job, self.name, "source inconnue")
             return
         with user_scope(job.user_id) as conn:
             query = load_query(conn)
-        if query is None:
-            jobs.succeed(job, self.name, 0, 0, 0)  # rien à chercher : aucun appel à la source
+            collector = user_factory(conn) if user_factory and query else None
+        if query is None or (user_factory and collector is None):
+            jobs.succeed(job, self.name, 0, 0, 0)  # rien à chercher ou à lire : aucun appel à la source
             return
         with contextlib.ExitStack() as stack:
-            collector = factory()
+            collector = collector or factory()
             if hasattr(collector, "__exit__"):
                 stack.enter_context(collector)
             result = collector.collect(query)

@@ -370,9 +370,10 @@ WRITES = [
     ("POST", "/statuses", {"name": "x"}),
     ("PATCH", "/statuses/00000000-0000-0000-0000-000000000000", {"name": "x"}),
     ("PUT", "/sources/lba", {"enabled": False, "interval_minutes": None}),
+    ("PUT", "/sources/web/pages", {"urls": []}),
 ]
 READS = ["/applications", "/applications/00000000-0000-0000-0000-000000000000",
-         "/applications/00000000-0000-0000-0000-000000000000/events", "/statuses", "/sources"]
+         "/applications/00000000-0000-0000-0000-000000000000/events", "/statuses", "/sources", "/sources/web/pages"]
 
 
 @pytest.mark.parametrize("path", READS)
