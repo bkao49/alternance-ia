@@ -104,8 +104,8 @@ def _france_travail_probe() -> Line | None:
             total = collector.check()
     except NotSubscribed:
         return Line(TODO, f"{name} : votre application francetravail.io n'est pas abonnée à l'API "
-                          "Offres d'emploi v2, ou le scope est différent. Vérifiez l'abonnement "
-                          "dans votre espace francetravail.io.")
+                          "Offres d'emploi v2 (accès restreint par France Travail), ou le scope est "
+                          "différent. Vérifiez l'abonnement dans votre espace francetravail.io.")
     except CollectorError as exc:
         return Line(ERROR, f"{name} : {exc.message}")
     return Line(OK, f"{name} : l'appel de test répond ({total} offres au total).")
