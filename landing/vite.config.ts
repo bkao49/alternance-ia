@@ -14,6 +14,6 @@ export default defineConfig({
   // Chemins relatifs : la page reste publiable dans un sous-dossier (GitHub Pages, à décider avec le PO).
   base: "./",
   plugins: [brand()],
-  build: { target: "es2022", chunkSizeWarningLimit: 600 }, // three.js pèse ~140 Ko compressé, chargé à la demande
+  build: { target: "es2022" },
   test: { environment: "jsdom" },
 });
