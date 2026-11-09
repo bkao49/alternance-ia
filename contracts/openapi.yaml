@@ -23,6 +23,7 @@ tags:
   - name: account
   - name: profile
   - name: documents
+  - name: sources
 
 paths:
   /auth/login:
@@ -114,6 +115,148 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/BotStatus" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /sources:
+    get:
+      tags: [sources]
+      operationId: listSources
+      summary: Les sources disponibles et leur état pour l'utilisateur
+      description: |
+        Une entrée par source du catalogue, même jamais activée. `configured` dit si la clé de service est
+        présente sur le serveur (jamais sa valeur). Réglages et état propres à l'utilisateur connecté.
+      responses:
+        "200":
+          description: Sources
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Source" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /sources/{source}:
+    put:
+      tags: [sources]
+      operationId: updateSource
+      summary: Activer, désactiver ou régler l'intervalle d'une source
+      description: |
+        Remplacement complet. Désactiver est toujours permis. Activer exige la clé de service
+        (`source_not_configured`). Une source bloquée (`blocked`) ne se réactive qu'avec
+        `confirm_unblock: true`, sinon 409 `source_blocked` avec la cause.
+      parameters:
+        - { name: source, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SourceInput" }
+      responses:
+        "200":
+          description: Source enregistrée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Source" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /sources/web/pages:
+    get:
+      tags: [sources]
+      operationId: getWebPages
+      summary: Mes pages carrières lues par le robot web
+      responses:
+        "200":
+          description: Pages de l'utilisateur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebPages" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [sources]
+      operationId: updateWebPages
+      summary: Remplacer mes pages carrières
+      description: |
+        Remplacement complet, 10 pages au plus. Chaque adresse doit être en http ou https, avec un nom de
+        site (ni IP, ni adresse locale ou interne, ni site fermé comme LinkedIn ou Indeed). Rien n'est
+        enregistré si une adresse est refusée (422 avec le numéro de la page). Une liste vide éteint la
+        source `web`. La source `web` ne s'active qu'avec au moins une page (409 `source_not_configured`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebPagesInput" }
+      responses:
+        "200":
+          description: Pages enregistrées (adresses nettoyées, doublons fusionnés)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WebPages" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+
+  /sources/email/mailbox:
+    get:
+      tags: [sources]
+      operationId: getMailbox
+      summary: Ma boîte e-mail dédiée aux alertes
+      description: Le mot de passe d'application n'est jamais renvoyé. Sans boîte enregistrée, `configured` vaut false.
+      responses:
+        "200":
+          description: Boîte de l'utilisateur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mailbox" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [sources]
+      operationId: updateMailbox
+      summary: Enregistrer ou modifier ma boîte dédiée
+      description: |
+        Le mot de passe est obligatoire à la première saisie ; ensuite, l'omettre garde celui enregistré. Il est
+        chiffré au repos (clé dérivée de `SECRET_KEY`). Serveur : un nom public (ni IP, ni adresse locale ou privée) ;
+        seul le port 993 (IMAP sécurisé) est accepté. Toute modification efface le dernier résultat de test.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MailboxInput" }
+      responses:
+        "200":
+          description: Boîte enregistrée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Mailbox" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [sources]
+      operationId: deleteMailbox
+      summary: Supprimer ma boîte (et éteindre la source e-mail)
+      responses:
+        "204": { description: Boîte supprimée }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /sources/email/mailbox/test:
+    post:
+      tags: [sources]
+      operationId: testMailbox
+      summary: Tester la connexion à ma boîte
+      description: |
+        Se connecte en IMAP avec les réglages enregistrés et lit le dossier, sans rien modifier. Le résultat
+        (`ok`, message fixe sans identifiant) est aussi gardé dans `Mailbox`. Au plus un test toutes les 10 secondes.
+      responses:
+        "200":
+          description: Résultat du test (un échec de connexion est un résultat, pas une erreur)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MailboxTest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
 
   /offers/{offerId}:
     get:
@@ -500,6 +643,34 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "422": { $ref: "#/components/responses/ValidationError" }
+  /profile/facts/bulk:
+    post:
+      tags: [profile]
+      operationId: bulkProfileFacts
+      summary: Valider ou rejeter plusieurs faits à la fois
+      description: |
+        Ne s'applique qu'aux faits « à valider » de la liste (les autres identifiants sont ignorés).
+        `validate` : tout ou rien, 409 `too_many_facts` si la limite de faits validés serait dépassée.
+        `reject` : supprime les faits « à valider » désignés.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileFactsBulkInput" }
+      responses:
+        "200":
+          description: Nombre de faits traités
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileFactsBulkResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: La limite de faits validés serait dépassée (`too_many_facts`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/ValidationError" }
   /profile/facts/{factId}:
     parameters:
       - { name: factId, in: path, required: true, schema: { type: string, format: uuid } }
@@ -575,7 +746,9 @@ paths:
       tags: [profile]
       operationId: getProfileCv
       summary: Voir mon CV déposé et l'état de l'extraction
-      description: Un seul CV par utilisateur. À interroger tant que `status` vaut `processing`.
+      description: |
+        Dernier CV déposé (un nouveau dépôt remplace le fichier, mais les faits déjà extraits restent : on peut
+        importer plusieurs CV). À interroger tant que `status` vaut `processing`.
       responses:
         "200":
           description: Le CV déposé
@@ -922,7 +1095,7 @@ components:
     Conflict:
       description: |
         Règle métier violée. Codes : `confirmation_required`, `already_sent`, `status_name_taken`,
-        `status_missing`.
+        `status_missing`, `source_blocked`, `source_not_configured`.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -1071,6 +1244,73 @@ components:
           enum: [done, error, blocked]
           description: done pour une tâche réussie, blocked pour une tâche arrêtée par un blocage, error pour les autres échecs (failed, dead).
         message: { type: string, maxLength: 200, description: "Texte fixe, sans contenu d'annonce" }
+    Source:
+      type: object
+      required: [source, label, description, key_env, configured, enabled, interval_minutes, default_interval_minutes, blocked, blocked_cause, blocked_at, last_run_at, last_success_at]
+      properties:
+        source: { type: string, examples: [france_travail] }
+        label: { type: string }
+        description: { type: string }
+        key_env: { type: array, items: { type: string }, description: "Variables d'environnement du serveur qui portent la clé (noms seulement)" }
+        configured: { type: boolean, description: "Toutes les clés de service sont présentes sur le serveur" }
+        enabled: { type: boolean, description: "Activée et non bloquée" }
+        interval_minutes: { type: [integer, "null"], minimum: 60, description: "Choix de l'utilisateur ; null = intervalle par défaut" }
+        default_interval_minutes: { type: integer, minimum: 60 }
+        blocked: { type: boolean }
+        blocked_cause: { type: [string, "null"], maxLength: 200, description: "Texte fixe écrit par le worker" }
+        blocked_at: { type: [string, "null"], format: date-time }
+        last_run_at: { type: [string, "null"], format: date-time }
+        last_success_at: { type: [string, "null"], format: date-time }
+    SourceInput:
+      type: object
+      additionalProperties: false
+      required: [enabled, interval_minutes]
+      properties:
+        enabled: { type: boolean }
+        interval_minutes: { type: [integer, "null"], minimum: 60, maximum: 10080 }
+        confirm_unblock: { type: boolean, description: "Obligatoire pour réactiver une source bloquée" }
+    WebPages:
+      type: object
+      required: [urls, max]
+      properties:
+        urls: { type: array, items: { type: string, maxLength: 2000 }, maxItems: 10 }
+        max: { type: integer, description: "Nombre de pages au plus" }
+    WebPagesInput:
+      type: object
+      additionalProperties: false
+      required: [urls]
+      properties:
+        urls: { type: array, items: { type: string, maxLength: 2000 } }
+    Mailbox:
+      type: object
+      required: [configured]
+      properties:
+        configured: { type: boolean }
+        host: { type: string }
+        port: { type: integer }
+        username: { type: string }
+        folder: { type: string }
+        updated_at: { type: string, format: date-time }
+        last_test_at: { type: string, format: date-time }
+        last_test_ok: { type: boolean }
+        last_test_error: { type: string, maxLength: 200, description: "Message fixe, jamais l'identifiant ni la réponse du serveur" }
+    MailboxInput:
+      type: object
+      additionalProperties: false
+      required: [host, username]
+      properties:
+        host: { type: string, minLength: 1, maxLength: 253, examples: [imap.exemple.fr] }
+        port: { type: integer, enum: [993] }
+        username: { type: string, minLength: 1, maxLength: 254 }
+        password: { type: string, minLength: 1, maxLength: 200, writeOnly: true, description: "Mot de passe d'application. Jamais relu ni journalisé." }
+        folder: { type: string, minLength: 1, maxLength: 100, examples: [INBOX] }
+    MailboxTest:
+      type: object
+      required: [ok, message, tested_at]
+      properties:
+        ok: { type: boolean }
+        message: { type: string, maxLength: 200 }
+        tested_at: { type: string, format: date-time }
     OfferDetail:
       allOf:
         - { $ref: "#/components/schemas/Offer" }
@@ -1382,6 +1622,23 @@ components:
             id: { type: string, format: uuid }
             created_at: { type: string, format: date-time }
             status: { $ref: "#/components/schemas/ProfileFactStatus" }
+    ProfileFactsBulkInput:
+      type: object
+      required: [action, ids]
+      additionalProperties: false
+      properties:
+        action: { type: string, enum: [validate, reject] }
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 500
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    ProfileFactsBulkResult:
+      type: object
+      required: [processed]
+      properties:
+        processed: { type: integer, minimum: 0 }
     ProfileCv:
       type: object
       required: [id, original_name, file_type, size_bytes, status, error_code, facts_proposed, created_at]
@@ -1401,7 +1658,7 @@ components:
         facts_proposed:
           type: integer
           minimum: 0
-          description: Nombre de faits créés par l'extraction
+          description: Nombre de faits encore « à valider » (tous CV confondus), à jour à chaque lecture
         created_at: { type: string, format: date-time }
     CvDownloadLink:
       type: object

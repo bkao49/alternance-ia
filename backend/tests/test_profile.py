@@ -185,3 +185,35 @@ def test_validate_and_reject(alice, bob, contract):  # noqa: F811
     assert alice.post(f"/profile/facts/{second}/reject").status_code == 204
     assert alice.post(f"/profile/facts/{second}/reject").status_code == 404
     assert [f["id"] for f in alice.get("/profile/facts").json()] == [first]
+
+
+def test_bulk_validate_and_reject(alice, bob, contract):  # noqa: F811
+    mine = [_propose(alice.user_id, f"Projet {i}") for i in range(4)]
+    theirs = _propose(bob.user_id, "Projet de Bob")
+    kept = alice.post("/profile/facts", FACT).json()["id"]  # déjà validé : ni validé ni rejeté en groupe
+    done = alice.post("/profile/facts/bulk", {"action": "validate", "ids": [*mine[:2], theirs, kept]})
+    assert done.status_code == 200 and done.json() == {"processed": 2}  # l'autre utilisateur et le validé sont ignorés
+    assert_conforms(contract, "ProfileFactsBulkResult", done.json())
+    assert alice.post("/profile/facts/bulk", {"action": "reject", "ids": [*mine, kept]}).json() == {"processed": 2}
+    assert sorted(f["id"] for f in alice.get("/profile/facts").json()) == sorted([*mine[:2], kept])  # validés restent
+    assert [f["status"] for f in bob.get("/profile/facts").json()] == ["proposed"]  # Bob n'a rien perdu
+
+
+@pytest.mark.parametrize("body", [{"action": "validate", "ids": []}, {"action": "tout", "ids": ["x"]},
+                                  {"action": "reject", "ids": ["pas-un-uuid"]}, {"ids": []}])
+def test_bulk_refuses_malformed_requests(alice, body):  # noqa: F811
+    assert alice.post("/profile/facts/bulk", body).status_code == 422
+
+
+def test_bulk_validate_is_all_or_nothing_at_the_ceiling(alice, monkeypatch):  # noqa: F811
+    monkeypatch.setattr(profile, "MAX_FACTS", 3)
+    ids = [_propose(alice.user_id, f"Projet {i}") for i in range(4)]
+    assert alice.post("/profile/facts/bulk", {"action": "validate", "ids": ids}).status_code == 409
+    assert alice.get("/profile/facts", params={"status": "validated"}).json() == []
+    assert alice.post("/profile/facts/bulk", {"action": "validate", "ids": ids[:3]}).json() == {"processed": 3}
+
+
+def test_bulk_requires_a_session_and_csrf(alice, application):  # noqa: F811
+    body = {"action": "reject", "ids": [_propose(alice.user_id)]}
+    assert TestClient(application, base_url="https://testserver").post("/profile/facts/bulk", json=body).status_code == 401
+    assert alice.client.post("/profile/facts/bulk", json=body).status_code == 403

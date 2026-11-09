@@ -6,6 +6,7 @@ import { Logo } from "./Logo";
 
 type Props = {
   onLogin: (email: string, password: string) => Promise<void>;
+  notice?: string | null;
   demo?: { email: string; password: string };
 };
 
@@ -18,7 +19,7 @@ function messageFor(failure: unknown): string {
   return "Connexion impossible pour le moment. Réessayez dans un instant.";
 }
 
-export function LoginPage({ onLogin, demo }: Props) {
+export function LoginPage({ onLogin, notice, demo }: Props) {
   const [email, setEmail] = useState(demo?.email ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +46,11 @@ export function LoginPage({ onLogin, demo }: Props) {
           <span className="brand-name">{APP_NAME}</span>
         </h1>
         <p className="muted">Connectez-vous pour retrouver vos offres et vos candidatures.</p>
+        {notice && (
+          <p className="notice" role="status">
+            {notice}
+          </p>
+        )}
         {demo && (
           <p className="notice" role="note">
             Mode démonstration : données fictives, mot de passe <code>{demo.password}</code>.

@@ -1100,3 +1100,42 @@ fieldset {
   gap: var(--space-2);
   align-items: center;
 }
+
+/* Mes sources */
+.source-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.source-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.source-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.source-controls {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.source-on {
+  border-color: var(--accent-text);
+  color: var(--accent-text);
+}
+
+.source-blocked {
+  border-color: var(--accent-text);
+  background: var(--accent-text);
+  color: var(--bg);
+}

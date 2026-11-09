@@ -14,7 +14,7 @@ from app.main import create_app
 
 PASSWORD = "mot-de-passe-de-test-123"  # fictif, uniquement pour les tests
 CONTRACT_PATH = Path(__file__).resolve().parents[2] / "contracts" / "openapi.yaml"
-IMPLEMENTED_PREFIXES = {"auth", "applications", "statuses", "offers", "bot", "dashboard", "preferences", "account", "profile", "documents"}
+IMPLEMENTED_PREFIXES = {"auth", "applications", "statuses", "offers", "bot", "dashboard", "preferences", "account", "profile", "documents", "sources"}
 
 
 class Api:
@@ -369,9 +369,14 @@ WRITES = [
     ("POST", "/applications/00000000-0000-0000-0000-000000000000/confirm-sent", {"confirmed": True}),
     ("POST", "/statuses", {"name": "x"}),
     ("PATCH", "/statuses/00000000-0000-0000-0000-000000000000", {"name": "x"}),
+    ("PUT", "/sources/lba", {"enabled": False, "interval_minutes": None}),
+    ("PUT", "/sources/web/pages", {"urls": []}),
+    ("PUT", "/sources/email/mailbox", {"host": "imap.example.test", "username": "a@example.test", "password": "x"}),
+    ("DELETE", "/sources/email/mailbox", None),
+    ("POST", "/sources/email/mailbox/test", None),
 ]
 READS = ["/applications", "/applications/00000000-0000-0000-0000-000000000000",
-         "/applications/00000000-0000-0000-0000-000000000000/events", "/statuses"]
+         "/applications/00000000-0000-0000-0000-000000000000/events", "/statuses", "/sources", "/sources/web/pages", "/sources/email/mailbox"]
 
 
 @pytest.mark.parametrize("path", READS)
